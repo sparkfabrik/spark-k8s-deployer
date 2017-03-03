@@ -1,8 +1,8 @@
 FROM google/cloud-sdk:latest
 
 RUN apt-get update && \
-    apt-get install -y curl make && \
-    & rm -rf /var/lib/apt/lists/*
+    apt-get install -y curl make gettext-base && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV COMPOSE_VERSION 1.11.1
 ENV DOCKER_BUCKET get.docker.com
@@ -22,7 +22,7 @@ RUN set -x \
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ADD deploy /deploy
-RUN chmod +x /deploy
+ADD scripts /scripts
+RUN chmod -R +rwx scripts
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["sh"]

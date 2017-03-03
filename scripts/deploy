@@ -1,11 +1,69 @@
 #!/bin/bash
-cat docker/k8s/* | envsubst | kubectl apply -n $KUBE_NAMESPACE -f -
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+export DEPLOY_ROOT_DIR
+source "$DEPLOY_ROOT_DIR/src/common.bash"
 
-echo "Waiting for deployment app...."
-kubectl rollout status -n "$KUBE_NAMESPACE" -w "deployment/$CI_ENVIRONMENT_SLUG"
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_URL}"
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/http:\/\//}"
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/https:\/\//}"
+export CI_ENVIRONMENT_HOSTNAME
 
-echo "Waiting for deployment database...."
-kubectl rollout status -n "$KUBE_NAMESPACE" -w "deployment/agid-db"
+# Kubernetes configuration files.
+export DEPLOY_CONF_DEFAULT_DIR=docker/k8s
+export DEPLOY_CONF_DIR=${DEPLOY_CONF_DIR:-${DEPLOY_CONF_DEFAULT_DIR}}
+if [ ! -d "${DEPLOY_CONF_DIR}" ]; then
+  echo "Missing kubernetes configuration files, not existing directiry: ${DEPLOY_CONF_DIR}."
+  exit 1
+fi
+
+ensure_deploy_variables
+create_kubeconfig
+
+# Create standard k8s configurations.
+function init() {
+cat <<EOF | kubectl apply -f -
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: $KUBE_NAMESPACE
+EOF
+}
+
+# Materialize and run k8s configurations.
+function configure() {
+  mkdir -p /k8s-conf
+  for conf in ${DEPLOY_CONF_DIR}/*
+  do
+    filename=$(basename "${conf}")
+    echo "Processing ${filename}"
+    envsubst < "${conf}" > "/k8s-conf/${filename}"
+    kubectl apply -n "${KUBE_NAMESPACE}" -f - < "/k8s-conf/${filename}"
+  done
+}
+
+# Here we rotate through the configurations trying to detect deployments.
+# Then we check the rollout status of deployments.
+function status() {
+  echo "Waiting for deployment app...."
+  for file in /k8s-conf/*
+  do
+    if grep -q "kind: Deployment" < "$file"; then
+      echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
+      kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"
+    fi
+  done
+}
+
+echo "Load configurations from the app...."
+init || exit 1
+configure || exit 1
+status || exit
 
 echo "Application is accessible at: ${CI_ENVIRONMENT_URL}"
 echo ""
