@@ -22,6 +22,7 @@ if [ ! -d "${DEPLOY_CONF_DIR}" ]; then
   exit 1
 fi
 
+printenv
 ensure_deploy_variables
 create_kubeconfig
 
@@ -49,6 +50,8 @@ function configure() {
 
 # Here we rotate through the configurations trying to detect deployments.
 # Then we check the rollout status of deployments.
+
+# @todo handle a timeout of N minutes.
 function status() {
   echo "Waiting for deployment app...."
   for file in /k8s-conf/*
