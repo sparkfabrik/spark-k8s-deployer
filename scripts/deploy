@@ -22,7 +22,6 @@ if [ ! -d "${DEPLOY_CONF_DIR}" ]; then
   exit 1
 fi
 
-printenv
 ensure_deploy_variables
 create_kubeconfig
 
@@ -50,15 +49,18 @@ function configure() {
 
 # Here we rotate through the configurations trying to detect deployments.
 # Then we check the rollout status of deployments.
-
-# @todo handle a timeout of N minutes.
+STATUS_TIMEOUT=600
+export STATUS_TIMEOUT
 function status() {
   echo "Waiting for deployment app...."
   for file in /k8s-conf/*
   do
     if grep -q "kind: Deployment" < "$file"; then
       echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
-      kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"
+      if ! timeout ${STATUS_TIMEOUT} kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"; then
+        echo "Deployment of ${file} is failed, exiting".
+        exit 1
+      fi
     fi
   done
 }

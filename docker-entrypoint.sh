@@ -17,4 +17,11 @@ if [ -z "$DOCKER_HOST" -a "$DOCKER_PORT_2375_TCP" ]; then
   export DOCKER_HOST='tcp://docker:2375'
 fi
 
+# Alias docker to use gcloud version.
+alias docker="gcloud docker --"
+
+# Authenticate docker client.
+docker login -e 1234@5678.com -u oauth2accesstoken -p "$(gcloud auth print-access-token)" https://gcr.io
+
+# Run commands.
 exec "$@"
