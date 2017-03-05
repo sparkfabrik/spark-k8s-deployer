@@ -37,13 +37,13 @@ EOF
 
 # Materialize and run k8s configurations.
 function configure() {
-  mkdir -p /k8s-conf
+  mkdir -p k8s
   for conf in ${DEPLOY_CONF_DIR}/*
   do
     filename=$(basename "${conf}")
     echo "Processing ${filename}"
     envsubst < "${conf}" > "/k8s-conf/${filename}"
-    kubectl apply -n "${KUBE_NAMESPACE}" -f - < "/k8s-conf/${filename}"
+    kubectl apply -n "${KUBE_NAMESPACE}" -f - < "k8s/${filename}"
   done
 }
 
@@ -53,7 +53,7 @@ STATUS_TIMEOUT=600
 export STATUS_TIMEOUT
 function status() {
   echo "Waiting for deployment app...."
-  for file in /k8s-conf/*
+  for file in k8s/*
   do
     if grep -q "kind: Deployment" < "$file"; then
       echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
