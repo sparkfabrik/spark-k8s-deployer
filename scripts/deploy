@@ -37,7 +37,7 @@ metadata:
 EOF
 
 if [ "${CREATE_BASIC_AUTH}" = 1 ]; then
-  kubectl create secret generic ingress-basic-auth --from-file=src/auth --namespace="${KUBE_NAMESPACE}" || true
+  kubectl create secret generic ingress-basic-auth --from-file=/scripts/src/auth --namespace="${KUBE_NAMESPACE}" || true
 fi
 }
 
@@ -48,7 +48,7 @@ function configure() {
   do
     filename=$(basename "${conf}")
     echo "Processing ${filename}"
-    envsubst < "${conf}" > "/k8s-conf/${filename}"
+    envsubst < "${conf}" > "k8s/${filename}"
     kubectl apply -n "${KUBE_NAMESPACE}" -f - < "k8s/${filename}"
   done
 }
