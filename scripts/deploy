@@ -45,6 +45,7 @@ function configure() {
     envsubst < "${conf}" > "/k8s-conf/${filename}"
     kubectl apply -n "${KUBE_NAMESPACE}" -f - < "k8s/${filename}"
   done
+  kubectl create secret generic ingress-basic-auth --from-file=src/auth --namespace=${KUBE_NAMESPACE} || true
 }
 
 # Here we rotate through the configurations trying to detect deployments.
