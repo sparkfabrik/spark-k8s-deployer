@@ -55,7 +55,7 @@ function configure() {
 
 # Here we rotate through the configurations trying to detect deployments.
 # Then we check the rollout status of deployments.
-STATUS_TIMEOUT=600
+STATUS_TIMEOUT=3600
 export STATUS_TIMEOUT
 function status() {
   echo "Waiting for deployment app...."
