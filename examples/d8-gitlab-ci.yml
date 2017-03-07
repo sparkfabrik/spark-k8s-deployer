@@ -1,4 +1,4 @@
-image: gcr.io/spark-cloud-infrastucture/builder:latest
+image: sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - docker:dind
