@@ -1,6 +1,6 @@
 # Spark k8s base image
 
-This images is to be used to build and deploy applications to a k8s cluster, from
+This images is intended to be used to build and deploy applications to a k8s cluster, from
 within gitlab-ci.
 
 This image includes:
