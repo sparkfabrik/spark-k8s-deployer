@@ -4,9 +4,9 @@ RUN apt-get update && \
     apt-get install -y curl make gettext-base && \
     rm -rf /var/lib/apt/lists/*
 
-ENV COMPOSE_VERSION 1.11.1
+ENV COMPOSE_VERSION 1.14.0
 ENV DOCKER_BUCKET get.docker.com
-ENV DOCKER_VERSION 1.13.1
+ENV DOCKER_VERSION 17.06.0-ce
 ENV DOCKER_SHA256 97892375e756fd29a304bd8cd9ffb256c2e7c8fd759e12a55a6336e15100ad75
 
 RUN set -x \
