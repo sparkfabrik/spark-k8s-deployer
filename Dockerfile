@@ -1,8 +1,7 @@
-FROM google/cloud-sdk:latest
+FROM google/cloud-sdk:162.0.1-alpine
 
-RUN apt-get update && \
-    apt-get install -y curl make gettext-base && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk update && \
+    apk add curl make gettext
 
 ENV COMPOSE_VERSION 1.14.0
 ENV DOCKER_BUCKET get.docker.com
