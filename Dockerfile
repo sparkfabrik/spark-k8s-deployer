@@ -1,7 +1,7 @@
 FROM google/cloud-sdk:162.0.1-alpine
 
 RUN apk update && \
-    apk add curl make gettext
+    apk add curl make gettext bash
 
 ENV COMPOSE_VERSION 1.14.0
 ENV DOCKER_BUCKET get.docker.com
