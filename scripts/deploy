@@ -63,7 +63,7 @@ function status() {
   do
     if grep -q "kind: Deployment" < "$file"; then
       echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
-      if ! timeout ${STATUS_TIMEOUT} kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"; then
+      if ! timeout -t ${STATUS_TIMEOUT} kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"; then
         echo "Deployment of ${file} is failed, exiting".
         exit 1
       fi
