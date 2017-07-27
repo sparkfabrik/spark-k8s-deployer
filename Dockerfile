@@ -17,8 +17,9 @@ RUN set -x \
   && rmdir docker \
   && rm docker.tgz \
   && docker -v \
-  && curl -L https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose \
-  && chmod +x /usr/local/bin/docker-compose
+  && apk update \
+  && apk add py-pip \
+  && pip install "docker-compose==${COMPOSE_VERSION}"
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
