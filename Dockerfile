@@ -3,7 +3,7 @@ FROM google/cloud-sdk:162.0.1-alpine
 RUN apk update && \
     apk add curl make gettext bash
 
-ENV COMPOSE_VERSION 1.14.0
+ENV COMPOSE_VERSION 1.17.1
 ENV DOCKER_BUCKET get.docker.com
 ENV DOCKER_VERSION 1.13.1
 ENV DOCKER_SHA256 97892375e756fd29a304bd8cd9ffb256c2e7c8fd759e12a55a6336e15100ad75
