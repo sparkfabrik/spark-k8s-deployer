@@ -46,6 +46,10 @@ function configure() {
   mkdir -p k8s
   for conf in ${DEPLOY_CONF_DIR}/*
   do
+    if [ -d ${conf} ]
+    then
+      continue;
+    fi
     filename=$(basename "${conf}")
     echo "Processing ${filename}"
     envsubst < "${conf}" > "k8s/${filename}"
