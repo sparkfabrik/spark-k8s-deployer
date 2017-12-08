@@ -53,6 +53,19 @@ function configure() {
   done
 }
 
+# Run deploy scripts from subfolders.
+function configureSubfolders() {
+  for conf in ${DEPLOY_CONF_DIR}/*
+  do
+    if [ -d ${conf} ]; then
+      if [ -f ${conf}/deploy ]; then
+        echo "Deploying subfolder ${conf}"
+        (cd ${conf} && ./deploy)
+      fi
+    fi
+  done
+}
+
 # Here we rotate through the configurations trying to detect deployments.
 # Then we check the rollout status of deployments.
 STATUS_TIMEOUT=1800
@@ -74,6 +87,7 @@ function status() {
 echo "Load configurations from the app...."
 init || exit 1
 configure || exit 1
+configureSubfolders || exit 1
 status || exit
 
 echo "Application is accessible at: ${CI_ENVIRONMENT_URL}"
