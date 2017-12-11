@@ -65,7 +65,7 @@ function configureSubfolders() {
       if [ -f ${conf}/deploy ]; then
         echo "Deploying subfolder ${conf}"
         (cd ${conf} && ./deploy)
-        cp -R ${conf}/k8s k8s/${conf} || true # gather exploded configurations.
+        # cp -R ${conf}/k8s k8s/${conf} || true # gather exploded configurations.
       fi
     fi
   done
