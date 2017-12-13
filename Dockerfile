@@ -1,24 +1,14 @@
-FROM google/cloud-sdk:162.0.1-alpine
+FROM google/cloud-sdk:181.0.0-alpine
 
-RUN apk update && \
-    apk add curl make gettext bash
+RUN apk add --no-cache curl make gettext bash docker py-pip
 
 ENV COMPOSE_VERSION 1.17.1
 ENV DOCKER_BUCKET get.docker.com
-ENV DOCKER_VERSION 1.13.1
-ENV DOCKER_SHA256 97892375e756fd29a304bd8cd9ffb256c2e7c8fd759e12a55a6336e15100ad75
+ENV DOCKER_VERSION 17.10.0-r0
 
 RUN set -x \
   && gcloud components install kubectl --quiet \
-  && curl -fSL "https://${DOCKER_BUCKET}/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
-  && echo "${DOCKER_SHA256} *docker.tgz" | sha256sum -c - \
-  && tar -xzvf docker.tgz \
-  && mv docker/* /usr/local/bin/ \
-  && rmdir docker \
-  && rm docker.tgz \
-  && docker -v \
-  && apk update \
-  && apk add py-pip \
+  && docker=${DOCKER_VERSION} -v \
   && pip install "docker-compose==${COMPOSE_VERSION}"
 
 COPY docker-entrypoint.sh /usr/local/bin/
