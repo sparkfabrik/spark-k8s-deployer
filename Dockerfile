@@ -1,15 +1,17 @@
 FROM google/cloud-sdk:181.0.0-alpine
 
-RUN apk add --no-cache curl make gettext bash docker py-pip
-
 ENV COMPOSE_VERSION 1.17.1
-ENV DOCKER_BUCKET get.docker.com
-ENV DOCKER_VERSION 17.10.0-r0
+ENV DOCKER_VERSION 17.03.2-ce
 
-RUN set -x \
-  && gcloud components install kubectl --quiet \
-  && docker=${DOCKER_VERSION} -v \
-  && pip install "docker-compose==${COMPOSE_VERSION}"
+RUN curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
+  && tar -xzvf docker.tgz \
+  && mv docker/* /usr/local/bin/ \
+  && rmdir docker \
+  && rm docker.tgz \
+  && docker -v \
+  && apk add --no-cache py-pip \
+  && pip install "docker-compose==${COMPOSE_VERSION}" \
+  && gcloud components install kubectl --quiet
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
