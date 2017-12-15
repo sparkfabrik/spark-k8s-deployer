@@ -76,7 +76,7 @@ function configureSubfolders() {
 STATUS_TIMEOUT=1800
 export STATUS_TIMEOUT
 function status() {
-  SKIP="HorizontalAutoscaling"
+  SKIP="HorizontalPodAutoscaler"
   echo "Waiting for deployment app...."
   for file in k8s/*
   do
