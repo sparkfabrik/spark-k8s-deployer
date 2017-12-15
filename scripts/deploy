@@ -79,10 +79,10 @@ function status() {
   SKIP="HorizontalAutoscaling"
   echo "Waiting for deployment app...."
   for file in k8s/*
+  do
     if [ -d $file ]; then
       continue
     fi
-  do
     if grep -q "kind: Deployment" < "$file" && ! grep -q "$SKIP" < "$file"; then
       echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
       if ! timeout -t ${STATUS_TIMEOUT} kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"; then
