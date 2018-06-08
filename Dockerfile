@@ -19,7 +19,8 @@ RUN apk add --no-cache curl make gettext bash py-pip openssl && \
     && chmod +x /usr/local/bin/helm \
     && rm helm.tgz \
     && rm -rf linux-amd64 \
-    && helm version -c
+    && helm version -c \
+    && pip install awscli
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
