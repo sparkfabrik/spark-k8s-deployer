@@ -3,7 +3,7 @@
 ensure_deploy_variables
 create_kubeconfig
 
-init() {
+helm-init() {
   kubectl create ns $KUBE_NAMESPACE || true
   helm init --node-selectors="cloud.google.com/gke-nodepool=gitlab-ci" --tiller-namespace ${KUBE_NAMESPACE}
   kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
@@ -11,3 +11,4 @@ init() {
   helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
 }
 
+helm-init
