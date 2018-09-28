@@ -9,7 +9,6 @@ DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/common.bash"
 
-ensure_deploy_variables
 create_kubeconfig
 
 helm-init() {
