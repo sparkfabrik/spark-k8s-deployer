@@ -17,7 +17,6 @@ helm-init() {
   kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
   kubectl scale deployment tiller-deploy --replicas=1 --namespace=${KUBE_NAMESPACE}
   helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
-  helm repo add appscode https://charts.appscode.com/stable/
 }
 
 helm-init
