@@ -8,13 +8,13 @@ done
 DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/common.bash"
-export NODE_SELECTOR=${NODE_SELECTOR:-cloud.google.com/gke-nodepool=gitlab-ci}
+export NODE_SELECTOR=${NODE_SELECTOR:-gitlab-ci}
 
 create_kubeconfig
 
 helm-init() {
   kubectl create ns $KUBE_NAMESPACE || true
-  helm init --node-selectors="${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE}
+  helm init --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE}
   kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
   kubectl scale deployment tiller-deploy --replicas=1 --namespace=${KUBE_NAMESPACE}
   helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
