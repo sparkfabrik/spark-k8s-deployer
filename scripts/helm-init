@@ -14,7 +14,7 @@ create_kubeconfig
 
 helm-init() {
   kubectl create ns $KUBE_NAMESPACE || true
-  helm init --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE}
+  helm init --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE} --upgrade
   kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
   kubectl scale deployment tiller-deploy --replicas=1 --namespace=${KUBE_NAMESPACE}
   helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
