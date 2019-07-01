@@ -1,7 +1,7 @@
 FROM google/cloud-sdk:181.0.0-alpine
 
-ENV COMPOSE_VERSION 1.22.0
-ENV DOCKER_VERSION 17.12.0-ce
+ENV COMPOSE_VERSION 1.24.1
+ENV DOCKER_VERSION 18.09.7
 ENV HELM_VERSION 2.13.0
 
 RUN apk add --no-cache curl make gettext bash py-pip openssl && \
