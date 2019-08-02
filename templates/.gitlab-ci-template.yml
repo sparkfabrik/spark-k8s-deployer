@@ -1,7 +1,7 @@
 image: sparkfabrik/spark-k8s-deployer:latest
 
 services:
-  - docker:18.09.7-dind
+  - docker:19.03.0-dind
 
 variables:
   DOCKER_DRIVER: overlay2
