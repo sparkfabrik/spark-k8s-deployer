@@ -10,11 +10,44 @@ export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/common.bash"
 export NODE_SELECTOR=${NODE_SELECTOR:-gitlab-ci}
 
-# create_kubeconfig
+init-rbac() {
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tiller
+  namespace: ${KUBE_NAMESPACE}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tiller-manager
+  namespace: ${KUBE_NAMESPACE}
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tiller-binding
+  namespace: ${KUBE_NAMESPACE}
+subjects:
+- kind: ServiceAccount
+  name: tiller
+  namespace: ${KUBE_NAMESPACE}
+roleRef:
+  kind: Role
+  name: tiller-manager
+  apiGroup: rbac.authorization.k8s.io
+EOF
+}
 
 helm-init() {
   kubectl create ns $KUBE_NAMESPACE || true
-  helm init --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE} --upgrade
+  init-rbac
+  helm init --service-account tiller --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE} --upgrade
   kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
   kubectl scale deployment tiller-deploy --replicas=1 --namespace=${KUBE_NAMESPACE}
   helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
