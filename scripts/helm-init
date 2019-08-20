@@ -17,12 +17,54 @@ kind: ServiceAccount
 metadata:
   name: tiller
   namespace: ${KUBE_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: spark-k8s-deployer
+    app.kubernetes.io/component: deployer
+    app.kubernetes.io/part-of: sparkfabrik
+    app.kubernetes.io/managed-by: gitlab
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tiller-pv-manager
+  labels:
+    app.kubernetes.io/name: spark-k8s-deployer
+    app.kubernetes.io/component: deployer
+    app.kubernetes.io/part-of: sparkfabrik
+    app.kubernetes.io/managed-by: gitlab
+rules:
+ - apiGroups: [""]
+   resources: ["persistentvolumes"]
+   verbs: ["create", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: tiller-manager-pv-${KUBE_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: spark-k8s-deployer
+    app.kubernetes.io/component: deployer
+    app.kubernetes.io/part-of: sparkfabrik
+    app.kubernetes.io/managed-by: gitlab
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:persistent-volume-provisioner
+subjects:
+- kind: ServiceAccount
+  name: tiller
+  namespace: ${KUBE_NAMESPACE}
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: tiller-manager
   namespace: ${KUBE_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: spark-k8s-deployer
+    app.kubernetes.io/component: deployer
+    app.kubernetes.io/part-of: sparkfabrik
+    app.kubernetes.io/managed-by: gitlab
 rules:
 - apiGroups: ["*"]
   resources: ["*"]
@@ -33,6 +75,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: tiller-binding
   namespace: ${KUBE_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: spark-k8s-deployer
+    app.kubernetes.io/component: deployer
+    app.kubernetes.io/part-of: sparkfabrik
+    app.kubernetes.io/managed-by: gitlab
 subjects:
 - kind: ServiceAccount
   name: tiller
