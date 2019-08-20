@@ -25,7 +25,7 @@ fi
 export CREATE_BASIC_AUTH=${CREATE_BASIC_AUTH:-1}
 
 ensure_deploy_variables
-create_kubeconfig
+# create_kubeconfig
 
 # Create standard k8s configurations.
 function init() {
