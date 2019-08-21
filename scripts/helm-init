@@ -35,7 +35,7 @@ metadata:
 rules:
  - apiGroups: [""]
    resources: ["persistentvolumes"]
-   verbs: ["create", "get", "list", "watch"]
+   verbs: ["create", "get", "list", "watch", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
