@@ -2,7 +2,7 @@ FROM google/cloud-sdk:252.0.0-alpine
 
 ENV COMPOSE_VERSION 1.22.0
 ENV DOCKER_VERSION 17.12.0-ce
-ENV HELM_VERSION 2.13.0
+ENV HELM_VERSION 2.14.3
 
 RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make && \
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
