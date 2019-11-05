@@ -92,6 +92,10 @@ EOF
 }
 
 helm-init() {
+  if [ -z "${KUBE_NAMESPACE}" ]; then
+    echo "KUBE_NAMESPACE is missing."
+    exit 1
+  fi
   kubectl create ns $KUBE_NAMESPACE || true
   init-rbac
   helm init --service-account tiller --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE} --upgrade
