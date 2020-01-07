@@ -5,7 +5,7 @@ ENV DOCKER_VERSION 17.12.0-ce
 ENV HELM_VERSION 2.14.3
 ENV AWS_CLI_VERSION 1.16.305
 
-RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make && \
+RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make jq && \
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar -xzvf docker.tgz \
     && mv docker/* /usr/local/bin/ \
