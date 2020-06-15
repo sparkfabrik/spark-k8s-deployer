@@ -6,5 +6,5 @@ within gitlab-ci.
 This image includes:
  * Docker client 17.12.0-ce
  * Docker-compose 1.22.0
- * Google cloud sdk 252.0.0
+ * Google cloud sdk 296.0.1
  * Deploy scripts on `scripts`
