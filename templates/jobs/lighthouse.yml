@@ -1,7 +1,5 @@
-## To use this remember to define a "scheduled" stage and add a scheduled job on gitlab to run it.
 lighthouse:
   image: cypress/browsers:node12.14.1-chrome83-ff77
-  stage: scheduled
   variables:
     LIGHTHOUSE_FORM_FACTOR: desktop
     LIGHTHOUSE_ACCESSIBILITY: 50
@@ -21,8 +19,6 @@ lighthouse:
       --score=${LIGHTHOUSE_SCORE}
       --best-practices=${LIGHTHOUSE_BEST_PRACTICES}
       --report=report-${LIGHTHOUSE_FORM_FACTOR}
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   artifacts:
     when: always
     expire_in: 4 weeks
