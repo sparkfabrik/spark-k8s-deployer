@@ -24,3 +24,13 @@ lighthouse:
     expire_in: 4 weeks
     paths:
       - report-${LIGHTHOUSE_FORM_FACTOR}
+
+
+# You can always override jobs on your local .gitlab-ci.yml file.
+# In this case we are basically adding to the job, a specific "stage" and "rule" to match specific needs, 
+# but you can change whatever you need (Doc: https://docs.gitlab.com/ee/ci/yaml/README.html#include)
+#
+#lighthouse:
+#  stage: scheduled
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "schedule"'
