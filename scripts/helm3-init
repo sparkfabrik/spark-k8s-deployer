@@ -1,0 +1,21 @@
+#!/bin/bash
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+export DEPLOY_ROOT_DIR
+source "$DEPLOY_ROOT_DIR/src/common.bash"
+
+helm3-init() {
+  if [ -z "${KUBE_NAMESPACE}" ]; then
+    echo "KUBE_NAMESPACE is missing."
+    exit 1
+  fi
+  kubectl create ns $KUBE_NAMESPACE || true
+  helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
+}
+
+helm3-init
