@@ -15,7 +15,7 @@ helm3-init() {
     exit 1
   fi
   kubectl create ns $KUBE_NAMESPACE || true
-  helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
+  helm3 repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
 }
 
 helm3-init
