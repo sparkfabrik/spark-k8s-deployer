@@ -14,7 +14,7 @@ CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/http:\/\//}"
 CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/https:\/\//}"
 export CI_ENVIRONMENT_HOSTNAME
 
-# Kubernetes configuration files.
+# Kubernetes configuration files.
 export DEPLOY_CONF_DEFAULT_DIR=docker/k8s
 export DEPLOY_CONF_DIR=${DEPLOY_CONF_DIR:-${DEPLOY_CONF_DEFAULT_DIR}}
 if [ ! -d "${DEPLOY_CONF_DIR}" ]; then
@@ -25,7 +25,7 @@ fi
 export CREATE_BASIC_AUTH=${CREATE_BASIC_AUTH:-1}
 
 ensure_deploy_variables
-# create_kubeconfig
+# Create_kubeconfig
 
 # Create standard k8s configurations.
 function init() {
@@ -41,7 +41,7 @@ if [ "${CREATE_BASIC_AUTH}" = 1 ]; then
 fi
 }
 
-# Materialize and run k8s configurations.
+# Materialize and run k8s configurations.
 function configure() {
   mkdir -p k8s
   for conf in ${DEPLOY_CONF_DIR}/*

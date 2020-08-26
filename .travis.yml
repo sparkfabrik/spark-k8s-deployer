@@ -1,0 +1,9 @@
+services:
+  - docker
+
+branches:
+  only:
+  - master
+
+script:
+  - make build-docker-image

@@ -1,8 +1,9 @@
-FROM google/cloud-sdk:296.0.1-alpine
+FROM google/cloud-sdk:306.0.0-alpine
 
 ENV COMPOSE_VERSION 1.22.0
 ENV DOCKER_VERSION 17.12.0-ce
 ENV HELM_VERSION 2.14.3
+ENV HELM3_VERSION 3.3.0
 ENV AWS_CLI_VERSION 1.16.305
 
 RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make jq && \
@@ -14,13 +15,22 @@ RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev l
     && docker -v \
     && pip install "docker-compose==${COMPOSE_VERSION}" \
     && gcloud components install kubectl --quiet \
-    && curl  -fSL "https://storage.googleapis.com/kubernetes-helm/helm-v${HELM_VERSION}-linux-amd64.tar.gz" -o helm.tgz \
-    && tar -xzvf helm.tgz \
-    && mv linux-amd64/helm /usr/local/bin/ \
+    # Install Helm 2:
+    && wget -O helm-v${HELM_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
+    && tar -xzf helm-v${HELM_VERSION}-linux-amd64.tar.gz \
+    && cp linux-amd64/helm /usr/local/bin/helm \
     && chmod +x /usr/local/bin/helm \
-    && rm helm.tgz \
-    && rm -rf linux-amd64 \
-    && helm version -c
+    && rm helm-v${HELM_VERSION}-linux-amd64.tar.gz \
+    && rm -fr linux-amd64/ \
+    && helm version -c \
+    # Install Helm 3:
+    && wget -O helm-v${HELM3_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
+    && tar -xzf helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
+    && cp linux-amd64/helm /usr/local/bin/helm3 \
+    && chmod +x /usr/local/bin/helm3 \
+    && rm helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
+    && rm -fr linux-amd64/ \
+    && helm3 version -c
 
 RUN pip install awscli==${AWS_CLI_VERSION}
 
