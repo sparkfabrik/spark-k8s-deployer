@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:306.0.0-alpine
+FROM google/cloud-sdk:313.0.1-alpine
 
 ENV COMPOSE_VERSION 1.22.0
 ENV DOCKER_VERSION 17.12.0-ce
