@@ -1,5 +1,7 @@
 FROM google/cloud-sdk:313.0.1-alpine
 
+LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
+
 ENV COMPOSE_VERSION 1.22.0
 ENV DOCKER_VERSION 17.12.0-ce
 ENV HELM_VERSION 2.14.3

@@ -1,4 +1,4 @@
-image: sparkfabrik/spark-k8s-deployer:latest
+image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - docker:19.03-dind
