@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-d
 ENV COMPOSE_VERSION 1.22.0
 ENV DOCKER_VERSION 17.12.0-ce
 ENV HELM_VERSION 2.14.3
-ENV HELM3_VERSION 3.3.4
+ENV HELM3_VERSION 3.3.1
 ENV AWS_CLI_VERSION 1.16.305
 
 RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make jq && \
