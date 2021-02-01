@@ -1,4 +1,4 @@
-.drupal-phpqa: &drupal-phpqa
+.drupal-phpqa:
   stage: qa
   before_script:
   script:
