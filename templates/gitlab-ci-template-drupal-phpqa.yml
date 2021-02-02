@@ -1,5 +1,4 @@
 .drupal-phpqa:
-  stage: qa
   before_script:
   script:
     - docker-compose build tools
