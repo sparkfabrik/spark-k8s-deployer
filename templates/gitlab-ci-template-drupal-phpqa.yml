@@ -1,3 +1,16 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/gitlab-ci-template-drupal-phpqa.yml'
+#
+# Then add your job using the extends keyword (rembember to add a stage):
+#
+#   phpqa:
+#     extends: .drupal-phpqa
+#     stage: qa
+#
+# -------
+#
 .drupal-phpqa:
   before_script:
   script:
