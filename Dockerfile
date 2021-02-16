@@ -2,7 +2,7 @@ FROM google/cloud-sdk:313.0.1-alpine
 
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
-ENV COMPOSE_VERSION 1.28.2
+ENV COMPOSE_VERSION 1.26.2
 ENV DOCKER_VERSION 19.03.9
 ENV HELM_VERSION 2.14.3
 ENV HELM3_VERSION 3.3.1
