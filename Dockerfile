@@ -1,14 +1,16 @@
-FROM google/cloud-sdk:313.0.1-alpine
+FROM gcr.io/google.com/cloudsdktool/cloud-sdk:327.0.0-alpine
 
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
-ENV COMPOSE_VERSION 1.22.0
-ENV DOCKER_VERSION 17.12.0-ce
+ENV COMPOSE_VERSION 1.28.2
+ENV DOCKER_VERSION 20.10.3
+ENV DOCKER_BUILDX_VERSION v0.5.1
 ENV HELM_VERSION 2.14.3
 ENV HELM3_VERSION 3.3.1
 ENV AWS_CLI_VERSION 1.16.305
 
-RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make jq && \
+RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev make jq rust cargo && \
+    # Install docker and docker-compose.
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar -xzvf docker.tgz \
     && mv docker/* /usr/local/bin/ \
@@ -16,7 +18,12 @@ RUN apk add --no-cache curl make gettext bash py-pip openssl py-pip python-dev l
     && rm docker.tgz \
     && docker -v \
     && pip install "docker-compose==${COMPOSE_VERSION}" \
+    && docker-compose --version \
+    && mkdir -p ~/.docker/cli-plugins \
+    && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
+    && chmod +x ~/.docker/cli-plugins/docker-buildx \
     && gcloud components install kubectl --quiet \
+    && kubectl version --client \
     # Install Helm 2:
     && wget -O helm-v${HELM_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
     && tar -xzf helm-v${HELM_VERSION}-linux-amd64.tar.gz \
