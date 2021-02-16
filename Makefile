@@ -2,6 +2,8 @@
 #
 # make cli
 #
+DOCKER_VERSION=20.10.3
+
 cli: build-docker-image
   # Run the cli.
 	docker run --rm -v ${PWD}:/mnt \
@@ -12,3 +14,6 @@ cli: build-docker-image
 
 build-docker-image:
 	docker build -t sparkfabrik/spark-k8s-deployer:latest -f Dockerfile .
+
+tests:
+	cd test && DOCKER_VERSION=$(DOCKER_VERSION) docker-compose run --rm docker-client ash -c "sleep 3; docker run --rm hello-world"

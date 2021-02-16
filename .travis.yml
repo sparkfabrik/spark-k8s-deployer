@@ -6,4 +6,4 @@ branches:
   - master
 
 script:
-  - make build-docker-image
+  - make build-docker-image tests

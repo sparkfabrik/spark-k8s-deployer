@@ -1,0 +1,33 @@
+version: '3'
+services:
+  docker:
+    image: docker:${DOCKER_VERSION}-dind
+    container_name: docker
+    privileged: yes
+    environment:
+      DOCKER_DRIVER: overlay2
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_CERT_PATH: "/certs/client"
+    volumes:
+      - certs:/certs
+
+  docker-client:
+    image: docker:${DOCKER_VERSION}
+    container_name: docker-client
+    command: sh -c 'while [ 1 ]; do sleep 1000; done'
+    environment:
+      DOCKER_DRIVER: overlay2
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_CERT_PATH: "/certs/client"
+    depends_on:
+      - docker
+    volumes:
+      - certs:/certs
+    network_mode: service:docker
+
+volumes:
+  certs:
