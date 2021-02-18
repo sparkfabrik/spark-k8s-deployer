@@ -1,0 +1,69 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-sync-to-infrastructure-repo.yml'
+#
+# You need to define two new variables, define them as gitlab CI/CD variables (Settings -> CI/CD, expand the "Variables" section):
+#
+#   - INFRASTRUCTURE_REPO_ACCESS_TOKEN
+#     value: project_[CI_PROJECT_ID]_bot:[GENERATED_TOKEN]
+#     Go into the repository you will use for you infrastructure code, generate an access token
+#     (in Settings / Access Tokens) with write_repository scope. The value of the variable is 
+#     the bot name and the generated token. The bot name is visible in the existing members of
+#     the project in which the token has been generate (look in project Members tab).
+#     **WARNING**: this variable contains sensitive data so you must protect it!!
+#     
+#   - INFRASTRUCTURE_REPO_BASE_URL
+#     value: "Clone with HTTPS" url without protocol.
+#     Get the https repo url and remove the protocol part, for 
+#     example "gitlab.sparkfabrik.com/group/myproject-infrastructure.git"
+#
+# Be also shure the variable HELM_DEPLOY_NAME is defined in your gitlab-ci.yaml. Then, add your job
+# using the extends keyword (rembember to add a stage):
+#
+#   sync to infrastructure:
+#     extends: .sync-to-infrastructure-repo
+#     stage: gitops-sync
+#
+# -------
+#
+.sync-to-infrastructure-repo:
+  before_script:
+    # Prepare the file with helm chart values. You will probably override this before_script, 
+    # be only sure to generate a single values file (you should append multiple files in a 
+    # single file in ${INFRASTRUCTURE_REPO_DIR}/values.yaml) and to be coherent with the 
+    # INFRASTRUCTURE_REPO_DIR value defined in the "script" part.
+    - export INFRASTRUCTURE_REPO_DIR="${CI_PROJECT_DIR}/infrastructure"
+    - envsubst < ${CI_PROJECT_DIR}/docker/helm/global/values.${CI_COMMIT_REF_SLUG}.yaml.tpl >> ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+    - envsubst < ${CI_PROJECT_DIR}/docker/helm/values.${CI_COMMIT_REF_SLUG}.yaml.tpl >> ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+  script:
+    # Define local env vars.
+    - export INFRASTRUCTURE_REPO_DIR="${CI_PROJECT_DIR}/infrastructure/"
+    - export INFRASTRUCTURE_REPO_GIT_URL="https://${INFRASTRUCTURE_REPO_ACCESS_TOKEN}@${INFRASTRUCTURE_REPO_BASE_URL}"
+    # Init Helm 3.
+    - helm3 repo add "stable" "https://charts.helm.sh/stable"
+    - helm3 repo add "sparkfabrik" "https://storage.googleapis.com/spark-helm-charts"
+    - helm3 repo update
+    # Clone environment repo.
+    - mkdir -p ${INFRASTRUCTURE_REPO_DIR}
+    - cd ${INFRASTRUCTURE_REPO_DIR}
+    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+    - git config --global user.name "Gitlab Bot"
+    - git clone ${INFRASTRUCTURE_REPO_GIT_URL} .
+    # Switch on current feature branch (stage or production, see current job rules).
+    - git checkout -B ${CI_COMMIT_REF_SLUG} --
+    # Clean generated manifests dir to start from a clean state and remove deprecated manifests.
+    - rm -rf ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
+    # Generate updated manifests.
+    - helm3 template ${HELM_DEPLOY_NAME} sparkfabrik/drupal
+      --version 3.3.0
+      -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+      --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
+      --render-subchart-notes
+      --include-crds
+      --wait
+    # Commit updated manifests to the repo.
+    - git add .
+    # @TODO: find a better solution than allow-empty flag to prevent push to repo when we do not have changes.
+    - git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}" --allow-empty
+    - git push -u origin ${CI_COMMIT_REF_SLUG}
