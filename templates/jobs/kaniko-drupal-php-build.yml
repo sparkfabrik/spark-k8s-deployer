@@ -1,7 +1,7 @@
 # To use this template in your project, you must include it:
 #
 #   include:
-#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-nginx-build.yml'
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-php-build.yml'
 #
 #
 # You need to define one new variables as gitlab CI/CD variable (Settings -> CI/CD, expand the "Variables" section):
