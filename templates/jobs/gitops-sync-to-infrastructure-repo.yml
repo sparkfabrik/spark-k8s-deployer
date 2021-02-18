@@ -47,7 +47,7 @@
     # Clone environment repo.
     - mkdir -p ${INFRASTRUCTURE_REPO_DIR}
     - cd ${INFRASTRUCTURE_REPO_DIR}
-    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+    - git config --global user.email "gitlab-gitops-bot@sparkfabrik.cloud"
     - git config --global user.name "Gitlab Bot"
     - git clone ${INFRASTRUCTURE_REPO_GIT_URL} .
     # Switch on current feature branch (stage or production, see current job rules).
@@ -67,3 +67,7 @@
     # @TODO: find a better solution than allow-empty flag to prevent push to repo when we do not have changes.
     - git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}" --allow-empty
     - git push -u origin ${CI_COMMIT_REF_SLUG}
+  only:
+    - develop
+    - stage
+    - master
