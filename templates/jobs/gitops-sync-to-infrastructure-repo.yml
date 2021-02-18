@@ -34,6 +34,7 @@
     # single file in ${INFRASTRUCTURE_REPO_DIR}/values.yaml) and to be coherent with the 
     # INFRASTRUCTURE_REPO_DIR value defined in the "script" part.
     - export INFRASTRUCTURE_REPO_DIR="${CI_PROJECT_DIR}/infrastructure"
+    - mkdir -p ${INFRASTRUCTURE_REPO_DIR}
     - envsubst < ${CI_PROJECT_DIR}/docker/helm/global/values.${CI_COMMIT_REF_SLUG}.yaml.tpl >> ${INFRASTRUCTURE_REPO_DIR}/values.yaml
     - envsubst < ${CI_PROJECT_DIR}/docker/helm/values.${CI_COMMIT_REF_SLUG}.yaml.tpl >> ${INFRASTRUCTURE_REPO_DIR}/values.yaml
   script:
