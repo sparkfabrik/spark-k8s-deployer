@@ -31,6 +31,7 @@ variables:
 # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
 before_script:
   - |
+    echo "Before script base template"
     for i in $(seq 1 30)
     do
         echo "Waiting for docker to start..."
