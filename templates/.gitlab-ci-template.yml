@@ -27,3 +27,13 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4125
   DOCKER_TLS_VERIFY: 1
   DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+
+# https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
+before_script:
+  - |
+    for i in $(seq 1 30)
+    do
+        echo "Waiting for docker to start..."
+        docker info && break
+        sleep 1s
+    done
