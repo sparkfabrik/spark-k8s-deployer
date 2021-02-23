@@ -13,9 +13,16 @@
 #
 .drupal-phpqa:
   before_script:
+  variables:
+    - DOCKER_BUILDKIT=1
+    - COMPOSE_DOCKER_CLI_BUILD=1
+    - BUILDKIT_PROGRESS=plain
   script:
-    - docker-compose build tools
-    - docker-compose run --rm tools ash -lic "composer install --no-interaction --prefer-dist"
+    - docker pull ${CI_REGISTRY_IMAGE_PHP}:latest || true
+    - docker pull ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA} || true
+    - dc build php
+    - docker create --name php ${CI_REGISTRY_IMAGE_PHP}:latest 
+    - docker cp php:/var/www/html/vendor .
     # @TODO restore some kind of security-checker since the old one is deprecated: https://github.com/sensiolabs/security-checker.
     - docker run --rm -v ${PWD}:/app/drupal -v ${PWD}/reports:/app/reports ghcr.io/sparkfabrik/drupal-qa:latest phpqa --analyzedDirs "drupal/web/modules/custom,drupal/web/themes/custom" --tools "phpcpd:0,phpcs:0,phpmd:0,phpmetrics,phploc,pdepend,parallel-lint:0,phpstan:0"
   except:
