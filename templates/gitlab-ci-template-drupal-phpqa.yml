@@ -14,9 +14,9 @@
 .drupal-phpqa:
   before_script:
   variables:
-    - DOCKER_BUILDKIT=1
-    - COMPOSE_DOCKER_CLI_BUILD=1
-    - BUILDKIT_PROGRESS=plain
+    - DOCKER_BUILDKIT: 1
+    - COMPOSE_DOCKER_CLI_BUILD: 1
+    - BUILDKIT_PROGRESS: "plain"
   script:
     - docker pull ${CI_REGISTRY_IMAGE_PHP}:latest || true
     - docker pull ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA} || true
