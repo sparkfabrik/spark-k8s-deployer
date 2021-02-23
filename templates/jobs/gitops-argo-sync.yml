@@ -1,0 +1,48 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-argo-sync.yml'
+#
+# You need to define two new variables:
+#
+#   - ARGOCD_AUTH_TOKEN
+#     value: you must create a project token JWT with get and sync
+#     permissions. You can create the token from ArgoCD UI (/settings/projects/project_name?tab=roles)
+#     **WARNING**: this variable contains sensitive data so you must protect it, define it as gitlab CI/CD
+#     variable (Settings -> CI/CD, expand the "Variables" section)!!
+#     
+#   - ARGOCD_APP_NAME
+#     default value: ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
+#     This is metadata.name value bocconi-cergas-production
+#
+# Then, add your job using the extends keyword (rembember to add a stage):
+#
+#   argo sync:
+#     extends: .gitops-argo-sync
+#     stage: gitops-deploy
+#
+# -------
+#
+# --------------
+# DEPLOY APP USING ARGO SYNC
+# --------------
+# See https://argoproj.github.io/argo-cd/user-guide/ci_automation/ for reference.
+.gitops-argo-sync:
+  variables:
+    ARGOCD_APP_NAME: ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
+  environment:
+    name: review/${CI_COMMIT_REF_SLUG}
+    url: https://${CI_COMMIT_REF_SLUG}.${CI_PROJECT_NAME}.${KUBE_INGRESS_BASE_DOMAIN}
+  script:
+    # Configure Argo CD cli
+    # NOTE: ARGOCD_AUTH_TOKEN env var must be set in Gitlab CI
+    - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
+    - export ARGOCD_OPTS='--insecure'
+    # Download Argo CD cli
+    # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
+    # the cli will always be compatible with the server (same version).
+    - curl -sSL --insecure -o /usr/local/bin/argocd http://${ARGOCD_SERVER}/download/argocd-linux-amd64
+    - chmod +x /usr/local/bin/argocd
+    # Sync app
+    - argocd app sync ${ARGOCD_APP_NAME}
+    - argocd app wait ${ARGOCD_APP_NAME}
