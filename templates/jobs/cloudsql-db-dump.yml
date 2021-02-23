@@ -1,0 +1,63 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
+#
+# You need to define tree variables:
+#
+#   - CLOUD_SQL_INSTANCE_NAME
+#     value: CloudSQL instance name
+#
+#   - BUCKET_NAME
+#     value: the name of the bucket where to store dumped databases.
+#
+#   - DB_NAMES
+#     value: the name/s database/s to dump; if you have multiple databases, you can
+#     write the value as:
+#       DB_NAMES: "\
+#         database_1 \
+#         database_2 \
+#         database_3 \
+#       "
+#
+# Then add your job using the extends keyword (rembember to add a stage):
+#
+#   database backup:
+#     extends: .cloudsql-database-dump
+#     stage: database-dump
+#
+# -------
+#
+# You must be authenticated within the project with gcloud.
+.cloudsql-database-dump:
+  variables:
+    CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
+    BUCKET_NAME: DESTINATION_BUCKET_NAME
+    DB_NAMES: "\
+      database_1 \
+      database_2 \
+      database_3 \
+    "
+  script:
+    # Add tzdata to support timezones.
+    - apk add --no-cache tzdata
+    # Dump the database.
+    - >
+      if [ -n "$DB_NAMES" ]; then
+        for DB_NAME in $DB_NAMES
+        do
+          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."
+          gcloud sql export sql ${CLOUD_SQL_INSTANCE_NAME} \
+          gs://${BUCKET_NAME}/${DB_NAME}_${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz \
+          --database=${DB_NAME} --project=zambon-production --verbosity=debug;
+        done
+      else
+        echo "Warning, database dump skipped. Empty DB_NAME variable."
+        exit 1
+      fi
+  only:
+    refs:
+      - stage
+      - master
+    variables:
+      - $DB_NAMES != ""
