@@ -20,7 +20,7 @@
   script:
     - docker pull ${CI_REGISTRY_IMAGE_PHP}:latest || true
     - docker pull ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA} || true
-    - dc build php
+    - docker-compose build php
     - docker create --name php ${CI_REGISTRY_IMAGE_PHP}:latest 
     - docker cp php:/var/www/html/vendor .
     # @TODO restore some kind of security-checker since the old one is deprecated: https://github.com/sensiolabs/security-checker.
