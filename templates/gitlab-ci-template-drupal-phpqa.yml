@@ -12,7 +12,8 @@
 # -------
 #
 .drupal-phpqa:
-  before_script: ""
+  before_script: 
+    - ""
   image: ghcr.io/sparkfabrik/drupal-qa:latest
   script:
     - cd src/drupal
