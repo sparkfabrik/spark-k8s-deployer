@@ -177,13 +177,12 @@ sync to infrastructure repo:
 # Push argocd crd manifest to the automation repo and update the app of apps.
 configure deploy:
   stage: configure deploy
-  variables:
-    ARGOCD_AUTH_TOKEN: ${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
   script:
     # Configure Argo CD cli
     - sleep 3600
     - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
     - export ARGOCD_OPTS='--insecure'
+    - export ARGOCD_AUTH_TOKEN=${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
     # Download Argo CD cli
     # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
     # the cli will always be compatible with the server (same version).
