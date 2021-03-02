@@ -178,7 +178,7 @@ sync to infrastructure repo:
 configure deploy:
   stage: configure deploy
   variables:
-    ARGOCD_AUTH_TOKEN: ARGOCD_APP_OF_APPS_AUTH_TOKEN
+    ARGOCD_AUTH_TOKEN: ${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
   script:
     # Configure Argo CD cli
     - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
@@ -200,7 +200,6 @@ configure deploy:
     # @TODO: we should commit and push only if we have a diff.
     - git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}" --allow-empty
     - git push -u origin master
-    - sleep 3600
     # Trigger sync on the app of apps ArgoCD project.
     - argocd app sync ${ARGOCD_APP_OF_APPS_NAME}
     - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
