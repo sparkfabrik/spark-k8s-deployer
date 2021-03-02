@@ -181,6 +181,7 @@ configure deploy:
     ARGOCD_AUTH_TOKEN: ${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
   script:
     # Configure Argo CD cli
+    - sleep 3600
     - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
     - export ARGOCD_OPTS='--insecure'
     # Download Argo CD cli
