@@ -3,10 +3,13 @@
 #   include:
 #     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
 #
-# You need to define tree variables:
+# You need to define four variables:
 #
 #   - CLOUD_SQL_INSTANCE_NAME
 #     value: CloudSQL instance name
+#
+#   - GCLOUD_PROJECT_NAME
+#     value: the project name in the GCP console.
 #
 #   - BUCKET_NAME
 #     value: the name of the bucket where to store dumped databases.
@@ -32,6 +35,7 @@
 .cloudsql-database-dump:
   variables:
     CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
+    GCLOUD_PROJECT_NAME: zambon-pharmacy-portal
     BUCKET_NAME: DESTINATION_BUCKET_NAME
     DB_NAMES: "\
       database_1 \
@@ -49,7 +53,7 @@
           echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."
           gcloud sql export sql ${CLOUD_SQL_INSTANCE_NAME} \
           gs://${BUCKET_NAME}/${DB_NAME}_${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz \
-          --database=${DB_NAME} --project=zambon-production --verbosity=debug;
+          --database=${DB_NAME} --project=${GCLOUD_PROJECT_NAME} --verbosity=debug;
         done
       else
         echo "Warning, database dump skipped. Empty DB_NAME variable."
