@@ -9,6 +9,7 @@ stages:
 
 variables:
   # Following variables must be exposed as CI/CD variables (preferably as cross apps variables since they are shared).
+  #   ARGOCD_APP_OF_APPS_AUTH_TOKEN
   #   ARGOCD_APP_OF_APPS_NAME
   #   ARGOCD_AUTH_TOKEN
   #   CI_PROJECT_ROOT_NAMESPACE
@@ -173,9 +174,11 @@ sync to infrastructure repo:
 # --------------
 # CONFIGURE ARGO
 # --------------
-# Push argocd crd manifest to the automation repo and update the app.
+# Push argocd crd manifest to the automation repo and update the app of apps.
 configure deploy:
   stage: configure deploy
+  variables:
+    ARGOCD_AUTH_TOKEN: ARGOCD_APP_OF_APPS_AUTH_TOKEN
   script:
     # Configure Argo CD cli
     - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
