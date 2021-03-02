@@ -1,7 +1,7 @@
 # To use this template in your project, you must include it:
 #
 #   include:
-#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml'
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/gitlab-ci-template-drupal-phpqa.yml'
 #
 # Then add your job using the extends keyword (rembember to add a stage):
 #
@@ -12,31 +12,17 @@
 # -------
 #
 .drupal-phpqa:
-  tags:
-    - preemptible
-  before_script: 
-    - ""
-  image: ghcr.io/sparkfabrik/drupal-qa:latest
+  before_script:
   script:
-    - >
-      if [ -d ${CI_PROJECT_DIR}/src/drupal ]; then
-        ln -s ${CI_PROJECT_DIR}/src/drupal /app/drupal
-      else      
-        ln -s ${CI_PROJECT_DIR} /app/drupal
-      fi
-    - cd /app/drupal
-    - composer install --ignore-platform-reqs -v --no-interaction --prefer-dist --no-progress -q
-    - cd /app
-    - phpqa --analyzedDirs "drupal/web/modules/custom,drupal/web/themes/custom" 
-      --tools "phpcpd:0,phpcs:0,phpmd:0,phpmetrics,phploc,pdepend,parallel-lint:0,phpstan:0"
-      --buildDir "${CI_PROJECT_DIR}/reports"
-#    - cp -r /app/reports ${CI_PROJECT_DIR}/reports
+    - docker-compose build tools
+    - docker-compose run --rm tools ash -lic "composer install --no-interaction --prefer-dist"
+    # @TODO restore some kind of security-checker since the old one is deprecated: https://github.com/sensiolabs/security-checker.
+    - docker run --rm -v ${PWD}:/app/drupal -v ${PWD}/reports:/app/reports ghcr.io/sparkfabrik/drupal-qa:latest phpqa --analyzedDirs "drupal/web/modules/custom,drupal/web/themes/custom" --tools "phpcpd:0,phpcs:0,phpmd:0,phpmetrics,phploc,pdepend,parallel-lint:0,phpstan:0"
   except:
     - master
-    - stage
     - releases
   artifacts:
     when: always
     expire_in: 2 weeks
     paths:
-      - ${CI_PROJECT_DIR}/reports
+      - reports
