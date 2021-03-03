@@ -32,7 +32,7 @@
     # Build and push image using Kaniko executor.
     - /kaniko/executor
       --cache=true
-      --cache-ttl 168
+      --cache-ttl 168h0m0s
       --context ${CI_PROJECT_DIR}
       --dockerfile ${CI_PROJECT_DIR}/docker/images/nginx/Dockerfile
       --destination ${CI_REGISTRY_IMAGE_NGINX}:${CI_COMMIT_SHA}
