@@ -1,0 +1,44 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-nginx-build.yml'
+#
+#
+# You need to define one new variables as gitlab CI/CD variable (Settings -> CI/CD, expand the "Variables" section):
+#
+#   - KANIKO_SERVICE_ACCOUNT
+#     value: base64 encoded service account credentials to connect to the GCP project
+#     where to push images.
+#     **WARNING**: this variable contains sensitive data so you must protect it!!
+#    
+# Then add your job using the extends keyword (rembember to add a stage):
+#
+#   nginx:
+#     extends: .kaniko-drupal-nginx-build
+#     stage: build
+#
+# -------
+#
+.kaniko-drupal-nginx-build:
+  image:
+    # Use debug image because we need a shell (ref. Gitlab docs)
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    # Set gcr.io credentials. Don't use /tmp because multistage builds will destroy FS across stages.
+    # IMPORTANT: use a dedicated service account with limited scope.
+    - mkdir -p /kaniko/.gcr; echo -n ${KANIKO_SERVICE_ACCOUNT} | base64 -d > /kaniko/.gcr/sa.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/.gcr/sa.json
+    # Build and push image using Kaniko executor.
+    - /kaniko/executor
+      --cache=true
+      --cache-ttl 168h0m0s
+      --context ${CI_PROJECT_DIR}
+      --dockerfile ${CI_PROJECT_DIR}/docker/images/nginx/Dockerfile
+      --destination ${CI_REGISTRY_IMAGE_NGINX}:${CI_COMMIT_SHA}
+      --destination ${CI_REGISTRY_IMAGE_NGINX}:${CI_COMMIT_REF_SLUG}
+      --destination ${CI_REGISTRY_IMAGE_NGINX}:latest
+  only:
+    - develop
+    - stage
+    - master
