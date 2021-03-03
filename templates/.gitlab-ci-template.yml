@@ -34,7 +34,7 @@ before_script:
     for i in $(seq 1 30)
     do
         docker info && break
-        echo "Waiting for docker to start"
+        echo "Waiting for docker to start..."
         sleep 1s
     done
   - gcloud auth configure-docker

@@ -1,0 +1,10 @@
+php:
+  stage: build
+  script:
+    - docker pull ${CI_REGISTRY_IMAGE_PHP}:latest || true
+    - docker build --cache-from ${CI_REGISTRY_IMAGE_PHP}:latest --tag ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA} -f docker/images/php/Dockerfile .
+    - docker tag ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA} ${CI_REGISTRY_IMAGE_PHP}:latest
+    - docker push ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA}
+    - docker push ${CI_REGISTRY_IMAGE_PHP}:latest
+  except:
+    - releases
