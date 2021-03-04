@@ -1,0 +1,35 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpunit.yml'
+#
+# Then add your job using the extends keyword (rembember to add a stage):
+#
+#   phpqa:
+#     extends: .drupal-phpunit
+#     stage: qa
+#
+# -------
+#
+.drupal-phpunit:
+  image: 
+    name: ghcr.io/sparkfabrik/docker-php-base-image:7.4.6-fpm-alpine3.10
+    entrypoint: ["/docker-entrypoint.sh"]
+  variables:
+    COMPOSER_CACHE_DIR: composer-cache
+  before_script:
+    - ""
+  script:
+    - apk add --no-cache patch rsync git
+    - curl -L -o /usr/local/bin/composer https://github.com/composer/composer/releases/download/1.10.13/composer.phar 
+      && chmod +x /usr/local/bin/composer 
+    - cd src/drupal
+    # We need this because kubernetes executor does not run entrypoint: https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4125
+    - cp /usr/local/etc/php/conf.disabled/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+    - composer install --no-interaction --prefer-dist --no-progress 
+    - bin/phpunit --coverage-text --colors=never
+  coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - src/drupal/composer-cache/
