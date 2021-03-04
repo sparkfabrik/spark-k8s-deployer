@@ -61,7 +61,6 @@
       fi
   only:
     refs:
-      - stage
       - master
     variables:
       - $DB_NAMES != ""
