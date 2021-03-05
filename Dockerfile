@@ -3,7 +3,7 @@ FROM gcr.io/google.com/cloudsdktool/cloud-sdk:327.0.0-alpine
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
 ENV COMPOSE_VERSION 1.28.2
-ENV DOCKER_VERSION 20.10.4
+ENV DOCKER_VERSION 20.10.5
 ENV DOCKER_BUILDX_VERSION v0.5.1
 ENV HELM_VERSION 2.14.3
 ENV HELM3_VERSION 3.3.1
