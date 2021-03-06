@@ -2,7 +2,7 @@
 #
 # make cli
 #
-DOCKER_VERSION=20.10.3
+DOCKER_VERSION=20.10.5
 
 cli: build-docker-image
   # Run the cli.
