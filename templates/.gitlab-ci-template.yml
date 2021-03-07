@@ -38,6 +38,7 @@ before_script:
         echo "Waiting for docker to start..."
         sleep 1s
     done
+  - docker-compose version
   - gcloud auth configure-docker
 
 include:
