@@ -16,7 +16,7 @@
     - ""
   image: ghcr.io/sparkfabrik/drupal-qa:latest
   script:
-    - DRUPAL_ROOT_FOUND=`./bin/util finddrupal ${CI_PROJECT_DIR} ${CI_PROJECT_DIR}/src/drupal`
+    - DRUPAL_ROOT_FOUND=`/app/bin/util finddrupal ${CI_PROJECT_DIR} ${CI_PROJECT_DIR}/src/drupal`
     - ln -s $DRUPAL_ROOT_FOUND /app/drupal
     - cd /app/drupal
     - composer install --ignore-platform-reqs -v --no-interaction --prefer-dist --no-progress -q
