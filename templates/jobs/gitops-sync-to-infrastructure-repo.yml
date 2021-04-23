@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------------------------
+# IMPORTANT: this job template is specific to replace a helm based Drupal deploy with a push 
+# to a GitOps repository, using the sparkfabrik/drupal helm chart.
+# -------------------------------------------------------------------------------------------
+#
 # To use this template in your project, you must include it:
 #
 #   include:
@@ -18,7 +23,7 @@
 #     Get the https repo url and remove the protocol part, for 
 #     example "gitlab.sparkfabrik.com/group/myproject-infrastructure.git"
 #
-# Be also shure the variable HELM_DEPLOY_NAME is defined in your gitlab-ci.yaml. Then, add your job
+# Be also sure the variable HELM_DEPLOY_NAME is defined in your gitlab-ci.yaml. Then, add your job
 # using the extends keyword (rembember to add a stage):
 #
 #   sync to infrastructure:
@@ -28,6 +33,8 @@
 # -------
 #
 .sync-to-infrastructure-repo:
+  variables:
+    CHART_VERSION: 3.3.0
   before_script:
     # Prepare the file with helm chart values. You will probably override this before_script, 
     # be only sure to generate a single values file (you should append multiple files in a 
@@ -56,7 +63,7 @@
     - rm -rf ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
     # Generate updated manifests.
     - helm3 template ${HELM_DEPLOY_NAME} sparkfabrik/drupal
-      --version 3.3.0
+      --version ${CHART_VERSION}
       -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
       --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       --render-subchart-notes
