@@ -28,6 +28,8 @@
 # -------
 #
 .sync-to-infrastructure-repo:
+  variables:
+    GENERATED_MANIFESTS_DIR: generated-manifests
   before_script:
     # Prepare the file with helm chart values. You will probably override this before_script, 
     # be only sure to generate a single values file (you should append multiple files in a 
@@ -53,12 +55,12 @@
     # Save the generate values.yaml file in the infrastructure repo.
     - cp ${CI_PROJECT_DIR}/docker/helm/values.yaml ${INFRASTRUCTURE_REPO_DIR}/values.yaml
     # Clean generated manifests dir to start from a clean state and remove deprecated manifests.
-    - rm -rf ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
+    - rm -rf ${INFRASTRUCTURE_REPO_DIR}/${GENERATED_MANIFESTS_DIR}
     # Generate updated manifests.
     - helm3 template ${HELM_DEPLOY_NAME} sparkfabrik/drupal
       --version 3.3.0
       -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
-      --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
+      --output-dir ${INFRASTRUCTURE_REPO_DIR}/${GENERATED_MANIFESTS_DIR}
       --render-subchart-notes
       --include-crds
       --wait
