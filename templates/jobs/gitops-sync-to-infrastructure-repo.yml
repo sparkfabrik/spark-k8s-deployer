@@ -1,3 +1,4 @@
+# Generate Drupal chart manifest and push them on a GitOps deploy repository.
 # To use this template in your project, you must include it:
 #
 #   include:
@@ -30,6 +31,7 @@
 .sync-to-infrastructure-repo:
   variables:
     GENERATED_MANIFESTS_DIR: generated-manifests
+    DRUPAL_CHART_VERSION: 3.3.0
   before_script:
     # Prepare the file with helm chart values. You will probably override this before_script, 
     # be only sure to generate a single values file (you should append multiple files in a 
@@ -53,13 +55,13 @@
     # Switch on current feature branch (stage or production, see current job rules).
     - git checkout -B ${CI_COMMIT_REF_SLUG} --
     # Save the generate values.yaml file in the infrastructure repo.
-    - cp ${CI_PROJECT_DIR}/docker/helm/values.yaml ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+    - cp ${CI_PROJECT_DIR}/docker/helm/values.yaml ${INFRASTRUCTURE_REPO_DIR}/values.${CI_PROJECT_NAME}.yaml
     # Clean generated manifests dir to start from a clean state and remove deprecated manifests.
     - rm -rf ${INFRASTRUCTURE_REPO_DIR}/${GENERATED_MANIFESTS_DIR}
     # Generate updated manifests.
     - helm3 template ${HELM_DEPLOY_NAME} sparkfabrik/drupal
-      --version 3.3.0
-      -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+      --version ${DRUPAL_CHART_VERSION}
+      -f ${INFRASTRUCTURE_REPO_DIR}/values.${CI_PROJECT_NAME}.yaml
       --output-dir ${INFRASTRUCTURE_REPO_DIR}/${GENERATED_MANIFESTS_DIR}
       --render-subchart-notes
       --include-crds
