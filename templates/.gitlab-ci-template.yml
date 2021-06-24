@@ -52,3 +52,4 @@ include:
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-sync-to-infrastructure-repo.yml'
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-argo-sync.yml'
+  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml'

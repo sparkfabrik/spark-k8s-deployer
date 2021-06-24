@@ -15,5 +15,8 @@ cli: build-docker-image
 build-docker-image:
 	docker build -t sparkfabrik/spark-k8s-deployer:latest -f Dockerfile .
 
+build-docker-image-build-args:
+	docker build -t sparkfabrik/spark-k8s-deployer:latest -f Dockerfile . --build-arg QEMU_ARCHS="aarch64 arm x86_64"
+
 tests:
 	cd test && DOCKER_VERSION=$(DOCKER_VERSION) docker-compose run --rm docker-client ash -c "sleep 3; docker run --rm hello-world"
