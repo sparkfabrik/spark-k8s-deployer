@@ -10,6 +10,10 @@ ENV DOCKER_BUILDX_VERSION v0.5.1
 ENV HELM3_VERSION 3.3.1
 ENV AWS_CLI_VERSION 1.16.305
 
+# https://github.com/multiarch/qemu-user-static/releases
+ENV QEMU_VERSION 5.2.0-2
+ARG QEMU_ARCHS="aarch64 arm"
+
 RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev make jq rust cargo bat && \
     # Install docker and docker-compose.
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
@@ -23,6 +27,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && mkdir -p ~/.docker/cli-plugins \
     && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
+    && for ARCH in ${QEMU_ARCHS}; do curl https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VERSION}/qemu-${ARCH}-static -o /usr/bin/qemu-${ARCH}-static; done \
     && gcloud components install kubectl --quiet \
     && kubectl version --client \
     # Install Helm 3:

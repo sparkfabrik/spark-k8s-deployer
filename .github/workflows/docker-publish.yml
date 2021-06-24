@@ -2,17 +2,36 @@ name: Docker
 
 on:
   push:
-    # Publish `master` as Docker `latest` image.
     branches:
-      - master
+    - 'master'
+  pull_request:
+    branches:
+    - 'master'
 
 env:
   IMAGE_NAME: spark-k8s-deployer
 
 jobs:
-  push:
+  test:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME-test
+
+  test-build-args:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME-test-args --build-arg QEMU_ARCHS="aarch64 arm x86_64"
+
+  deploy:
+    needs: [test, test-build-args]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
 
     steps:
       - uses: actions/checkout@v2
