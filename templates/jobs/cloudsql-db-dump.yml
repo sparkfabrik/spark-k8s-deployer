@@ -23,6 +23,11 @@
 #         database_3 \
 #       "
 #
+#   - DESTINATION_FILE_NAME_SUFFIX_OVERRIDE
+#     value: you can override the suffix that will be append to the database name to use to name the 
+#     databse dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
+#
+#
 # Then add your job using the extends keyword (rembember to add a stage):
 #
 #   database backup:
