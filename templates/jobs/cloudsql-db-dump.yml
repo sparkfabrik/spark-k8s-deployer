@@ -37,6 +37,7 @@
     CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
     GCLOUD_PROJECT_NAME: zambon-pharmacy-portal
     BUCKET_NAME: DESTINATION_BUCKET_NAME
+    DESTINATION_FILE_NAME_SUFFIX_OVERRIDE: ""
     DB_NAMES: "\
       database_1 \
       database_2 \
@@ -50,9 +51,15 @@
       if [ -n "$DB_NAMES" ]; then
         for DB_NAME in $DB_NAMES
         do
-          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."
+          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."         
+          # Build target file name suffix
+          if [ -z "$DESTINATION_FILE_NAME_SUFFIX_OVERRIDE" ]; then
+            export DESTINATION_FILE_NAME_SUFFIX="${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz"
+          else
+            export DESTINATION_FILE_NAME_SUFFIX="${DESTINATION_FILE_NAME_SUFFIX_OVERRIDE}"
+          fi
           gcloud sql export sql ${CLOUD_SQL_INSTANCE_NAME} \
-          gs://${BUCKET_NAME}/${DB_NAME}_${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz \
+          gs://${BUCKET_NAME}/${DB_NAME}_${DESTINATION_FILE_NAME_SUFFIX} \
           --database=${DB_NAME} --project=${GCLOUD_PROJECT_NAME} --verbosity=debug;
         done
       else
