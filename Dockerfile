@@ -28,7 +28,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
     && for ARCH in ${QEMU_ARCHS}; do curl https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VERSION}/qemu-${ARCH}-static -o /usr/bin/qemu-${ARCH}-static; done \
-    && gcloud components install kubectl --quiet \
+    && gcloud components install kubectl beta --quiet \
     && kubectl version --client \
     # Install Helm 3:
     && wget -O helm-v${HELM3_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
