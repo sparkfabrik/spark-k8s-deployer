@@ -14,10 +14,11 @@
 #   allow_failure: true
 #   script:
 #     - SCRIPT=release_job_for_default_branch.sh
-#     - curl -Ls -o ./.gitlab/scripts/$SCRIPT
+#     - SCRIPT_DOWNLOAD_PATH=/tmp
+#     - curl -Ls -o "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
 #       https://github.com/sparkfabrik/spark-k8s-deployer/raw/master/templates/scripts/ci_releases/drupal/$SCRIPT
-#       && chmod +x ./.gitlab/scripts/$SCRIPT
-#       && ./.gitlab/scripts/$SCRIPT
+#       && chmod +x "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
+#       && "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
 #
 # It does the following:
 # - It checks if the current commit of $CI_DEFAULT_BRANCH (master) is a merge commit.
@@ -42,16 +43,13 @@ set -o errtrace
 set -o errexit
 set -o pipefail
 
-declare -a SCRIPTS=("setup_repo_for_writing.sh")
-for SCRIPT in "${SCRIPTS[@]}"; do
-  curl -Ls -o ./.gitlab/scripts/"$SCRIPT" \
-  https://github.com/sparkfabrik/spark-k8s-deployer/raw/master/templates/scripts/ci_releases/"$SCRIPT" \
-  && chmod +x ./.gitlab/scripts/"$SCRIPT"
-done
-
-# Requires GITLAB_PROJECT_RW_AND_API_TOKEN vars.
-./.gitlab/scripts/setup_repo_for_writing.sh
-
+if [[ ( -z $GITLAB_PROJECT_RW_AND_API_TOKEN ) ]]; then
+  echo 'Please do the following:'
+  echo '  -' go to the project\'s \"Settings -\> Access tokens\" section and define an access token with \"write_repository\"+\"read_api\" grants.
+  echo '  -' go to the project\'s \"Settings -\> CI/CD -\> Variables\" section and define
+  echo '   ' a variable with name GITLAB_PROJECT_RW_AND_API_TOKEN and value name_of_your_token:value_of_your_token.
+  exit 1
+fi
 GITLAB_PROJECT_RW_AND_API_TOKEN_VALUE=${GITLAB_PROJECT_RW_AND_API_TOKEN##*:}
 
 # https://forum.gitlab.com/t/run-job-in-ci-pipeline-only-on-merge-branch-into-the-master-and-get-merged-branch-name/24195
@@ -64,7 +62,7 @@ MR_BRANCH_LAST_COMMIT_SHA=$(
 
 if [[ ( -z $MR_BRANCH_LAST_COMMIT_SHA ) || ( $MR_BRANCH_LAST_COMMIT_SHA == null ) ]]; then
   echo "commit $CI_COMMIT_SHA on $CI_DEFAULT_BRANCH is not on a merge commit, doing nothing"
-  exit 1
+  exit 0
 fi
 
 echo MR_BRANCH_LAST_COMMIT_SHA "$MR_BRANCH_LAST_COMMIT_SHA"
@@ -78,11 +76,21 @@ MR_BRANCH_NAME=$(
 echo MR_BRANCH_NAME "$MR_BRANCH_NAME"
 
 if [[ $MR_BRANCH_NAME =~ ^release/.+ ]]; then
+  SCRIPT_DOWNLOAD_PATH=/tmp
+  # Requires GITLAB_PROJECT_RW_AND_API_TOKEN vars.
+  declare -a SCRIPTS=("setup_repo_for_writing.sh")
+  for SCRIPT in "${SCRIPTS[@]}"; do
+    curl -Ls -o "$SCRIPT_DOWNLOAD_PATH/$SCRIPT" \
+    https://github.com/sparkfabrik/spark-k8s-deployer/raw/innovation_591/templates/scripts/ci_releases/"$SCRIPT" \
+    && chmod +x "$SCRIPT_DOWNLOAD_PATH/$SCRIPT" \
+    && "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
+  done
+
   TAG_NAME=${MR_BRANCH_NAME##release/}
   echo Pushing tag "$TAG_NAME" to origin
   git tag "$TAG_NAME"
   git push ciremote --push-option=ci.skip "$TAG_NAME"
 else
   echo "$MR_BRANCH_NAME is not a release branch, doing nothing"
-  exit 1
+  exit 0
 fi
