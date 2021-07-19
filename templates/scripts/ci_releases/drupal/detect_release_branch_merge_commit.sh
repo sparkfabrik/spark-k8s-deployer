@@ -1,26 +1,6 @@
 #!/usr/bin/env bash
 
 # This script is meant to be executed from a gitlab ci job when the branch is the default branch
-# An example of a configuration of a gitlab ci job is:
-#
-# release_tag:
-#   stage: deploy
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-#   script:
-#     - SCRIPT=release_job_for_default_branch.sh
-#     - SCRIPT_DOWNLOAD_PATH=/tmp
-#     - curl -Ls -o "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
-#       https://github.com/sparkfabrik/spark-k8s-deployer/raw/master/templates/scripts/ci_releases/drupal/$SCRIPT
-#       && chmod +x "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
-#     # do something only if script does not output "doing nothing"
-#     # https://unix.stackexchange.com/questions/424652/capture-all-the-output-of-a-script-to-a-file-from-the-script-itself
-#     - "exec 5>&1"
-#     - "SCRIPT_OUTPUT=$($SCRIPT_DOWNLOAD_PATH/$SCRIPT| tee >(cat - >&5))"
-#     - |
-#       if [[ ! $SCRIPT_OUTPUT =~ 'doing nothing' ]]; then
-#         echo now do something
-#       fi
 #
 # It does the following:
 # - It checks if the current commit of $CI_DEFAULT_BRANCH (master) is a merge commit.
@@ -40,6 +20,13 @@
 #   It does so by using the Gitlab API to ask for the MR associated to the
 #   remaning commit in the list. The information is stored in the
 #   "source_branch" field of the json response.
+#
+# its return code is
+# 0: if the current commit of $CI_DEFAULT_BRANCH is not a merge commit
+#    or if it's a merge commit coming from a branch name not named release/xxx
+# 1: any fatal error, like missimg api token, curl execution fail.
+# 9: if the current commit of $CI_DEFAULT_BRANCH is a merge commit coming from
+#    a branch name named release/xxx. Branch name is outputted in stdout.
 
 set -o errtrace
 set -o errexit
@@ -77,21 +64,10 @@ MR_BRANCH_NAME=$(
 )
 echo MR_BRANCH_NAME "$MR_BRANCH_NAME"
 
+RC_FOR_DETECTED_RELEASE_BRANCH=9
 if [[ $MR_BRANCH_NAME =~ ^release/.+ ]]; then
-  SCRIPT_DOWNLOAD_PATH=/tmp
-  # Requires GITLAB_PROJECT_RW_AND_API_TOKEN vars.
-  declare -a SCRIPTS=("setup_repo_for_writing.sh")
-  for SCRIPT in "${SCRIPTS[@]}"; do
-    curl -Ls -o "$SCRIPT_DOWNLOAD_PATH/$SCRIPT" \
-    https://github.com/sparkfabrik/spark-k8s-deployer/raw/master/templates/scripts/ci_releases/"$SCRIPT" \
-    && chmod +x "$SCRIPT_DOWNLOAD_PATH/$SCRIPT" \
-    && "$SCRIPT_DOWNLOAD_PATH/$SCRIPT"
-  done
-
-  TAG_NAME=${MR_BRANCH_NAME##release/}
-  echo Pushing tag "$TAG_NAME" to origin
-  git tag "$TAG_NAME"
-  git push ciremote --push-option=ci.skip "$TAG_NAME"
+  echo "$MR_BRANCH_NAME"
+  exit $RC_FOR_DETECTED_RELEASE_BRANCH
 else
   echo "$MR_BRANCH_NAME is not a release branch, doing nothing"
   exit 0
