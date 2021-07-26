@@ -38,3 +38,7 @@
       if [ "${LINT_VAL}" != "valid" ]; then
         exit 1
       fi
+   artifacts:
+     paths:
+       - /builds/newproject
+     expire_in: 1 day
