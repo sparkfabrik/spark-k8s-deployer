@@ -42,3 +42,4 @@
      paths:
        - /builds/newproject
      expire_in: 1 day
+     when: always
