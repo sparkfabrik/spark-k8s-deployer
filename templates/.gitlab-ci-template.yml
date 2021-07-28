@@ -43,9 +43,11 @@ variables:
          done
       fi
       if command -v docker-compose &> /dev/null
+      then
         docker-compose version
       fi
       if command -v gcloud &> /dev/null
+      then
         gcloud auth configure-docker
       fi
 
