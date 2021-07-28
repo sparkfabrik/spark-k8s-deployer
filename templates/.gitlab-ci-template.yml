@@ -33,20 +33,21 @@ variables:
   before_script: &script-global-docker-wait
     # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
     - |
-      echo "Checking if docker command exists..."
-      if ! command -v docker &> /dev/null
+      if command -v docker &> /dev/null
       then
-          echo "docker command not found, skipping it."
-          exit 0
+         for i in $(seq 1 30)
+         do
+           docker info && break
+           echo "Waiting for docker to start..."
+           sleep 1s
+         done
       fi
-      for i in $(seq 1 30)
-      do
-          docker info && break
-          echo "Waiting for docker to start..."
-          sleep 1s
-      done
-    - docker-compose version
-    - gcloud auth configure-docker
+      if command -v docker-compose &> /dev/null
+        docker-compose version
+      fi
+      if command -v gcloud &> /dev/null
+        gcloud auth configure-docker
+      fi
 
 before_script:
   - *script-global-docker-wait
