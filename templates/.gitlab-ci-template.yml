@@ -33,6 +33,11 @@ variables:
   before_script: &script-global-docker-wait
     # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
     - |
+      if ! command -v docker &> /dev/null
+      then
+          echo "docker command not found, skipping it."
+          exit 0
+      fi
       for i in $(seq 1 30)
       do
           docker info && break
