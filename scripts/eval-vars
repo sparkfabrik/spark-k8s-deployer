@@ -13,7 +13,6 @@ function token_quote {
 }
 
 while IFS='=' read -r key value; do
-  export "${key}"="$(eval token_quote "$value")"
-  echo "Processed variable: ${key}"
+  echo export "${key}"="$(eval token_quote "$value")"
 done <<< "$VARS"
 
