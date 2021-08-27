@@ -1,6 +1,4 @@
 .check-changelog:
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
   script:
     - git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
     - |
