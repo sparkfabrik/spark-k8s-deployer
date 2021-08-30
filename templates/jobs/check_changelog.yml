@@ -1,5 +1,10 @@
 .check-changelog:
   script:
+    # Safeguard to make the job actually run when the var is set.
+    - |
+      if [ -z "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        exit 0
+      fi
     - git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
     - |
       if [ ${exit_code:-0} -ne 0 ]; then
