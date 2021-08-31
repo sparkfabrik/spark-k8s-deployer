@@ -16,24 +16,24 @@
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
-      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"path\", \"url\": \"/pkg_test\", \"options\": { \"symlink\": false } }'"
+      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
     - docker run --rm
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
       -v ${CI_PROJECT_DIR}:/pkg_test
-      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/${PKG_NAME}
+      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/${PKG_NAME}:dev-"$CI_COMMIT_REF_NAME#$CI_COMMIT_SHA"
     - "sed -i '/- local: ..*/d' ${CI_TO_TEST}"
     - >
-      export LINT_VAL=$(jq --null-input --arg yaml "$(<${CI_TO_TEST})" '.content=$yaml' \
+      export LINT_OUTPUT=$(jq --null-input --arg yaml "$(<${CI_TO_TEST})" '.content=$yaml' \
         | curl "https://gitlab.sparkfabrik.com/api/v4/ci/lint" \
         --silent \
         --header 'Content-Type: application/json' \
         --header "PRIVATE-TOKEN: ${LINT_CI_TOKEN}" \
-        --data @- \
-        | jq --raw-output '.status')
-    - "echo Lint val: ${LINT_VAL}"
+        --data @-)
+    - "echo Linting output: ${LINT_OUTPUT}"
+    - export LINT_VAL=$(echo $LINT_OUTPUT| jq --raw-output '.status')
     - >
       if [ "${LINT_VAL}" != "valid" ]; then
         exit 1
