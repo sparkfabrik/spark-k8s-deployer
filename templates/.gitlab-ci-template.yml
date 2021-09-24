@@ -2,7 +2,7 @@ image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - name: docker:20.10.7-dind
-    command: ["--registry-mirror", "https://mirror.gcr.io"] 
+    command: ["--registry-mirror", "https://mirror.gcr.io", "--mtu=1460"] 
 
 variables:
   # When using dind service, we need to instruct docker to talk with
