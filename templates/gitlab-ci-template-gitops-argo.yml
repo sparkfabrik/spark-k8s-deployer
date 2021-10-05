@@ -160,7 +160,7 @@ sync to infrastructure repo:
     - envsubst < ${AUTOMATION_REPO_DIR}/docker/helm/values.${CI_COMMIT_REF_SLUG}.yaml.tpl > ${INFRASTRUCTURE_REPO_DIR}/values.yaml
     - helm3 template ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG} sparkfabrik/drupal
       -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
-      --version 3.3.0
+      --version 4.8.0
       --render-subchart-notes
       --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       --include-crds
