@@ -4,7 +4,7 @@
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF: ${CI_COMMIT_SHA}
   script:
-    - docker run --rm
+    - docker run --rm -t
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
@@ -12,13 +12,13 @@
       eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init newproject testprojectname testvendorname -n
     # Avoid type=path that skips symlinks.
     - >
-      docker run --rm
+      docker run --rm -t
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
       eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
-    - docker run --rm
+    - docker run --rm -t
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
