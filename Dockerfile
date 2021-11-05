@@ -7,7 +7,7 @@ ENV COMPOSE_VERSION 1.29.2
 # https://download.docker.com/linux/static/stable/x86_64
 ENV DOCKER_VERSION 20.10.7
 ENV DOCKER_BUILDX_VERSION v0.5.1
-ENV HELM3_VERSION 3.3.1
+ENV HELM3_VERSION 3.7.1
 ENV AWS_CLI_VERSION 1.16.305
 
 # https://github.com/multiarch/qemu-user-static/releases
