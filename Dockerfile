@@ -9,6 +9,7 @@ ENV DOCKER_VERSION 20.10.7
 ENV DOCKER_BUILDX_VERSION v0.5.1
 ENV HELM3_VERSION 3.7.1
 ENV AWS_CLI_VERSION 1.16.305
+ENV YQ4_VERSION v4.14.2
 
 # https://github.com/multiarch/qemu-user-static/releases
 ENV QEMU_VERSION 5.2.0-2
@@ -39,7 +40,10 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && rm -fr linux-amd64/ \
     && helm version -c \
     # Add a symlink for helm3 command for legacy reasons.
-    && ln -s /usr/local/bin/helm /usr/local/bin/helm3
+    && ln -s /usr/local/bin/helm /usr/local/bin/helm3 \
+    # Install YQ4
+    && curl -fSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4 \
+    && chmod +x /usr/local/bin/yq4
 
 RUN pip install awscli==${AWS_CLI_VERSION}
 
