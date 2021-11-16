@@ -1,9 +1,11 @@
 # -----------------------------
 # ENVIRONMENT STOP JOB TEMPLATE
 # -----------------------------
+# In order to use this job you must define in the global or job scope
+# these variables:
+#   - STOP_RELEASE_NAME: the helm release name which you want to stop
+#   - KUBE_NAMESPACE: in which namespace the release was installed
 .stop-deployment-template:
-  variables:
-    STOP_RELEASE_NAME:
   # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
   stage: .post
   # We override the default before script, since we do not need it here.
@@ -17,7 +19,7 @@
       fi
       if [ -z "${KUBE_NAMESPACE}" ]; then
         echo "You have to define the KUBE_NAMESPACE variable in order to define in which namespace your release was deployed."
-        exit_code=1
+        exit_code=2
       fi
       exit ${exit_code}
     - echo "Stopping the ${CI_ENVIRONMENT_NAME} environment and removing the ${STOP_RELEASE_NAME} helm release in ${KUBE_NAMESPACE} namespace"
@@ -29,4 +31,4 @@
   # We do not want an environment stop job for production branches.
   rules:
     - if: '$CI_COMMIT_BRANCH !~ /^(master|main)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(master|main)$/ && $CI_PIPELINE_SOURCE != "schedule"'
-  when: manual
+      when: manual
