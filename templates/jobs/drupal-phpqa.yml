@@ -14,9 +14,8 @@
 .drupal-phpqa:
   before_script:
     - ""
-  image: ghcr.io/sparkf- if: $CI_COMMIT_BRANCH != "main" 
-    - if: $CI_COMMIT_BRANCH != "master"
-    - when: never
+  image: ghcr.io/sparkfabrik/drupal-qa:latest
+  script:
     - DRUPAL_ROOT_FOUND=`/app/bin/util finddrupal ${CI_PROJECT_DIR} ${CI_PROJECT_DIR}/src/drupal`
     - ln -s ${DRUPAL_ROOT_FOUND}/.. /app/drupal
     - cd /app/drupal
