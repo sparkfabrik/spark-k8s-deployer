@@ -5,7 +5,19 @@
       if [ -z "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
         exit 0
       fi
-    - git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
+    # If the branch is a fix the check will be skipped
+    - |
+      if [ -n "$(echo "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}" | grep -E "^fix\/.+")" ]; then
+        exit 0
+      fi
+    # If the pipeline is running for a tag, we check if the tag is present in the changelog
+    # otherwise the CHANGELOG.md should be edited
+    - |
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
+      else
+        git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
+      fi
     - |
       if [ ${exit_code:-0} -ne 0 ]; then
         echo ah... ah... ah...
