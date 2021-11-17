@@ -33,7 +33,6 @@
 
 .drupal-phpqa:
   extends: .drupal-php-template
-  
   except:
     - master
     - stage
