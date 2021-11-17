@@ -12,7 +12,7 @@
 # -------
 #
 
-.drupal-php-template:
+.drupal-phpqa-template:
   before_script:
     - ""
   image: ghcr.io/sparkfabrik/drupal-qa:latest
@@ -32,14 +32,14 @@
       - ${CI_PROJECT_DIR}/reports
 
 .drupal-phpqa:
-  extends: .drupal-php-template
+  extends: .drupal-phpqa-template
   except:
     - master
     - stage
     - releases  
 
 .drupal-phpqa-rules:
-  extends: .drupal-php-template
+  extends: .drupal-phpqa-template
   rules:
     - if: '$CI_COMMIT_BRANCH !~ /^(master|main|releases|stage)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(master|main|releases|stage)$/'
 
