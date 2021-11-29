@@ -25,14 +25,14 @@ workflow:
     "https://gitlab.sparkfabrik.com/api/v4/projects/${AUTOMATION_PROJECT_ID}/trigger/pipeline"
 
 trigger stage deploy:
-  extend: .trigger-deploy-automation
+  extends: .trigger-deploy-automation
   variables:
     CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
   rules:
     - if: '$CI_COMMIT_BRANCH == "stage"'
 
 trigger production deploy:
-  extend: .trigger-deploy-automation
+  extends: .trigger-deploy-automation
   variables:
     CI_ENVIRONMENT_BASE_URL: ${PRODUCTION_CI_ENVIRONMENT_BASE_URL}
   rules:
