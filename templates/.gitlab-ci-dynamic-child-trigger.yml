@@ -11,21 +11,29 @@ workflow:
     - if: '$CI_COMMIT_BRANCH =~ /^(develop|main|stage)$/'
 
 variables:
-  CACHE_NAME: ${CI_PIPELINE_ID}
+  INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
 
 install packages:
   stage: generate-pipeline
   script:
+    - mkdir -p /tmp/sources
+    - find ${CI_PROJECT_DIR} -mindepth 1 -maxdepth 1 -exec mv {} /tmp/sources \;
     - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init pkg-init-dir ${CI_PROJECT_NAME} spark ${CI_PROJECT_ID}'
     - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/pkg_drupal'
+    - find ${CI_PROJECT_DIR}/pkg-init-dir -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR} \;
+    - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
+    - cd ${CI_PROJECT_DIR}
+    - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
+    - apk add --no-cache tree && tree ${CI_PROJECT_DIR}
   cache:
-    key: ${CACHE_NAME}
+    key: ${INSTALL_CACHE_NAME}
     paths: 
       - ${CI_PROJECT_DIR}
     policy: push
   artifacts:
     paths:
-      - pkg-init-dir
+      - ${CI_PROJECT_DIR}/.gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
       
 # start pipeline artifact:
 #   stage: start
@@ -38,7 +46,8 @@ start drupal pipeline:
   stage: start
   trigger:
     include:
-      - artifact: pkg-init-dir/.gitlab-ci.yml
+      - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
+      - artifact: .gitlab-ci.yml
         job: install packages
 
 # .trigger-deploy-automation:
