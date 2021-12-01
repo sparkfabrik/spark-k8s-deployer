@@ -24,7 +24,7 @@ install packages:
     - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
     - cd ${CI_PROJECT_DIR}
     - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
-    - 'sed -i "s|local: \'/.gitlab-ci-project.yml\'|local: \'.gitlab-ci-project.yml\'|g" .gitlab-ci.yml'
+    - sed -i "/local/d" .gitlab-ci.yml && cat .gitlab-ci.yml
     - apk add --no-cache tree && tree ${CI_PROJECT_DIR}
   cache:
     key: ${INSTALL_CACHE_NAME}
