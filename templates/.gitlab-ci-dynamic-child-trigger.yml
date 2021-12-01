@@ -16,8 +16,8 @@ variables:
 install packages:
   stage: generate-pipeline
   script:
-    - 'docker run -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest "pkg:init pkg-init-dir ${CI_PROJECT_NAME} spark ${CI_PROJECT_ID}"'
-    - 'docker run -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest "pkg:require sparkfabrik/pkg_drupal"'
+    - 'docker run -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init pkg-init-dir ${CI_PROJECT_NAME} spark ${CI_PROJECT_ID}'
+    - 'docker run -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/pkg_drupal'
     - 'echo -n "print job:\n\tstage: .pre\n\tscript:\n\t\t- sleep 3600\n" > .gitlab-ci.yml'
   cache:
     key: ${CACHE_NAME}
