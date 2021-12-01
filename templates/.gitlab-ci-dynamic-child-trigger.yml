@@ -26,28 +26,21 @@ install packages:
   artifacts:
     paths:
       - .gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/pkg-init-dir/.gitlab-ci.yml
       
 start pipeline artifact:
   stage: start
-  cache:
-    key: ${CACHE_NAME}
-    paths: 
-      - ${CI_PROJECT_DIR}
-    policy: pull
   trigger:
     include:
       - artifact: .gitlab-ci.yml
         job: install packages
 
-start pipeline cache:
+start pipeline pkg:
   stage: start
-  cache:
-    key: ${CACHE_NAME}
-    paths: 
-      - ${CI_PROJECT_DIR}
-    policy: pull
   trigger:
-    include: .gitlab-ci.yml
+    include:
+      - artifact: ${CI_PROJECT_DIR}/pkg-init-dir/.gitlab-ci.yml
+        job: install packages
 
 # .trigger-deploy-automation:
 #   stage: start
