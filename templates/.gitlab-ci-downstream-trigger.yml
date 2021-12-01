@@ -13,7 +13,7 @@ workflow:
   stage: start
   script:
   - curl --request POST
-    --form token=${AUTOMATION_TOKEN} 
+    --form token=${AUTOMATION_TRIGGER_TOKEN} 
     --form ref=${AUTOMATION_BRANCH}
     --form "variables[CI_COMMIT_REF_SLUG]=${CI_COMMIT_REF_SLUG}"
     --form "variables[CI_PROJECT_ID]=${CI_PROJECT_ID}"
