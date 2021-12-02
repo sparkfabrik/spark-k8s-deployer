@@ -45,9 +45,9 @@ start drupal pipeline:
     include:
       # - artifact: .gitlab-ci.yml
       #   job: install packages    
-      - artifact: pkg/sparkfabrik/pkg_base/.gitlab-ci.yml
+      - artifact: pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
         job: install packages
-      - artifact: pkg/sparkfabrik/pkg_drupal/.gitlab-ci.yml
+      - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
         job: install packages
       - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
     # strategy: depend
