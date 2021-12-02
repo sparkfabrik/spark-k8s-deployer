@@ -9,7 +9,7 @@ stages:
 # Pipelines does not run on merge request events, only on commits on given branches.
 workflow:
   rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^(main|stage)$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^(master|main|stage)$/'
 
 variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
