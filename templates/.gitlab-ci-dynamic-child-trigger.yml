@@ -41,8 +41,8 @@ install packages:
     - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
     # Move the downloaded Gitlab CI into static folder
     - mkdir -p ${PKGS_CI_DIR}/base && mkdir -p ${PKGS_CI_DIR}/drupal
-    - cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep \"PATH_PKG_BASE\" | awk '{ print $2 }'
-    - cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep \"PATH_PKG_DRUPAL\" | awk '{ print $2 }'
+    - cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_BASE" | awk "{ print $2 }"
+    - cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_DRUPAL" | awk "{ print $2 }"
     - export PATH_PKG_BASE="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep \"PATH_PKG_BASE\" | awk '{ print $2 }')"
     - export PATH_PKG_DRUPAL="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep \"PATH_PKG_DRUPAL\" | awk '{ print $2 }')"
     - 'echo "PATH_PKG_BASE: ${PATH_PKG_BASE}"'
