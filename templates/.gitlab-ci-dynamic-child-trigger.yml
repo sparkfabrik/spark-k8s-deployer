@@ -47,9 +47,12 @@ start drupal pipeline:
   stage: start
   trigger:
     include:
-      - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
       - artifact: .gitlab-ci.yml
         job: install packages
+      - artifact: .gitlab-ci-project.yml
+        job: install packages
+      - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
+    strategy: depend
 
 # .trigger-deploy-automation:
 #   stage: start
