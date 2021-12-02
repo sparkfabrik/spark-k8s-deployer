@@ -35,6 +35,8 @@ install packages:
     - docker run --rm -v ${CI_PROJECT_DIR}/src/drupal:/app composer:2.1.11 config bin-dir bin/
     # Test the composer patch
     - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
+    # Test artifact path
+    - export TEST_PATH=${CI_PROJECT_DIR}/tmp/tmp1/tmp2 && export TEST_FILE="${TEST_PATH}/test.txt" && mkdir -p "${TEST_PATH}" && touch "${TEST_FILE}"
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -44,6 +46,7 @@ install packages:
     paths:
       - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
       - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
+      - ${TEST_FILE}
 
 prepare automation:
   stage: automation
