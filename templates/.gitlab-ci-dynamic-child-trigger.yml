@@ -2,7 +2,8 @@ include:
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml'
 
 stages:
-  - generate-pipeline
+  - install
+  - automation
   - start
 
 # Pipelines does not run on merge request events, only on commits on given branches.
@@ -14,7 +15,7 @@ variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
 
 install packages:
-  stage: generate-pipeline
+  stage: install
   script:
     - mkdir -p /tmp/sources
     - find ${CI_PROJECT_DIR} -mindepth 1 -maxdepth 1 -exec mv {} /tmp/sources \;
@@ -24,7 +25,7 @@ install packages:
     - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
     - cd ${CI_PROJECT_DIR}
     - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
-    - sed -i "/local/d" .gitlab-ci.yml && cat .gitlab-ci.yml
+    - 'sed -i "/- local: \'\/.gitlab-ci-project.yml\'\/d" .gitlab-ci.yml && cat .gitlab-ci.yml'
     - apk add --no-cache tree && tree ${CI_PROJECT_DIR}
   cache:
     key: ${INSTALL_CACHE_NAME}
@@ -35,22 +36,26 @@ install packages:
     paths:
       - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
       - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
-      - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
-      
-start drupal pipeline:
+
+prepare automation:
+  stage: automation
+  script:
+    - sleep 3600
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/flux-infrastructure/pkgs/.gitlab-ci-project.yml
+
+start automation:
   stage: start
-  variables:
-    PHPQA_ENABLE: ${PHPQA_ENABLE}
   trigger:
     include:
-      # - artifact: .gitlab-ci.yml
-      #   job: install packages    
+    # NOTE: it seems that we can only add at max 3 artifacts.
       - artifact: pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
         job: install packages
       - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
         job: install packages
-      - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
-    # strategy: depend
+      - artifact: flux-infrastructure/pkgs/.gitlab-ci-project.yml
+        job: prepare automation
 
 # .trigger-deploy-automation:
 #   stage: start
