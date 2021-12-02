@@ -67,6 +67,8 @@ prepare automation:
 
 start automation:
   stage: start
+  variables:
+    DRUPAL_PHPQA_ENABLE: 0
   trigger:
     include:
     # NOTE: it seems that we can only add at max 3 artifacts.
