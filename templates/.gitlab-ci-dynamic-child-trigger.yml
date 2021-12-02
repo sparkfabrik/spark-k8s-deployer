@@ -15,6 +15,9 @@ variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
   FLUX_REPO_DEFAULT_BRANCH: main
   FLUX_REPO_BASE_URL: gitlab.sparkfabrik.com/bocconi/gitops/flux-infrastructure.git
+  # Keep the FLUX_TEMPLATES_DIR_NAME and FLUX_TEMPLATES_DIR
+  FLUX_TEMPLATES_DIR_NAME: flux-templates
+  FLUX_TEMPLATES_DIR: ${CI_PROJECT_DIR}/flux-templates
 
 install packages:
   stage: install
@@ -54,7 +57,6 @@ prepare automation:
     # Define local env vars for the destination repo.
     - export PRE_GIT_PWD="${PWD}"
     - export REPO_DIR="/tmp/flux_infrastructure"
-    - export TEMPLATES_DIR="${CI_PROJECT_DIR}/flux-templates"
     - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL}"'
     # Clone flux repo.
     - mkdir -p ${REPO_DIR}
@@ -64,11 +66,11 @@ prepare automation:
     - git clone ${DESTINATION_REPO_GIT_URL} ${REPO_DIR}
     # Switch on current default branch
     - git reset --hard origin/${FLUX_REPO_DEFAULT_BRANCH} || true
-    - cp -av "${REPO_DIR}/templates" "${TEMPLATES_DIR}"
+    - cp -av "${REPO_DIR}/templates" "${FLUX_TEMPLATES_DIR}"
     - cd "${PRE_GIT_PWD}"
   artifacts:
     paths:
-      - ${CI_PROJECT_DIR}/flux-templates/pkgs/.gitlab-ci-project.yml
+      - ${FLUX_TEMPLATES_DIR}/pkgs/.gitlab-ci-project.yml
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -85,7 +87,7 @@ start automation:
         job: install packages
       - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
         job: install packages
-      - artifact: flux-templates/pkgs/.gitlab-ci-project.yml
+      - artifact: ${FLUX_TEMPLATES_DIR_NAME}/pkgs/.gitlab-ci-project.yml
         job: prepare automation
 
 # .trigger-deploy-automation:
