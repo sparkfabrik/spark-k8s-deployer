@@ -33,12 +33,14 @@ install packages:
     policy: push
   artifacts:
     paths:
-      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/.gitlab-ci.yml
-      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/.gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
       - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
       
 start drupal pipeline:
   stage: start
+  variables:
+    PHPQA_ENABLE: ${PHPQA_ENABLE}
   trigger:
     include:
       # - artifact: .gitlab-ci.yml
