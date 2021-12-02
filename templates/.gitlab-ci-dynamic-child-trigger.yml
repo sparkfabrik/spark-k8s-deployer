@@ -19,16 +19,22 @@ variables:
 install packages:
   stage: install
   script:
+    # Move thee original project in a temporary directory
     - mkdir -p /tmp/sources
     - find ${CI_PROJECT_DIR} -mindepth 1 -maxdepth 1 -exec mv {} /tmp/sources \;
+    # Init and require sparkfabrik/pkg_drupal
     - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init pkg-init-dir ${CI_PROJECT_NAME} spark ${CI_PROJECT_ID}'
     - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/pkg_drupal'
     - find ${CI_PROJECT_DIR}/pkg-init-dir -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR} \;
+    # Clean the src/drupal folder from unwanted files
     - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
     - cd ${CI_PROJECT_DIR}
+    # Move the original project in the final folder
     - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
-    - 'sed -i "/- local: ''\/.gitlab-ci-project.yml''/d" .gitlab-ci.yml && cat .gitlab-ci.yml'
-    - apk add --no-cache tree && tree ${CI_PROJECT_DIR}
+    # Patch composer.json
+    - docker run --rm -v ${CI_PROJECT_DIR}/src/drupal:/app composer:2.1.11 config bin-dir bin/
+    # Test the composer patch
+    - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
