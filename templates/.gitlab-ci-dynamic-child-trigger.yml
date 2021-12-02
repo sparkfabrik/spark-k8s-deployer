@@ -5,7 +5,7 @@ stages:
   - generate-pipeline
   - start
 
-# Pipelines does not run on merge request events.
+# Pipelines does not run on merge request events, only on commits on given branches.
 workflow:
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^(develop|main|stage)$/'
@@ -33,26 +33,22 @@ install packages:
     policy: push
   artifacts:
     paths:
-      - ${CI_PROJECT_DIR}/.gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/.gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/.gitlab-ci.yml
       - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
       
-# start pipeline artifact:
-#   stage: start
-#   trigger:
-#     include:
-#       - artifact: .gitlab-ci.yml
-#         job: install packages
-
 start drupal pipeline:
   stage: start
   trigger:
     include:
-      - artifact: .gitlab-ci.yml
+      # - artifact: .gitlab-ci.yml
+      #   job: install packages    
+      - artifact: pkg/sparkfabrik/pkg_base/.gitlab-ci.yml
         job: install packages
-      - artifact: .gitlab-ci-project.yml
+      - artifact: pkg/sparkfabrik/pkg_drupal/.gitlab-ci.yml
         job: install packages
       - remote: https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/downstream_ci_template/templates/.gitlab-ci-dynamic-child-cache.yml
-    strategy: depend
+    # strategy: depend
 
 # .trigger-deploy-automation:
 #   stage: start
