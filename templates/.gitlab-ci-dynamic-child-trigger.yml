@@ -76,7 +76,7 @@ prepare automation:
     # Extract PKG PATHs from the generated Gitlab CI
     - 'yq4 e "{\"variables\": with_entries(select(.key == \"variables\")) | .variables // {}}" ${CI_PROJECT_DIR}/.gitlab-ci.yml > ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp'
     # Merge gitlab-ci-project.yml with vars 
-    - 'yq4 ea ". as $item ireduce ({}; . * $item )" ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp .gitlab-ci-project.yml > ${CI_PROJECT_DIR}/.gitlab-ci-project.yml'
+    - yq4 ea '. as $item ireduce ({}; . * $item )' ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp .gitlab-ci-project.yml > ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
     # Return on main folder
     - cd "${PRE_GIT_PWD}"
   artifacts:
