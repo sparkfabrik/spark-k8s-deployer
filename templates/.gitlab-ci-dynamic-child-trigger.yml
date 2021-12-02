@@ -15,9 +15,9 @@ variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
   FLUX_REPO_DEFAULT_BRANCH: main
   FLUX_REPO_BASE_URL: gitlab.sparkfabrik.com/bocconi/gitops/flux-infrastructure.git
-  # Keep the FLUX_TEMPLATES_DIR_NAME and FLUX_TEMPLATES_DIR
-  FLUX_TEMPLATES_DIR_NAME: flux-templates
+  # Keep the FLUX_TEMPLATES_DIR and artifact file in `start automation` job synced
   FLUX_TEMPLATES_DIR: ${CI_PROJECT_DIR}/flux-templates
+  TEST_FILE: ${CI_PROJECT_DIR}/tmp/tmp1/tmp2/test.txt
 
 install packages:
   stage: install
@@ -39,7 +39,7 @@ install packages:
     # Test the composer patch
     - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
     # Test artifact path
-    - export TEST_PATH=${CI_PROJECT_DIR}/tmp/tmp1/tmp2 && export TEST_FILE="${TEST_PATH}/test.txt" && mkdir -p "${TEST_PATH}" && touch "${TEST_FILE}"
+    - mkdir -p "$(dirname ${TEST_FILE})" && touch "${TEST_FILE}"
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -87,7 +87,7 @@ start automation:
         job: install packages
       - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
         job: install packages
-      - artifact: ${FLUX_TEMPLATES_DIR_NAME}/pkgs/.gitlab-ci-project.yml
+      - artifact: flux-templates/pkgs/.gitlab-ci-project.yml
         job: prepare automation
 
 # .trigger-deploy-automation:
