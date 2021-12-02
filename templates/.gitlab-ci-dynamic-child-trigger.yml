@@ -13,6 +13,8 @@ workflow:
 
 variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
+  FLUX_REPO_DEFAULT_BRANCH: main
+  FLUX_REPO_BASE_URL: gitlab.sparkfabrik.com/bocconi/gitops/flux-infrastructure.git
 
 install packages:
   stage: install
@@ -25,7 +27,7 @@ install packages:
     - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
     - cd ${CI_PROJECT_DIR}
     - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
-    - 'sed -i "/- local: \'\/.gitlab-ci-project.yml\'\/d" .gitlab-ci.yml && cat .gitlab-ci.yml'
+    - 'sed -i "/- local: ''\/.gitlab-ci-project.yml''/d" .gitlab-ci.yml && cat .gitlab-ci.yml'
     - apk add --no-cache tree && tree ${CI_PROJECT_DIR}
   cache:
     key: ${INSTALL_CACHE_NAME}
@@ -40,10 +42,28 @@ install packages:
 prepare automation:
   stage: automation
   script:
-    - sleep 3600
+    # Define local env vars for the destination repo.
+    - export PRE_GIT_PWD="${PWD}"
+    - export REPO_DIR="/tmp/flux_infrastructure"
+    - export TEMPLATES_DIR="${CI_PROJECT_DIR}/flux-templates"
+    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL}"'
+    # Clone flux repo.
+    - mkdir -p ${REPO_DIR}
+    - cd ${REPO_DIR}
+    - git config --global user.email "gitlab-gitops-bot@sparkfabrik.cloud"
+    - git config --global user.name "Gitlab Bot"
+    - git clone ${DESTINATION_REPO_GIT_URL} ${REPO_DIR}
+    # Switch on current default branch
+    - git reset --hard origin/${FLUX_REPO_DEFAULT_BRANCH} || true
+    - cp -av "${REPO_DIR}/templates" "${TEMPLATES_DIR}"
+    - cd "${PRE_GIT_PWD}"
   artifacts:
     paths:
-      - ${CI_PROJECT_DIR}/flux-infrastructure/pkgs/.gitlab-ci-project.yml
+      - ${CI_PROJECT_DIR}/flux-templates/pkgs/.gitlab-ci-project.yml
+  cache:
+    key: ${INSTALL_CACHE_NAME}
+    paths: 
+      - ${CI_PROJECT_DIR}
 
 start automation:
   stage: start
@@ -54,7 +74,7 @@ start automation:
         job: install packages
       - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
         job: install packages
-      - artifact: flux-infrastructure/pkgs/.gitlab-ci-project.yml
+      - artifact: flux-templates/pkgs/.gitlab-ci-project.yml
         job: prepare automation
 
 # .trigger-deploy-automation:
