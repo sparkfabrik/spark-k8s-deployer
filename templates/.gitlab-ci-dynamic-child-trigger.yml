@@ -17,6 +17,8 @@ variables:
   FLUX_REPO_BASE_URL: gitlab.sparkfabrik.com/bocconi/gitops/flux-infrastructure.git
   # Keep the FLUX_TEMPLATES_DIR and artifact file in `start automation` job synced
   FLUX_TEMPLATES_DIR: ${CI_PROJECT_DIR}/flux-templates
+  # Keep the PKGS_CI_DIR and artifact file in `start automation` job synced
+  PKGS_CI_DIR: ${CI_PROJECT_DIR}/pkgs_ci_dir_files
 
 install packages:
   stage: install
@@ -37,6 +39,12 @@ install packages:
     - docker run --rm -v ${CI_PROJECT_DIR}/src/drupal:/app composer:2.1.11 config bin-dir bin/
     # Test the composer patch
     - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
+    # Move the downloaded Gitlab CI into static folder
+    - mkdir -p ${PKGS_CI_DIR}/base && mkdir -p ${PKGS_CI_DIR}/drupal
+    - export PATH_PKG_BASE="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep PATH_PKG_BASE | awk '{ print $2 }')"
+    - export PATH_PKG_DRUPAL="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep PATH_PKG_DRUPAL | awk '{ print $2 }')"
+    - cp -av "${PATH_PKG_BASE}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR}/base/gitlab-ci.yml"
+    - cp -av "${PATH_PKG_DRUPAL}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR}/drupal/gitlab-ci.yml"
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -44,8 +52,9 @@ install packages:
     policy: push
   artifacts:
     paths:
-      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
-      - ${CI_PROJECT_DIR}/pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/gitlab-ci-fs-cli.yml
+      - ${PKGS_CI_DIR}/base/gitlab-ci.yml
+      - ${PKGS_CI_DIR}/drupal/gitlab-ci.yml
 
 prepare automation:
   stage: automation
@@ -63,10 +72,16 @@ prepare automation:
     # Switch on current default branch
     - git reset --hard origin/${FLUX_REPO_DEFAULT_BRANCH} || true
     - cp -av "${REPO_DIR}/templates" "${FLUX_TEMPLATES_DIR}"
+    - cd ${FLUX_TEMPLATES_DIR}/pkgs
+    # Extract PKG PATHs from the generated Gitlab CI
+    - 'yq4 e "{\"variables\": with_entries(select(.key == \"variables\")) | .variables // {}}" ${CI_PROJECT_DIR}/.gitlab-ci.yml > ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp'
+    # Merge gitlab-ci-project.yml with vars 
+    - 'yq4 ea ". as $item ireduce ({}; . * $item )" ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp pkgs/.gitlab-ci-project.yml > ${CI_PROJECT_DIR}/.gitlab-ci-project.yml'
+    # Return on main folder
     - cd "${PRE_GIT_PWD}"
   artifacts:
     paths:
-      - ${FLUX_TEMPLATES_DIR}/pkgs/.gitlab-ci-project.yml
+      - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -79,11 +94,11 @@ start automation:
   trigger:
     include:
     # NOTE: it seems that we can only add at max 3 artifacts.
-      - artifact: pkg/sparkfabrik/pkg_base/infrastructure/gitlab-ci.yml
+      - artifact: pkgs_ci_dir_files/base/gitlab-ci.yml
         job: install packages
-      - artifact: pkg/sparkfabrik/pkg_drupal/infrastructure/gitlab-ci.yml
+      - artifact: pkgs_ci_dir_files/drupal/gitlab-ci.yml
         job: install packages
-      - artifact: flux-templates/pkgs/.gitlab-ci-project.yml
+      - artifact: .gitlab-ci-project.yml
         job: prepare automation
 
 # .trigger-deploy-automation:
