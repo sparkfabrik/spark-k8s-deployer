@@ -5,9 +5,19 @@
 #
 # You need to define the following enviroment variable:
 #
+#   - COMPOSER_AUTH
+#     Value: a json formatted php composer auth string, example: 
+#     {"http-basic":{"my-packagist.com":{"username":"xxx","password":"yyy"}}}   
+#
 #   - FLUX_REPO_BASE_URL
 #     Value: set as your flux infrastructure repository baseurl, for example take your HTTPS repo url and remove the protocol:
 #     example: github.com/sparkfabrik/gitops-infrastructure.git
+#
+#   - FLUX_ACCESS_TOKEN
+#     Value: the access token used to access the FLUX_REPO_BASE_URL repository
+#
+#   - FLUX_USER
+#     Value: the user of the access token used to access the FLUX_REPO_BASE_URL repository
 #
 include:
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml'
@@ -102,6 +112,7 @@ start deploy pipeline:
   stage: automation
   variables:
     DRUPAL_PHPQA_ENABLE: 0
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
   trigger:
     include:
     # NOTE: it seems that we can only add at max 3 artifacts.
