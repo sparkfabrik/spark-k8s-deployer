@@ -100,32 +100,4 @@ start automation:
         job: install packages
       - artifact: .gitlab-ci-project.yml
         job: prepare automation
-
-# .trigger-deploy-automation:
-#   stage: start
-#   script:
-#   - curl --request POST
-#     --form token=${AUTOMATION_TRIGGER_TOKEN} 
-#     --form ref=${AUTOMATION_BRANCH}
-#     --form "variables[CI_COMMIT_REF_SLUG]=${CI_COMMIT_REF_SLUG}"
-#     --form "variables[CI_PROJECT_ID]=${CI_PROJECT_ID}"
-#     --form "variables[CI_PROJECT_NAME]=${CI_PROJECT_NAME}"
-#     --form "variables[DRUPAL_PHPQA_ENABLE]=${PHPQA_ENABLE}"
-#     --form "variables[HTTPS_REPO_URL]=${CI_REPOSITORY_URL}"
-#     --form "variables[CI_COMMIT_SHA]=${CI_COMMIT_SHA}"
-#     --form "variables[PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL]=${CI_ENVIRONMENT_BASE_URL}"
-#     "https://gitlab.sparkfabrik.com/api/v4/projects/${AUTOMATION_PROJECT_ID}/trigger/pipeline"
-
-# trigger stage deploy:
-#   extends: .trigger-deploy-automation
-#   variables:
-#     CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "stage"'
-
-# trigger production deploy:
-#   extends: .trigger-deploy-automation
-#   variables:
-#     CI_ENVIRONMENT_BASE_URL: ${PRODUCTION_CI_ENVIRONMENT_BASE_URL}
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "main"'
+    strategy: depend
