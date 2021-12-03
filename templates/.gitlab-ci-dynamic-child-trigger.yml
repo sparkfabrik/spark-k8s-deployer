@@ -14,7 +14,8 @@ workflow:
 variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
   FLUX_REPO_DEFAULT_BRANCH: main
-  FLUX_REPO_BASE_URL: gitlab.sparkfabrik.com/bocconi/gitops/flux-infrastructure.git
+  # Remeber to set this variable as your flux infrastructure repository baseurl
+  FLUX_REPO_BASE_URL: github.com/sparkfabrik/gitops.git
   # Keep the FLUX_TEMPLATES_DIR and artifact file in `start automation` job synced
   FLUX_TEMPLATES_DIR: ${CI_PROJECT_DIR}/flux-templates
   # Keep the PKGS_CI_DIR and artifact file in `start automation` job synced
@@ -35,6 +36,8 @@ install packages:
     - cd ${CI_PROJECT_DIR}
     # Move the original project in the final folder
     - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
+    # Generate base .env file
+    - make base-generate-env
     # Patch composer.json
     - docker run --rm -v ${CI_PROJECT_DIR}/src/drupal:/app composer:2.1.11 config bin-dir bin/
     # Test the composer patch
