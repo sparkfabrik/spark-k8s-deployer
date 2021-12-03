@@ -82,6 +82,7 @@ prepare automation:
     - yq4 ea '. as $item ireduce ({}; . * $item )' ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp .gitlab-ci-project.yml > ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
     # Return on main folder
     - cd "${PRE_GIT_PWD}"
+    - apk add --no-cache tree && tree
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/.gitlab-ci-project.yml
