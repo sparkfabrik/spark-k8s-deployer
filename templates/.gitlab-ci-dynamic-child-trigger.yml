@@ -14,11 +14,11 @@ variables:
   INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
   FLUX_REPO_DEFAULT_BRANCH: main
   # Remeber to set this variable as your flux infrastructure repository baseurl
-  FLUX_REPO_BASE_URL: github.com/sparkfabrik/gitops.git
+  FLUX_REPO_BASE_URL_LOC: ${FLUX_REPO_BASE_URL}
   # Keep the FLUX_TEMPLATES_DIR and artifact file in `start automation` job synced
-  FLUX_TEMPLATES_DIR: ${CI_PROJECT_DIR}/flux-templates
+  FLUX_TEMPLATES_DIR_LOC: ${CI_PROJECT_DIR}/flux-templates
   # Keep the PKGS_CI_DIR and artifact file in `start automation` job synced
-  PKGS_CI_DIR: ${CI_PROJECT_DIR}/pkgs_ci_dir_files
+  PKGS_CI_DIR_LOC: ${CI_PROJECT_DIR}/pkgs_ci_dir_files
 
 install packages:
   stage: install
@@ -42,11 +42,11 @@ install packages:
     # Test the composer patch
     - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
     # Move the downloaded Gitlab CI into static folder
-    - mkdir -p ${PKGS_CI_DIR}/base && mkdir -p ${PKGS_CI_DIR}/drupal
+    - mkdir -p ${PKGS_CI_DIR_LOC}/base && mkdir -p ${PKGS_CI_DIR_LOC}/drupal
     - export PATH_PKG_BASE="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_BASE" | awk '{ print $2 }')"
     - export PATH_PKG_DRUPAL="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_DRUPAL" | awk '{ print $2 }')"
-    - cp -av "${PATH_PKG_BASE}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR}/base/gitlab-ci.yml"
-    - cp -av "${PATH_PKG_DRUPAL}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR}/drupal/gitlab-ci.yml"
+    - cp -av "${PATH_PKG_BASE}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR_LOC}/base/gitlab-ci.yml"
+    - cp -av "${PATH_PKG_DRUPAL}/infrastructure/gitlab-ci.yml" "${PKGS_CI_DIR_LOC}/drupal/gitlab-ci.yml"
   cache:
     key: ${INSTALL_CACHE_NAME}
     paths: 
@@ -55,8 +55,8 @@ install packages:
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/gitlab-ci-fs-cli.yml
-      - ${PKGS_CI_DIR}/base/gitlab-ci.yml
-      - ${PKGS_CI_DIR}/drupal/gitlab-ci.yml
+      - ${PKGS_CI_DIR_LOC}/base/gitlab-ci.yml
+      - ${PKGS_CI_DIR_LOC}/drupal/gitlab-ci.yml
 
 prepare automation:
   stage: automation
@@ -64,7 +64,7 @@ prepare automation:
     # Define local env vars for the destination repo.
     - export PRE_GIT_PWD="${PWD}"
     - export REPO_DIR="/tmp/flux_infrastructure"
-    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL}"'
+    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL_LOC}"'
     # Clone flux repo.
     - mkdir -p ${REPO_DIR}
     - cd ${REPO_DIR}
@@ -73,8 +73,8 @@ prepare automation:
     - git clone ${DESTINATION_REPO_GIT_URL} ${REPO_DIR}
     # Switch on current default branch
     - git reset --hard origin/${FLUX_REPO_DEFAULT_BRANCH} || true
-    - cp -av "${REPO_DIR}/templates" "${FLUX_TEMPLATES_DIR}"
-    - cd ${FLUX_TEMPLATES_DIR}/pkgs
+    - cp -av "${REPO_DIR}/templates" "${FLUX_TEMPLATES_DIR_LOC}"
+    - cd ${FLUX_TEMPLATES_DIR_LOC}/pkgs
     # Extract PKG PATHs from the generated Gitlab CI
     - 'yq4 e "{\"variables\": with_entries(select(.key == \"variables\")) | .variables // {}}" ${CI_PROJECT_DIR}/.gitlab-ci.yml > ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp'
     # Merge gitlab-ci-project.yml with vars 
@@ -93,6 +93,9 @@ start deploy pipeline:
   stage: automation
   variables:
     DRUPAL_PHPQA_ENABLE: 0
+    FLUX_REPO_BASE_URL: ${FLUX_REPO_BASE_URL_LOC}
+    FLUX_TEMPLATES_DIR: ${FLUX_TEMPLATES_DIR_LOC}
+    PKGS_CI_DIR: ${PKGS_CI_DIR_LOC}
   trigger:
     include:
     # NOTE: it seems that we can only add at max 3 artifacts.
