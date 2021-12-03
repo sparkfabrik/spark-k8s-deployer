@@ -73,7 +73,7 @@ prepare automation:
     # Define local env vars for the destination repo.
     - export PRE_GIT_PWD="${PWD}"
     - export REPO_DIR="/tmp/flux_infrastructure"
-    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL_LOC}"'
+    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL}"'
     # Clone flux repo.
     - mkdir -p ${REPO_DIR}
     - cd ${REPO_DIR}
