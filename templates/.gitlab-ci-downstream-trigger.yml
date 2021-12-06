@@ -1,3 +1,19 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-downstream-trigger.yml'
+#
+# You need to define the following enviroment variable:
+#
+#   - AUTOMATION_TRIGGER_TOKEN
+#     Value: the access token used to access the automation repository with the downstream pipeline.
+#
+#   - AUTOMATION_BRANCH
+#     Value: the branch of the project with the downstream pipeline you want to trigger.
+#
+#   - STAGE_CI_ENVIRONMENT_BASE_URL and PRODUCTION_CI_ENVIRONMENT_BASE_URL
+#     Value: the urls of the two environments you want to deploy
+#
 include:
   - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml'
 
@@ -18,7 +34,6 @@ workflow:
     --form "variables[CI_COMMIT_REF_SLUG]=${CI_COMMIT_REF_SLUG}"
     --form "variables[CI_PROJECT_ID]=${CI_PROJECT_ID}"
     --form "variables[CI_PROJECT_NAME]=${CI_PROJECT_NAME}"
-    --form "variables[DRUPAL_PHPQA_ENABLE]=${PHPQA_ENABLE}"
     --form "variables[HTTPS_REPO_URL]=${CI_REPOSITORY_URL}"
     --form "variables[CI_COMMIT_SHA]=${CI_COMMIT_SHA}"
     --form "variables[PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL]=${CI_ENVIRONMENT_BASE_URL}"

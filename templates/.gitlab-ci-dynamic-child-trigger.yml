@@ -108,11 +108,11 @@ prepare automation:
     paths: 
       - ${CI_PROJECT_DIR}
 
-start deploy pipeline:
+.start-deploy-pipeline:
   stage: automation
   variables:
     DRUPAL_PHPQA_ENABLE: 0
-    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${CI_ENVIRONMENT_BASE_URL}
   trigger:
     include:
     # NOTE: it seems that we can only add at max 3 artifacts.
@@ -125,3 +125,17 @@ start deploy pipeline:
     strategy: depend
   needs:
     - prepare automation
+
+start stage deploy pipeline:
+  extends: .start-deploy-pipeline
+  variables:
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+
+start production deploy pipeline:
+  extends: .start-deploy-pipeline
+  variables:
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${PRODUCTION_CI_ENVIRONMENT_BASE_URL}
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^(master|main)$/'
