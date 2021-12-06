@@ -39,6 +39,9 @@ variables:
   # Keep the PKGS_CI_DIR and artifact file in `start automation` job synced
   PKGS_CI_DIR: pkgs_ci_dir_files
   PKG_DRUPAL_VERSION: "^3.2.0"
+  # SparkFabrik Firestarter cli vars:
+  FSCLI_DOCKER_IMAGE: eu.gcr.io/spark-int-cloud-services/fs-cli:latest
+  PROJECT_VENDOR: sparkfabrik
 
 install packages:
   stage: install
@@ -47,8 +50,8 @@ install packages:
     - mkdir -p /tmp/sources
     - find ${CI_PROJECT_DIR} -mindepth 1 -maxdepth 1 -exec mv {} /tmp/sources \;
     # Init and require sparkfabrik/pkg_drupal
-    - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init pkg-init-dir ${CI_PROJECT_NAME} spark ${CI_PROJECT_ID}'
-    - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/pkg_drupal:${PKG_DRUPAL_VERSION}'
+    - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH ${FSCLI_DOCKER_IMAGE} pkg:init pkg-init-dir ${CI_PROJECT_NAME} ${PROJECT_VENDOR} ${CI_PROJECT_ID}'
+    - 'docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH ${FSCLI_DOCKER_IMAGE} pkg:require sparkfabrik/pkg_drupal:${PKG_DRUPAL_VERSION}'
     - find ${CI_PROJECT_DIR}/pkg-init-dir -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR} \;
     # Clean the src/drupal folder from unwanted files
     - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
