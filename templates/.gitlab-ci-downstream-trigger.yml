@@ -5,6 +5,9 @@
 #
 # You need to define the following enviroment variable:
 #
+#   - AUTOMATION_PROJECT_ID
+#     Value: the GitLab ID of the automation project with the downstream pipeline.
+#
 #   - AUTOMATION_TRIGGER_TOKEN
 #     Value: the access token used to access the automation repository with the downstream pipeline.
 #
