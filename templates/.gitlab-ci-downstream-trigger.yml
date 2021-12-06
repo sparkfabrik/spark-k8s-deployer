@@ -40,6 +40,7 @@ workflow:
     --form "variables[HTTPS_REPO_URL]=${CI_REPOSITORY_URL}"
     --form "variables[CI_COMMIT_SHA]=${CI_COMMIT_SHA}"
     --form "variables[PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL]=${CI_ENVIRONMENT_BASE_URL}"
+    --form "variables[DRUPAL_PHPQA_ENABLE]=${PHPQA_ENABLE}"
     "https://gitlab.sparkfabrik.com/api/v4/projects/${AUTOMATION_PROJECT_ID}/trigger/pipeline"
 
 trigger stage deploy:
