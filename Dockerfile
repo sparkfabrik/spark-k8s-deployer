@@ -10,6 +10,8 @@ ENV DOCKER_BUILDX_VERSION v0.5.1
 ENV HELM3_VERSION 3.7.1
 ENV AWS_CLI_VERSION 1.16.305
 ENV YQ4_VERSION v4.14.2
+ENV FLUX2_RELEASE_VERSION 0.24.0
+ENV STERN_RELEASE_VERSION 1.20.1
 
 # https://github.com/multiarch/qemu-user-static/releases
 ENV QEMU_VERSION 5.2.0-2
@@ -43,7 +45,19 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && ln -s /usr/local/bin/helm /usr/local/bin/helm3 \
     # Install YQ4
     && curl -fSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4 \
-    && chmod +x /usr/local/bin/yq4
+    && chmod +x /usr/local/bin/yq4 \
+    # Install flux
+    && wget -O flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/fluxcd/flux2/releases/download/v${FLUX2_RELEASE_VERSION}/flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && tar -xvf flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && mv flux /usr/local/bin/flux \
+    && chmod +x /usr/local/bin/flux \
+    && rm flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
+    # Install stern
+    && wget -O stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/stern/stern/releases/download/v${STERN_RELEASE_VERSION}/stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && tar -xvf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && mv stern_${STERN_RELEASE_VERSION}_linux_amd64/stern /usr/local/bin/stern \
+    && chmod +x /usr/local/bin/stern \
+    && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64
 
 RUN pip install awscli==${AWS_CLI_VERSION}
 
