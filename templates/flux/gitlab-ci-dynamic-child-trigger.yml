@@ -126,7 +126,6 @@ prepare automation:
       - ${CI_PROJECT_DIR}
 
 .start-deploy-pipeline:
-  before_script: []
   stage: automation
   variables:
     DRUPAL_PHPQA_ENABLE: 0
