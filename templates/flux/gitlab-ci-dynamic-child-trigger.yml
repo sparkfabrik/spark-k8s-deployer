@@ -43,6 +43,16 @@ variables:
   FSCLI_DOCKER_IMAGE: eu.gcr.io/spark-int-cloud-services/fs-cli:latest
   PROJECT_VENDOR: sparkfabrik
 
+test requirements:
+  before_script: []
+  stage: install
+  script:
+    - |
+      if [ ! -f "${CI_PROJECT_DIR}/composer.json" ] || [ ! -f "${CI_PROJECT_DIR}/composer.lock" ]; then
+        echo "The requirements are not met!"
+        exit 1
+      fi
+
 install packages:
   stage: install
   script:
@@ -80,8 +90,11 @@ install packages:
       - ${CI_PROJECT_DIR}/gitlab-ci-fs-cli.yml
       - ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/base/gitlab-ci.yml
       - ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/drupal/gitlab-ci.yml
+  needs:
+    - test requirements
 
 prepare automation:
+  before_script: []
   stage: automation
   script:
     # Define local env vars for the destination repo.
@@ -113,6 +126,7 @@ prepare automation:
       - ${CI_PROJECT_DIR}
 
 .start-deploy-pipeline:
+  before_script: []
   stage: automation
   variables:
     DRUPAL_PHPQA_ENABLE: 0
