@@ -1,21 +1,27 @@
 .check-changelog:
   script:
-    # Safeguard to make the job actually run when the var is set.
+    # Safeguard to make the job actually run when at least one of the vars is set.
     - |
-      if [ -z "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+      if [ -z "$CI_MERGE_REQUEST_DIFF_BASE_SHA" -a -z "$CI_COMMIT_TAG" ]; then
+        echo 'both CI_MERGE_REQUEST_SOURCE_BRANCH_NAME and CI_COMMIT_TAG are empty, bailing out.'
+        echo "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+        echo "CI_COMMIT_TAG=$CI_COMMIT_TAG"
         exit 0
       fi
     # If the branch is a fix the check will be skipped
     - |
       if [ -n "$(echo "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}" | grep -E "^fix\/.+")" ]; then
+        echo 'Found fix/.+ branch name, bailing out.'
         exit 0
       fi
     # If the pipeline is running for a tag, we check if the tag is present in the changelog
     # otherwise the CHANGELOG.md should be edited
     - |
       if [ -n "${CI_COMMIT_TAG}" ]; then
+        echo "Checking presence of $CI_COMMIT_TAG in CHANGELOG.md"
         grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
       else
+        echo "Checking if CHANGELOG.md has been modified since $CI_MERGE_REQUEST_DIFF_BASE_SHA"
         git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
       fi
     - |
