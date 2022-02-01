@@ -15,7 +15,7 @@
 .drupal-phpqa-template:
   before_script:
     - ""
-  image: ghcr.io/sparkfabrik/drupal-qa:latest
+  image: ghcr.io/sparkfabrik/drupal-qa:1.0.0
   script:
     - DRUPAL_ROOT_FOUND=`/app/bin/util finddrupal ${CI_PROJECT_DIR} ${CI_PROJECT_DIR}/src/drupal`
     - ln -s ${DRUPAL_ROOT_FOUND}/.. /app/drupal
