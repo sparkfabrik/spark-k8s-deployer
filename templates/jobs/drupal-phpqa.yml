@@ -13,9 +13,11 @@
 #
 
 .drupal-phpqa-template:
+  variables:
+    PKG_DRUPAL_QA_VERSION: 1.0.0
   before_script:
     - ""
-  image: ghcr.io/sparkfabrik/drupal-qa:1.0.0
+  image: ghcr.io/sparkfabrik/drupal-qa:${PKG_DRUPAL_QA_VERSION}
   script:
     - DRUPAL_ROOT_FOUND=`/app/bin/util finddrupal ${CI_PROJECT_DIR} ${CI_PROJECT_DIR}/src/drupal`
     - ln -s ${DRUPAL_ROOT_FOUND}/.. /app/drupal
