@@ -3,7 +3,7 @@
 #   include:
 #     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml'
 #
-# Then add your job using the extends keyword (rembember to add a stage):
+# Then add your job using the extends keyword (remember to add a stage):
 #
 #   phpqa:
 #     extends: .drupal-phpqa
@@ -45,3 +45,67 @@
   rules:
     - if: '$CI_COMMIT_BRANCH !~ /^(master|main|releases|stage)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(master|main|releases|stage)$/'
 
+
+.drupalci-template:
+  variables:
+    PHP_TAG: 7.4.26-fpm-alpine3.15-rootless
+    DRUPALQA_TAG: 2.0.0
+    PKG_DRUPAL: ^4.0
+    FS_CLI: latest
+    VENDOR: sparkfabrik
+    LOCAL_VENDOR: test
+    SIMPLETEST_DB: sqlite://localhost/sites/db.sqlite
+  script:
+    - export MODULE_NAME=$(echo ${CI_PROJECT_NAME} | tr '-' '_')
+    # Init a new Firestarter project
+    - docker run --rm -t
+      -e COMPOSER_AUTH
+      -v /builds:/usr/src/app
+      eu.gcr.io/spark-int-cloud-services/fs-cli:${FS_CLI} pkg:init newproject testprojectname testvendorname -n
+    # Require the Drupal package.
+    - docker run --rm -t
+      -e COMPOSER_AUTH
+      -v /builds/newproject:/usr/src/app
+      eu.gcr.io/spark-int-cloud-services/fs-cli:${FS_CLI} pkg:require sparkfabrik/pkg_drupal:${PKG_DRUPAL}
+    # Add `/custom` folder to Composer as a path repository, with `symlink` == false.
+    - >
+      docker run --rm -t
+      -v /builds/newproject/src/drupal:/app
+      composer config repositories.custom "{ \"type\": \"path\", \"url\": \"/custom\", \"options\": { \"symlink\": false } }"
+    # Probably Firestarter CSM (imported from the Drupal package) already installs this package.
+    # To avoid issue with Composer here we rename the vendor name with `test`.
+    - >
+      docker run --rm -t
+      -v /builds/newproject/src/drupal:/app
+      -v $CI_PROJECT_DIR:/custom
+      composer sed -i "s/${VENDOR}\//${LOCAL_VENDOR}\//g" /custom/composer.json
+    # Require the local package (with the local vendor name).
+    - docker run --rm -t
+      -v /builds/newproject/src/drupal:/app
+      -v $CI_PROJECT_DIR:/custom
+      composer require --ignore-platform-reqs ${LOCAL_VENDOR}/${MODULE_NAME} -n
+    # Run phpqa.
+    - docker run --rm -t
+      -v /builds/newproject/src/drupal:/app/drupal
+      -v /builds/newproject/reports/phpqa:/app/reports
+      ghcr.io/sparkfabrik/drupal-qa:${DRUPALQA_TAG} phpqa --analyzedDirs "drupal/web/modules/contrib/${MODULE_NAME}" --tools "phpcpd:0,phpcs:0,phpmd:0,phpmetrics,phploc,pdepend,parallel-lint:0,phpstan:0,security-checker" --ignoredDirs "node_modules"
+    # Setup folders to run phpunit.
+    - chmod -R 777 /builds/newproject/src/drupal/web/sites/simpletest
+    - mkdir /builds/newproject/reports/phpunit
+    - chmod -R 777 /builds/newproject/reports/phpunit
+    - chmod -R 777 /builds/newproject/src/drupal/web
+    # Run phpunit.
+    - docker run --rm -t
+      -v /builds/newproject/src/drupal:/var/www/html
+      -v /builds/newproject/reports/phpunit:/app/reports
+      -e XDEBUG_ENABLE=1
+      -e XDEBUG_MODE=coverage
+      -e SIMPLETEST_DB=${SIMPLETEST_DB}
+      ghcr.io/sparkfabrik/docker-php-base-image:${PHP_TAG} bin/phpunit --configuration /var/www/html/web/modules/contrib/${MODULE_NAME}/phpunit.xml --coverage-html /app/reports /var/www/html/web/modules/contrib/${MODULE_NAME} 
+  after_script:
+    - mv /builds/newproject newproject # we move the files here to gather artifacts and suppress warnings.
+  artifacts:
+    paths:
+      - newproject/reports
+    expire_in: 1 day
+    when: always
