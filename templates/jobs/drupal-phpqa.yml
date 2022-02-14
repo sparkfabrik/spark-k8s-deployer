@@ -3,7 +3,7 @@
 #   include:
 #     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml'
 #
-# Then add your job using the extends keyword (rembember to add a stage):
+# Then add your job using the extends keyword (remember to add a stage):
 #
 #   phpqa:
 #     extends: .drupal-phpqa
@@ -72,7 +72,7 @@
       docker run --rm -t
       -v /builds/newproject/src/drupal:/app
       composer config repositories.custom "{ \"type\": \"path\", \"url\": \"/custom\", \"options\": { \"symlink\": false } }"
-    # Probabily Firestarter CSM (imported from the Drupal package) alredy installs this package.
+    # Probably Firestarter CSM (imported from the Drupal package) already installs this package.
     # To avoid issue with Composer here we rename the vendor name with `test`.
     - >
       docker run --rm -t
