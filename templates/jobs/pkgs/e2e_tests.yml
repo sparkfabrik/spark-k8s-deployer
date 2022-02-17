@@ -29,18 +29,9 @@
     # We use sed to remove local project-level gitlab-ci (which cannot be linted).
     - |
       if [ -n "${CI_TO_TEST}" ]; then
-        sed -i '/- local: ..*/d' "${CI_TO_TEST}"
-        export LINT_OUTPUT=$(jq --null-input --arg yaml "$(<${CI_TO_TEST})" '.content=$yaml' \
-          | curl "https://gitlab.sparkfabrik.com/api/v4/ci/lint" \
-          --silent \
-          --header 'Content-Type: application/json' \
-          --header "PRIVATE-TOKEN: ${LINT_CI_TOKEN}" \
-          --data @-)
-        echo Linting output: ${LINT_OUTPUT}
-        export LINT_VAL=$(echo $LINT_OUTPUT| jq --raw-output '.status')
-        if [ "${LINT_VAL}" != "valid" ]; then
-          exit 1
-        fi
+        curl -Ls -o /tmp/yaml_linting.sh \
+        https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/scripts/e2e_tests/yaml_linting.sh \
+        && chmod +x /tmp/yaml_linting.sh && /tmp/yaml_linting.sh
       fi
   after_script:
     - mv /builds/newproject newproject # we move the files here to gather artifacts and suppress warnings.
