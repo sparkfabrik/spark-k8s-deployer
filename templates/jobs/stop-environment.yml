@@ -12,16 +12,14 @@
   before_script: []
   script:
     - |
-      exit_code=0
       if [ -z "${STOP_RELEASE_NAME}" ]; then
         echo "You have to define the STOP_RELEASE_NAME variable in order to define which helm release you want to stop."
-        exit_code=1
+        exit 1
       fi
       if [ -z "${KUBE_NAMESPACE}" ]; then
         echo "You have to define the KUBE_NAMESPACE variable in order to define in which namespace your release was deployed."
-        exit_code=2
+        exit 2
       fi
-      exit ${exit_code}
     - echo "Stopping the ${CI_ENVIRONMENT_NAME} environment and removing the ${STOP_RELEASE_NAME} helm release in ${KUBE_NAMESPACE} namespace"
     # Removing the helm release.
     - helm uninstall "${STOP_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" --wait
