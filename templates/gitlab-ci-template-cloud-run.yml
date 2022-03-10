@@ -62,6 +62,23 @@ workflow:
   rules:
     - if: $CI_COMMIT_BRANCH
 
+.export_vars:
+  script:
+    # If the SERVICE_ACCOUNT variable is not defined, the `gcloud` command will be executed without `--service-account` option.
+    - |
+      if [ -n "${SERVICE_ACCOUNT}" ]; then
+        export SERVICE_ACCOUNT_OPT="--service-account ${SERVICE_ACCOUNT}"
+      else
+        export SERVICE_ACCOUNT_OPT=""
+      fi
+    # If the DEPLOYMENT_SUFFIX variable is not defined, the FULL_DEPLOYMENT_NAME is equal to DEPLOYMENT_NAME otherwise the suffix will be appended.
+    - |
+      if [ -n "${DEPLOYMENT_SUFFIX}" ]; then
+        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}-${DEPLOYMENT_SUFFIX}"
+      else
+        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}"
+      fi
+
 .print_vars:
   script:
     - |
@@ -69,7 +86,8 @@ workflow:
       printf "\e[1mConfigured variables:\e[0m\n"
       for VAR_NAME in "APP_NAME" "GCP_PROJECT_ID" "GCP_REGION" "BRANCHES_MANUAL_DEPLOYMENT" \
         "BRANCHES_AUTOMATIC_DEPLOYMENT" "CI_REGISTRY_IMAGE_BASE_URL" "CI_REGISTRY_IMAGE_TAG" "CI_REGISTRY_IMAGE" \
-        "DEPLOYMENT_SUFFIX" "DEPLOYMENT_NAME" "PORT" "SERVICE_ACCOUNT" "DOCKERFILE"; do
+        "DEPLOYMENT_SUFFIX" "DEPLOYMENT_NAME" "FULL_DEPLOYMENT_NAME" "PORT" \
+        "SERVICE_ACCOUNT" "SERVICE_ACCOUNT_OPT" "DOCKERFILE"; do
         printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
       done
 
@@ -86,6 +104,7 @@ test variables:
         echo -e "\e[1m\e[31mYou have to define the GCP_PROJECT_ID variable\e[0m"
         exit 1
       fi
+    - !reference [.export_vars, script]
     - !reference [.print_vars, script]
   rules:
     - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_MANUAL_DEPLOYMENT || $CI_COMMIT_REF_SLUG =~ $BRANCHES_AUTOMATIC_DEPLOYMENT"
@@ -101,20 +120,8 @@ build:
 .deploy-template:
   stage: deploy
   script:
+    - !reference [.export_vars, script]
     - !reference [.print_vars, script]
-    # If the SERVICE_ACCOUNT variable is not defined, the `gcloud` command will be executed without `--service-account` option
-    - |
-      if [ -n "${SERVICE_ACCOUNT}" ]; then
-        export SERVICE_ACCOUNT_OPT="--service-account ${SERVICE_ACCOUNT}"
-      else
-        export SERVICE_ACCOUNT_OPT=""
-      fi
-    - |
-      if [ -n "${DEPLOYMENT_SUFFIX}" ]; then
-        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}-${DEPLOYMENT_SUFFIX}"
-      else
-        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}"
-      fi
     - gcloud run deploy ${FULL_DEPLOYMENT_NAME} --image=${CI_REGISTRY_IMAGE}
       --region ${GCP_REGION} --platform managed --allow-unauthenticated --project ${GCP_PROJECT_ID} --port=${PORT} ${SERVICE_ACCOUNT_OPT}
   rules:
