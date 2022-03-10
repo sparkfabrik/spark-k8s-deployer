@@ -20,6 +20,7 @@
 # - BRANCHES_AUTOMATIC_DEPLOYMENT: regex that match the ${CI_COMMIT_REF_SLUG} for which the automatic deploy job will be created (e.g. /^(master|main)$/) - Default: /^(master|main)$/
 # - CI_REGISTRY_IMAGE_BASE_URL: the URL of the GCR docker image (e.g. `gcr.io/my-sample-project-191923`) - Default: gcr.io/${GCP_PROJECT_ID}
 # - CI_REGISTRY_IMAGE_TAG: the tag for the docker image (e.g. `latest`) - Default: ${CI_COMMIT_SHORT_SHA}
+# - DEPLOYMENT_SUFFIX: the suffix for the DEPLOYMENT_NAME, useful to create multiple deployment for the same application; if is left empty no suffix will be added to the DEPLOYMENT_NAME (e.g. `italian-website`) - Default:
 # - PORT: the port used by the web server to listen for connections (e.g. `8080`) - Default: 80
 # - SERVICE_ACCOUNT: the service account used by the application when it runs on Google Cloud Run (e.g. `my-low-privileged-service-account`) - Default: default Compute Engine service account as described here: https://cloud.google.com/run/docs/configuring/service-accounts
 # - DOCKERFILE: the Dockerfile used to build the image (e.g. `Dockerfile.production`) - Default: Dockerfile
@@ -47,6 +48,8 @@ variables:
   CI_REGISTRY_IMAGE_BASE_URL: gcr.io/${GCP_PROJECT_ID}
   CI_REGISTRY_IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
   CI_REGISTRY_IMAGE: ${CI_REGISTRY_IMAGE_BASE_URL}/${APP_NAME}:${CI_REGISTRY_IMAGE_TAG}
+  # DEPLOYMENT_SUFFIX:
+  # SERVICE_ACCOUNT:
   DEPLOYMENT_NAME: ${APP_NAME}-${CI_COMMIT_REF_SLUG}
   PORT: 80
   DOCKERFILE: Dockerfile
@@ -66,7 +69,7 @@ workflow:
       printf "\e[1mConfigured variables:\e[0m\n"
       for VAR_NAME in "APP_NAME" "GCP_PROJECT_ID" "GCP_REGION" "BRANCHES_MANUAL_DEPLOYMENT" \
         "BRANCHES_AUTOMATIC_DEPLOYMENT" "CI_REGISTRY_IMAGE_BASE_URL" "CI_REGISTRY_IMAGE_TAG" "CI_REGISTRY_IMAGE" \
-        "DEPLOYMENT_NAME" "PORT" "SERVICE_ACCOUNT" "DOCKERFILE"; do
+        "DEPLOYMENT_SUFFIX" "DEPLOYMENT_NAME" "PORT" "SERVICE_ACCOUNT" "DOCKERFILE"; do
         printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
       done
 
@@ -95,7 +98,7 @@ build:
   rules:
     - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_MANUAL_DEPLOYMENT || $CI_COMMIT_REF_SLUG =~ $BRANCHES_AUTOMATIC_DEPLOYMENT"
 
-deploy:
+.deploy-template:
   stage: deploy
   script:
     - !reference [.print_vars, script]
@@ -106,9 +109,19 @@ deploy:
       else
         export SERVICE_ACCOUNT_OPT=""
       fi
-    - gcloud run deploy ${DEPLOYMENT_NAME} --image=${CI_REGISTRY_IMAGE}
+    - |
+      if [ -n "${DEPLOYMENT_SUFFIX}" ]; then
+        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}-${DEPLOYMENT_SUFFIX}"
+      else
+        export FULL_DEPLOYMENT_NAME="${DEPLOYMENT_NAME}"
+      fi
+    - gcloud run deploy ${FULL_DEPLOYMENT_NAME} --image=${CI_REGISTRY_IMAGE}
       --region ${GCP_REGION} --platform managed --allow-unauthenticated --project ${GCP_PROJECT_ID} --port=${PORT} ${SERVICE_ACCOUNT_OPT}
   rules:
     - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_MANUAL_DEPLOYMENT"
       when: manual
     - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_AUTOMATIC_DEPLOYMENT"
+
+deploy:
+  extends:
+    - .deploy-template
