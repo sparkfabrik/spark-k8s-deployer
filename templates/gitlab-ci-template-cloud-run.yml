@@ -124,11 +124,11 @@ build:
     - !reference [.print_vars, script]
     - gcloud run deploy ${FULL_DEPLOYMENT_NAME} --image=${CI_REGISTRY_IMAGE}
       --region ${GCP_REGION} --platform managed --allow-unauthenticated --project ${GCP_PROJECT_ID} --port=${PORT} ${SERVICE_ACCOUNT_OPT}
-  rules:
-    - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_MANUAL_DEPLOYMENT"
-      when: manual
-    - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_AUTOMATIC_DEPLOYMENT"
 
 deploy:
   extends:
     - .deploy-template
+  rules:
+    - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_MANUAL_DEPLOYMENT"
+      when: manual
+    - if: "$CI_COMMIT_REF_SLUG =~ $BRANCHES_AUTOMATIC_DEPLOYMENT"
