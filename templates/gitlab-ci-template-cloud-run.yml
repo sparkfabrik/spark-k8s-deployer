@@ -94,21 +94,21 @@ workflow:
 .build_template:
   script:
     - docker build --build-arg PORT=${PORT} -t ${CI_REGISTRY_IMAGE} -f ${DOCKERFILE} .
-    - mkdir -p /docker-images
-    - docker save --output /docker-images/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
+    - mkdir -p ./docker-images-cache
+    - docker save --output ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
     paths:
-      - /docker-images
+      - docker-images-cache/
 
 .load_and_push_template:
   script:
-    - docker load --input /docker-images/${DOCKER_IMAGE_NAME}.tar
+    - docker load --input ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar
     - docker push ${CI_REGISTRY_IMAGE}
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
     paths:
-      - /docker-images
+      - docker-images-cache/
 
 .deploy_template:
   script:
@@ -121,7 +121,7 @@ workflow:
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
     paths:
-      - /docker-images
+      - docker-images-cache/
 
 test variables:
   stage: test
