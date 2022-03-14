@@ -94,6 +94,7 @@ workflow:
 .build_template:
   script:
     - docker build --build-arg PORT=${PORT} -t ${CI_REGISTRY_IMAGE} -f ${DOCKERFILE} .
+    - mkdir -p /docker-images
     - docker save --output /docker-images/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
