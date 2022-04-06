@@ -1,0 +1,31 @@
+# -----------------------------
+# ENVIRONMENT ROLLBACK JOB TEMPLATE
+# -----------------------------
+# In order to use this job you must define in the global or job scope
+# these variables:
+#   - ROLLBACK_RELEASE_NAME: the helm release name which you want to rollback
+#   - KUBE_NAMESPACE: in which namespace the release was installed
+.helm-rollback-template:
+  # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
+  stage: .post
+  # We override the default before script, since we do not need it here.
+  before_script: []
+  script:
+    - |
+      if [ -z "${ROLLBACK_RELEASE_NAME}" ]; then
+        echo "You have to define the ROLLBACK_RELEASE_NAME variable in order to define which helm release you want to rollback."
+        exit 1
+      fi
+      if [ -z "${KUBE_NAMESPACE}" ]; then
+        echo "You have to define the KUBE_NAMESPACE variable in order to define in which namespace your release was deployed."
+        exit 2
+      fi
+    - echo "Rollbacking the ${ROLLBACK_RELEASE_NAME} helm release in ${KUBE_NAMESPACE} namespace"
+    # Rollback the helm release.
+    - helm rollback "${ROLLBACK_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" --wait
+    # Print Rollback result 
+    - helm history "${ROLLBACK_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" | grep "Rollback" | tail -1
+  # We do not want to rollback any release in a 'no dev' branch.
+  rules:
+    - if: '$CI_COMMIT_BRANCH !~ /^(master|main)$/ && $CI_COMMIT_BRANCH !~ /^(stage|test)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(master|main)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(stage|test)$/ && $CI_PIPELINE_SOURCE != "schedule"'
+      when: manual
