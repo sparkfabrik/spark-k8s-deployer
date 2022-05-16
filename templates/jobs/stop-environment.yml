@@ -5,6 +5,27 @@
 # these variables:
 #   - STOP_RELEASE_NAME: the helm release name which you want to stop
 #   - KUBE_NAMESPACE: in which namespace the release was installed
+#
+# You also need the seth the relative rule to add the stop job only to 
+# the desired branch, since we simply disable it for production 
+# environments (usually main and master branches). 
+#
+# Below a full example to add the stop job to a `development` environment
+# running on `develop` branch:
+#
+# stop-develop-env:
+#   extends: .stop-deployment-template
+#   variables:
+#     STOP_RELEASE_NAME: myproject-develop
+#     KUBE_NAMESPACE: ${CI_PROJECT_NAME}-${CI_PROJECT_ID}
+#   environment:
+#     name: development
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule"'
+#       when: manual
+#       allow_failure: true
+#
+# -----------------------------
 .stop-deployment-template:
   # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
   stage: .post
