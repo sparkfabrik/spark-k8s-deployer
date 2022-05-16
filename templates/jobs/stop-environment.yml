@@ -6,7 +6,7 @@
 #   - STOP_RELEASE_NAME: the helm release name which you want to stop
 #   - KUBE_NAMESPACE: in which namespace the release was installed
 #
-# You also need the set the relative rule to add the stop job only to 
+# You also need to set the relative rule to add the stop job only to 
 # the desired branch, since we simply disable it for production 
 # environments (usually main and master branches). 
 #
