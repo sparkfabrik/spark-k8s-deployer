@@ -1,8 +1,4 @@
-.sparkfabrik-pkg-e2e-test:
-  variables:
-    CI_TO_TEST: /builds/newproject/.gitlab-ci.yml
-    PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}
-    PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF: ${CI_COMMIT_SHA}
+.sparkfabrik-pkg-e2e-test-prepare:
   script:
     - docker run --rm -t
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
@@ -18,6 +14,9 @@
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
       eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
+
+.sparkfabrik-pkg-e2e-test-require:
+  script:
     - docker run --rm -t
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
@@ -33,6 +32,15 @@
         https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/scripts/e2e_tests/yaml_linting.sh \
         && chmod +x /tmp/yaml_linting.sh && /tmp/yaml_linting.sh
       fi
+
+.sparkfabrik-pkg-e2e-test:
+  variables:
+    CI_TO_TEST: /builds/newproject/.gitlab-ci.yml
+    PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}
+    PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF: ${CI_COMMIT_SHA}
+  script:
+    - !reference [.sparkfabrik-pkg-e2e-test-prepare, script]
+    - !reference [.sparkfabrik-pkg-e2e-test-require, script]
   after_script:
     - mv /builds/newproject newproject # we move the files here to gather artifacts and suppress warnings.
   artifacts:
