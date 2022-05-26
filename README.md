@@ -7,7 +7,7 @@ This image includes:
  * Docker client 20.10.7-ce
  * Docker-compose 1.29.2
  * Google cloud sdk 346.0.0
- * Helm 3.7.1 (helm3 binary)
+ * Helm 3.7.1
  * AWS CLI 1.16.305
  * YQ 4.14.2
  * FLUX2 0.26.2
