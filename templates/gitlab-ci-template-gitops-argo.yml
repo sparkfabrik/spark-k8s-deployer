@@ -144,6 +144,10 @@ php:
 # --------------
 sync to infrastructure repo:
   stage: sync
+  environment:
+    # This section is needed only to populate the CI_ENVIRONMENT_SLUG variable
+    # we use in Helm values.
+    name: ${ENVIRONMENT_SCOPE_PREFIX}/${CI_COMMIT_REF_SLUG}
   script:
     # Init Helm 3.
     - helm3 repo add "stable" "https://charts.helm.sh/stable"
@@ -180,10 +184,6 @@ sync to infrastructure repo:
 # Push argocd crd manifest to the automation repo and update the app of apps.
 configure deploy:
   stage: configure deploy
-  environment:
-    # This section is needed only to populate the CI_ENVIRONMENT_SLUG variable
-    # we are in Helm values.
-    name: ${CI_COMMIT_REF_SLUG}
   script:
     # Configure Argo CD cli
     - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
