@@ -145,14 +145,14 @@ php:
 sync to infrastructure repo:
   stage: sync
   environment:
-    # This section is needed only to populate the CI_ENVIRONMENT_SLUG variable
+    # This section is needed to populate the CI_ENVIRONMENT_SLUG variable
     # we use in Helm values.
     name: ${ENVIRONMENT_SCOPE_PREFIX}/${CI_COMMIT_REF_SLUG}
   script:
     # Init Helm 3.
-    - helm3 repo add "stable" "https://charts.helm.sh/stable"
-    - helm3 repo add "sparkfabrik" "https://storage.googleapis.com/spark-helm-charts"
-    - helm3 repo update
+    - helm repo add "stable" "https://charts.helm.sh/stable"
+    - helm repo add "sparkfabrik" "https://storage.googleapis.com/spark-helm-charts"
+    - helm repo update
     # Clone environment repo.
     - mkdir -p ${INFRASTRUCTURE_REPO_DIR}
     - cd ${INFRASTRUCTURE_REPO_DIR}
@@ -165,7 +165,7 @@ sync to infrastructure repo:
     - rm -rf ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
     # Generate updated manifests. Automation repo was cached in a previous build job.
     - envsubst < ${AUTOMATION_REPO_DIR}/docker/helm/values.${CI_COMMIT_REF_SLUG}.yaml.tpl > ${INFRASTRUCTURE_REPO_DIR}/values.yaml
-    - helm3 template ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG} sparkfabrik/drupal
+    - helm template ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG} sparkfabrik/drupal
       -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
       --version 4.8.0
       --render-subchart-notes
@@ -238,7 +238,8 @@ argo sync:
     # Stream pod logs.
     - mkdir -p "${CI_PROJECT_DIR}/logs"
     - stern "${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}" --namespace "${KUBE_NAMESPACE}"
-      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
+      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}"
+      -l pipeline_id="${CI_PIPELINE_ID}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
     # Sync app
     - argocd app sync ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
     - argocd app wait ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
