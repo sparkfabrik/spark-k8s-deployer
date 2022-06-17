@@ -1,4 +1,4 @@
-FROM gcr.io/google.com/cloudsdktool/cloud-sdk:346.0.0-alpine
+FROM gcr.io/google.com/cloudsdktool/cloud-sdk:389.0.0-alpine
 
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
@@ -12,6 +12,9 @@ ENV AWS_CLI_VERSION 1.16.305
 ENV YQ4_VERSION v4.14.2
 ENV FLUX2_RELEASE_VERSION 0.26.2
 ENV STERN_RELEASE_VERSION 1.20.1
+
+# Use the gke-auth-plugin to authenticate to the GKE cluster.
+ENV USE_GKE_GCLOUD_AUTH_PLUGIN true
 
 # https://github.com/multiarch/qemu-user-static/releases
 ENV QEMU_VERSION 5.2.0-2
@@ -31,7 +34,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
     && for ARCH in ${QEMU_ARCHS}; do curl https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VERSION}/qemu-${ARCH}-static -o /usr/bin/qemu-${ARCH}-static; done \
-    && gcloud components install kubectl beta --quiet \
+    && gcloud components install kubectl beta gke-gcloud-auth-plugin --quiet \
     && kubectl version --client \
     # Install Helm 3:
     && wget -O helm-v${HELM3_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
