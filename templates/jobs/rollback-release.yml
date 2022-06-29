@@ -6,7 +6,7 @@
 #   - ROLLBACK_RELEASE_NAME: the helm release name which you want to rollback
 #   - KUBE_NAMESPACE: in which namespace the release was installed
 .helm-rollback-template:
-  # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
+  # We use the deploy stage https://docs.gitlab.com/ee/ci/yaml/#stages
   stage: deploy
   # We override the default before script, since we do not need it here.
   before_script: []
