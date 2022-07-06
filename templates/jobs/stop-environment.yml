@@ -43,7 +43,8 @@
       fi
     - echo "Stopping the ${CI_ENVIRONMENT_NAME} environment and removing the ${STOP_RELEASE_NAME} helm release in ${KUBE_NAMESPACE} namespace"
     # Removing the helm release.
-    - helm uninstall "${STOP_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" --wait
+    - echo "RUNNING THE STOP JOB WITH --DRY-RUN - IT WILL NOT BE EXECUTED"
+    - helm uninstall "${STOP_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" --wait --dry-run
   environment:
     # We need to use the exact same name of the environment we want to stop.
     action: stop
