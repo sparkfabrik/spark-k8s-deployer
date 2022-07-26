@@ -33,6 +33,8 @@
 
 # This job that should be used on the standard pipelines (no merge request pipelines)
 .check-changelog-standard-pipelines:
+  variables:
+    COMPARE_WITH: $CI_DEFAULT_BRANCH
   script:
     # Safeguard to make the job actually run when at least one of the vars is set.
     - |
@@ -55,8 +57,10 @@
         echo "Checking presence of $CI_COMMIT_TAG in CHANGELOG.md"
         grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
       else
-        echo "Checking if CHANGELOG.md has been modified in the commit ${CI_COMMIT_SHA}"
-        git diff --name-only ${CI_COMMIT_SHA}~ ${CI_COMMIT_SHA} | grep CHANGELOG.md >/dev/null || exit_code=$?
+        echo "Checking if CHANGELOG.md has been modified in the branch ${CI_COMMIT_BRANCH}"
+        cd ${CI_PROJECT_DIR}
+        git fetch origin ${COMPARE_WITH}:refs/remotes/origin/${COMPARE_WITH}
+        git diff --name-only remotes/origin/${CI_COMMIT_BRANCH}..remotes/origin/${COMPARE_WITH} | grep CHANGELOG.md >/dev/null || exit_code=$?
       fi
     - |
       if [ ${exit_code:-0} -ne 0 ]; then
