@@ -1,16 +1,17 @@
-.check-changelog:
+.check-changelog-base:
   script:
     # Safeguard to make the job actually run when at least one of the vars is set.
     - |
-      if [ -z "$CI_MERGE_REQUEST_DIFF_BASE_SHA" -a -z "$CI_COMMIT_TAG" ]; then
-        echo 'both CI_MERGE_REQUEST_SOURCE_BRANCH_NAME and CI_COMMIT_TAG are empty, bailing out.'
-        echo "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+      if ([ -z "$SRC_BRANCH" ] || [ -z "$COMPARE_WITH" ]) && [ -z "$CI_COMMIT_TAG" ]; then
+        echo 'SRC_BRANCH and COMPARE_WITH or CI_COMMIT_TAG are empty, bailing out.'
+        echo "SRC_BRANCH=$SRC_BRANCH"
+        echo "COMPARE_WITH=$COMPARE_WITH"
         echo "CI_COMMIT_TAG=$CI_COMMIT_TAG"
         exit 0
       fi
     # If the branch is a fix the check will be skipped
     - |
-      if [ -n "$(echo "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}" | grep -E "^fix\/.+")" ]; then
+      if [ -n "$(echo "${SRC_BRANCH}" | grep -E "^fix\/.+")" ]; then
         echo 'Found fix/.+ branch name, bailing out.'
         exit 0
       fi
@@ -21,8 +22,10 @@
         echo "Checking presence of $CI_COMMIT_TAG in CHANGELOG.md"
         grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
       else
-        echo "Checking if CHANGELOG.md has been modified since $CI_MERGE_REQUEST_DIFF_BASE_SHA"
-        git --no-pager diff --name-only "$(git merge-base "$CI_COMMIT_SHA" "$CI_MERGE_REQUEST_DIFF_BASE_SHA")" "$CI_COMMIT_SHA" | grep CHANGELOG.md || exit_code=$?
+        echo "Checking if CHANGELOG.md has been modified in the branch ${SRC_BRANCH}"
+        cd ${CI_PROJECT_DIR}
+        git fetch origin ${COMPARE_WITH}:refs/remotes/origin/${COMPARE_WITH}
+        git diff --name-only remotes/origin/${SRC_BRANCH}..remotes/origin/${COMPARE_WITH} | grep CHANGELOG.md >/dev/null || exit_code=$?
       fi
     - |
       if [ ${exit_code:-0} -ne 0 ]; then
@@ -31,40 +34,17 @@
         exit 1
       fi
 
+.check-changelog:
+  variables:
+    SRC_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    COMPARE_WITH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+  extends:
+    - .check-changelog-base
+
 # This job that should be used on the standard pipelines (no merge request pipelines)
 .check-changelog-standard-pipelines:
   variables:
+    SRC_BRANCH: $CI_COMMIT_BRANCH
     COMPARE_WITH: $CI_DEFAULT_BRANCH
-  script:
-    # Safeguard to make the job actually run when at least one of the vars is set.
-    - |
-      if [ -z "$CI_COMMIT_BRANCH" -a -z "$CI_COMMIT_TAG" ]; then
-        echo 'both CI_COMMIT_BRANCH and CI_COMMIT_TAG are empty, bailing out.'
-        echo "CI_COMMIT_BRANCH=$CI_COMMIT_BRANCH"
-        echo "CI_COMMIT_TAG=$CI_COMMIT_TAG"
-        exit 0
-      fi
-    # If the branch is a fix the check will be skipped
-    - |
-      if [ -n "$(echo "${CI_COMMIT_BRANCH}" | grep -E "^fix\/.+")" ]; then
-        echo 'Found fix/.+ branch name, bailing out.'
-        exit 0
-      fi
-    # If the pipeline is running for a tag, we check if the tag is present in the changelog
-    # otherwise the CHANGELOG.md should be edited
-    - |
-      if [ -n "${CI_COMMIT_TAG}" ]; then
-        echo "Checking presence of $CI_COMMIT_TAG in CHANGELOG.md"
-        grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
-      else
-        echo "Checking if CHANGELOG.md has been modified in the branch ${CI_COMMIT_BRANCH}"
-        cd ${CI_PROJECT_DIR}
-        git fetch origin ${COMPARE_WITH}:refs/remotes/origin/${COMPARE_WITH}
-        git diff --name-only remotes/origin/${CI_COMMIT_BRANCH}..remotes/origin/${COMPARE_WITH} | grep CHANGELOG.md >/dev/null || exit_code=$?
-      fi
-    - |
-      if [ ${exit_code:-0} -ne 0 ]; then
-        echo ah... ah... ah...
-        echo https://i.imgflip.com/5gp2wa.gif
-        exit 1
-      fi
+  extends:
+    - .check-changelog-base
