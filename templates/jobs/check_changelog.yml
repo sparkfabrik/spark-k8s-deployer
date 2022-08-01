@@ -1,17 +1,31 @@
+#1) MERGE_BASE_SHA is A
+#       o--o--o SOURCE
+#      /
+#--o--A TARGET
+#
+#2) MERGE_BASE_SHA is A
+#       o--o--o SOURCE
+#      /
+#--o--A--o--o--o TARGET
+#
+#3) MERGE_BASE_SHA is B
+#       o--o--o---o SOURCE
+#      /         /
+#--o--A--o--o--B TARGET
 .check-changelog-base:
   script:
     # Safeguard to make the job actually run when at least one of the vars is set.
     - |
-      if ([ -z "$SRC_BRANCH" ] || [ -z "$COMPARE_WITH" ]) && [ -z "$CI_COMMIT_TAG" ]; then
-        echo 'SRC_BRANCH and COMPARE_WITH or CI_COMMIT_TAG are empty, bailing out.'
-        echo "SRC_BRANCH=$SRC_BRANCH"
-        echo "COMPARE_WITH=$COMPARE_WITH"
+      if ([ -z "$SOURCE_REF" ] || [ -z "$TARGET_REF" ]) && [ -z "$CI_COMMIT_TAG" ]; then
+        echo 'SOURCE_REF or TARGET_REF and CI_COMMIT_TAG are empty, bailing out.'
+        echo "SOURCE_REF=$SOURCE_REF"
+        echo "TARGET_REF=$TARGET_REF"
         echo "CI_COMMIT_TAG=$CI_COMMIT_TAG"
         exit 0
       fi
     # If the branch is a fix the check will be skipped
     - |
-      if [ -n "$(echo "${SRC_BRANCH}" | grep -E "^fix\/.+")" ]; then
+      if [ -n "$(echo "${SOURCE_REF}" | grep -E "^fix\/.+")" ]; then
         echo 'Found fix/.+ branch name, bailing out.'
         exit 0
       fi
@@ -22,10 +36,11 @@
         echo "Checking presence of $CI_COMMIT_TAG in CHANGELOG.md"
         grep "${CI_COMMIT_TAG}" CHANGELOG.md || exit_code=$?
       else
-        echo "Checking if CHANGELOG.md has been modified in the branch ${SRC_BRANCH}"
+        echo "Checking if CHANGELOG.md has been modified in the branch ${SOURCE_REF}"
         cd ${CI_PROJECT_DIR}
-        git fetch origin ${COMPARE_WITH}:refs/remotes/origin/${COMPARE_WITH}
-        git diff --name-only remotes/origin/${SRC_BRANCH}..remotes/origin/${COMPARE_WITH} | grep CHANGELOG.md >/dev/null || exit_code=$?
+        git fetch --all
+        MERGE_BASE_SHA=$(git merge-base $SOURCE_REF $TARGET_REF)
+        git --no-pager diff --name-only ${MERGE_BASE_SHA} ${SOURCE_REF} | grep CHANGELOG.md >/dev/null || exit_code=$?
       fi
     - |
       if [ ${exit_code:-0} -ne 0 ]; then
@@ -36,15 +51,15 @@
 
 .check-changelog:
   variables:
-    SRC_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
-    COMPARE_WITH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    SOURCE_REF: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    TARGET_REF: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
   extends:
     - .check-changelog-base
 
 # This job that should be used on the standard pipelines (no merge request pipelines)
 .check-changelog-standard-pipelines:
   variables:
-    SRC_BRANCH: $CI_COMMIT_BRANCH
-    COMPARE_WITH: $CI_DEFAULT_BRANCH
+    SOURCE_REF: $CI_COMMIT_SHA
+    TARGET_REF: remotes/origin/$CI_DEFAULT_BRANCH
   extends:
     - .check-changelog-base
