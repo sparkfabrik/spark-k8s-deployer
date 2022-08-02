@@ -1,0 +1,78 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
+#
+# You need to define four variables:
+#
+#   - CLOUD_SQL_INSTANCE_NAME
+#     value: CloudSQL instance name
+#
+#   - GCLOUD_PROJECT_NAME
+#     value: the project name in the GCP console.
+#
+#   - BUCKET_NAME
+#     value: the name of the bucket where to store dumped databases.
+#
+#   - DB_NAMES
+#     value: the name/s database/s to dump; if you have multiple databases, you can
+#     write the value as:
+#       DB_NAMES: "\
+#         database_1 \
+#         database_2 \
+#         database_3 \
+#       "
+#
+#   - DESTINATION_FILE_NAME_SUFFIX_OVERRIDE
+#     value: you can override the suffix that will be append to the database name to use to name the
+#     databse dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
+#
+#
+# Then add your job using the extends keyword (rembember to add a stage):
+#
+#   database backup:
+#     extends: .cloudsql-database-dump
+#     stage: database-dump
+#
+# -------
+#
+# You must be authenticated within the project with gcloud.
+.cloudsql-database-dump:
+  variables:
+    CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
+    GCLOUD_PROJECT_NAME: zambon-pharmacy-portal
+    BUCKET_NAME: DESTINATION_BUCKET_NAME
+    DESTINATION_FILE_NAME_SUFFIX_OVERRIDE: ""
+    DB_NAMES: "\
+      database_1 \
+      database_2 \
+      database_3 \
+    "
+  script:
+    # Add tzdata to support timezones.
+    - apk add --no-cache tzdata
+    # Dump the database.
+    - >
+      if [ -n "$DB_NAMES" ]; then
+        for DB_NAME in $DB_NAMES
+        do
+          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."         
+          # Build target file name suffix
+          if [ -z "$DESTINATION_FILE_NAME_SUFFIX_OVERRIDE" ]; then
+            export DESTINATION_FILE_NAME_SUFFIX="${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz"
+          else
+            export DESTINATION_FILE_NAME_SUFFIX="${DESTINATION_FILE_NAME_SUFFIX_OVERRIDE}"
+          fi
+          gcloud sql export sql ${CLOUD_SQL_INSTANCE_NAME} \
+          gs://${BUCKET_NAME}/${DB_NAME}_${DESTINATION_FILE_NAME_SUFFIX} \
+          --database=${DB_NAME} --project=${GCLOUD_PROJECT_NAME} --verbosity=debug;
+        done
+      else
+        echo "Warning, database dump skipped. Empty DB_NAME variable."
+        exit 1
+      fi
+  only:
+    refs:
+      - master
+    variables:
+      - $DB_NAMES != ""
