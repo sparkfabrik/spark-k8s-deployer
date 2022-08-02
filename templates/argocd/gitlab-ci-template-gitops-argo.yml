@@ -183,7 +183,7 @@ sync to infrastructure repo:
     # https://stackoverflow.com/questions/3878624/how-do-i-programmatically-determine-if-there-are-uncommitted-changes
     - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
     # Note that we are using a multi-branch strategy for the GitOps repo.
-    - git push -u origin ${CI_COMMIT_REF_SLUG}
+    - git push -u -f origin ${CI_COMMIT_REF_SLUG}
   artifacts:
     when: always
     expire_in: 1 weeks
