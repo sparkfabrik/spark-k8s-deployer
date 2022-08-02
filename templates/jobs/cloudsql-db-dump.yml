@@ -51,7 +51,6 @@
   script:
     # Add tzdata to support timezones.
     - apk add --no-cache tzdata
-    - sleep 3600
     # Dump the database.
     - >
       if [ -n "$DB_NAMES" ]; then
