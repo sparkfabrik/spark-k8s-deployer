@@ -40,7 +40,7 @@
 .cloudsql-database-dump:
   variables:
     CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
-    GCLOUD_PROJECT_NAME: zambon-pharmacy-portal
+    GCLOUD_PROJECT_NAME: GCLOUD_PROJECT_NAME
     BUCKET_NAME: DESTINATION_BUCKET_NAME
     DESTINATION_FILE_NAME_SUFFIX_OVERRIDE: ""
     DB_NAMES: "\
@@ -56,7 +56,7 @@
       if [ -n "$DB_NAMES" ]; then
         for DB_NAME in $DB_NAMES
         do
-          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."         
+          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket from $CLOUD_SQL_INSTANCE_NAME CloudSQL instance..."         
           # Build target file name suffix
           if [ -z "$DESTINATION_FILE_NAME_SUFFIX_OVERRIDE" ]; then
             export DESTINATION_FILE_NAME_SUFFIX="${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz"

@@ -226,6 +226,11 @@ configure deploy:
     # Trigger sync on the app of apps ArgoCD project.
     - argocd app sync ${ARGOCD_APP_OF_APPS_NAME}
     - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
+  artifacts:
+    when: always
+    expire_in: 1 weeks
+    paths:
+      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
   rules:
     - if: '$CI_COMMIT_REF_SLUG == "stage" || $CI_COMMIT_REF_SLUG == "production"'
       when: on_success
@@ -239,9 +244,8 @@ stage database backup:
   stage: pre-deploy
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${DB_DUMP_GCLOUD_PROJECT_NAME}
     BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
-    DB_NAMES: ${DB_STAGE_PROD_DB_NAMES}
+    DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
   only:
     refs:
       - stage
@@ -253,7 +257,6 @@ production database backup:
   stage: pre-deploy
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${DB_DUMP_GCLOUD_PROJECT_NAME}
     BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
   only:
