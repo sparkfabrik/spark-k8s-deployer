@@ -244,6 +244,7 @@ stage database backup:
   stage: pre-deploy
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
     BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
   only:
@@ -254,9 +255,10 @@ stage database backup:
 
 production database backup:
   extends: .cloudsql-database-dump
-  stage: .pre
+  stage: pre-deploy
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
     BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
   only:
