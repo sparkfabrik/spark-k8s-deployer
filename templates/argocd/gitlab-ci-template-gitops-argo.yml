@@ -254,7 +254,7 @@ stage database backup:
 
 production database backup:
   extends: .cloudsql-database-dump
-  stage: pre-deploy
+  stage: .pre
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
     BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}

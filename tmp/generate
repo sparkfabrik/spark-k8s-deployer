@@ -1,0 +1,79 @@
+#!/bin/bash
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+export DEPLOY_ROOT_DIR
+source "$DEPLOY_ROOT_DIR/src/common.bash"
+
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_URL}"
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/http:\/\//}"
+CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/https:\/\//}"
+export CI_ENVIRONMENT_HOSTNAME
+
+# Kubernetes configuration files.
+export DEPLOY_CONF_DEFAULT_DIR=docker/k8s
+export DEPLOY_CONF_DIR=${DEPLOY_CONF_DIR:-${DEPLOY_CONF_DEFAULT_DIR}}
+if [ ! -d "${DEPLOY_CONF_DIR}" ]; then
+  echo "Missing kubernetes configuration files, not existing directiry: ${DEPLOY_CONF_DIR}."
+  exit 1
+fi
+
+export CREATE_BASIC_AUTH=${CREATE_BASIC_AUTH:-1}
+
+ensure_deploy_variables
+# Create_kubeconfig
+
+# Create standard k8s configurations.
+function init() {
+cat <<EOF | kubectl apply -f -
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: $KUBE_NAMESPACE
+EOF
+
+if [ "${CREATE_BASIC_AUTH}" = 1 ]; then
+  kubectl create secret generic ingress-basic-auth --from-file=/scripts/src/auth --namespace="${KUBE_NAMESPACE}" || true
+fi
+}
+
+# Materialize and run k8s configurations.
+function configure() {
+  mkdir -p k8s
+  for conf in ${DEPLOY_CONF_DIR}/*
+  do
+    if [ -d ${conf} ]
+    then
+      continue;
+    fi
+    filename=$(basename "${conf}")
+    echo "Processing ${filename}"
+    envsubst < "${conf}" > "k8s/${filename}"
+    echo "k8s/${filename}"
+  done
+}
+
+# Run deploy scripts from subfolders.
+function configureSubfolders() {
+  for conf in ${DEPLOY_CONF_DIR}/*
+  do
+    if [ -d ${conf} ]; then
+      if [ -f ${conf}/deploy ]; then
+        echo "Generating subfolder ${conf}"
+        (cd ${conf} && ./deploy)
+      fi
+    fi
+  done
+}
+
+echo "Load configurations from the app...."
+init || exit 1
+configureSubfolders || exit 1
+configure || exit 1
+
+echo "Manifests generated."
+echo ""
