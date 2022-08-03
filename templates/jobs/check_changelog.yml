@@ -40,6 +40,7 @@
         cd ${CI_PROJECT_DIR}
         git fetch --all
         MERGE_BASE_SHA=$(git merge-base $SOURCE_REF $TARGET_REF)
+        echo "MERGE_BASE_SHA $MERGE_BASE_SHA"
         git --no-pager diff --name-only ${MERGE_BASE_SHA} ${SOURCE_REF} | grep CHANGELOG.md >/dev/null || exit_code=$?
       fi
     - |
@@ -51,8 +52,8 @@
 
 .check-changelog:
   variables:
-    SOURCE_REF: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
-    TARGET_REF: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    SOURCE_REF: $CI_COMMIT_SHA
+    TARGET_REF: origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
   extends:
     - .check-changelog-base
 
