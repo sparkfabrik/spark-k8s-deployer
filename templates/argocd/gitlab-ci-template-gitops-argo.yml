@@ -59,6 +59,10 @@ variables:
 
   CI_ENVIRONMENT_BASE_URL: ${CI_COMMIT_REF_SLUG}.${CI_PROJECT_NAME}.${KUBE_INGRESS_BASE_DOMAIN}
 
+  # This pipeline is specific for Sparkfabrik Drupal Helm Chart, but can easily
+  # customized to use any Helm chart.
+  DRUPAL_HELM_CHART_VERSION: 4.8.0
+
   # ------
   # PROJECT SPECIFIC VARS
 
@@ -173,7 +177,7 @@ sync to infrastructure repo:
     - envsubst < ${AUTOMATION_REPO_DIR}/docker/helm/values.${CI_COMMIT_REF_SLUG}.yaml.tpl > ${INFRASTRUCTURE_REPO_DIR}/values.yaml
     - helm template ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG} sparkfabrik/drupal
       -f ${INFRASTRUCTURE_REPO_DIR}/values.yaml
-      --version 4.8.0
+      --version ${DRUPAL_HELM_CHART_VERSION}
       --render-subchart-notes
       --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       --include-crds
