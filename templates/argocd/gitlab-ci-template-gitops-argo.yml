@@ -229,7 +229,9 @@ configure deploy:
     - git push -u origin master
     # Trigger sync on the app of apps ArgoCD project.
     - argocd app sync ${ARGOCD_APP_OF_APPS_NAME}
-    - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
+    # We cannot wait for the wait for sync, since if one of the sub-apps is
+    #  degraded, the wait does not end successfully.
+    # - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
   artifacts:
     when: always
     expire_in: 1 weeks
