@@ -1,4 +1,4 @@
-FROM eu.gcr.io/google.com/cloudsdktool/cloud-sdk:404.0.0-alpine
+FROM eu.gcr.io/google.com/cloudsdktool/cloud-sdk:405.0.0-alpine
 
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
