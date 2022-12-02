@@ -1,0 +1,2 @@
+  - kind: ${SUBJECT_TYPE}
+    name: ${SUBJECT_NAME}

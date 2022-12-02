@@ -1,0 +1,10 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: project-${CI_PROJECT_ID}-${PROJECT_ROLE}-binding
+  namespace: ${KUBE_NAMESPACE}
+roleRef:
+  kind: Role
+  name: project-${CI_PROJECT_ID}-${PROJECT_ROLE}
+  apiGroup: rbac.authorization.k8s.io
+subjects:

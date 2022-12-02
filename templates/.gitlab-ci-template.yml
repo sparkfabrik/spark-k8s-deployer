@@ -2,7 +2,7 @@ image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - name: docker:20.10.7-dind
-    command: ["--registry-mirror", "https://mirror.gcr.io", "--mtu=1300", "--network-control-plane-mtu=1300"] 
+    command: ["--registry-mirror", "https://mirror.gcr.io", "--mtu=1300", "--network-control-plane-mtu=1300"]
 
 variables:
   # When using dind service, we need to instruct docker to talk with
@@ -28,6 +28,16 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4125
   DOCKER_TLS_VERIFY: 1
   DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  # Variables for defining dev team access to the deployment namespace.
+  # Currently, only development/review branches in GCP are supported; groups
+  # are supported as long as "Google Groups for RBAC" are enabled on the target
+  # cluster.
+  # See `scripts/templates/rbac` for role definitions.
+  # Values should be comma-separated lists of users and groups.
+  DEV_VIEWER_USERS: ""
+  DEV_VIEWER_GROUPS: ""
+  DEV_DEVELOPER_USERS: ""
+  DEV_DEVELOPER_GROUPS: ""
 
 .global-setup:
   before_script: &script-global-docker-wait

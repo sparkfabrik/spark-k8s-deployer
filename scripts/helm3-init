@@ -9,16 +9,61 @@ DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/common.bash"
 
-helm3-init() {
+prepare-namespace() {
   if [ -z "${KUBE_NAMESPACE}" ]; then
     echo "KUBE_NAMESPACE is missing."
     exit 1
   fi
   echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
   kubectl create ns "$KUBE_NAMESPACE" || true
+}
+
+create-ns-and-developer-roles () {
+  prepare-namespace
+  if [ -z "${CI_COMMIT_REF_SLUG}" ]; then
+    echo "CI_COMMIT_REF_SLUG is missing."
+    exit 1
+  fi
+  ALLOWED_PATTERN='^(dev|develop|(review-.*))$'
+  if ! [[ ${CI_COMMIT_REF_SLUG} =~ $ALLOWED_PATTERN ]]; then
+    echo "Not in Dev/Review branch: not handling team access via RBAC"
+    return 0
+  fi
+  if [ -z "${CI_PROJECT_ID}" ]; then
+    echo "CI_PROJECT_ID is missing."
+    exit 1
+  fi
+  envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/role-developer.yaml" | kubectl apply -f -
+  envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/role-viewer.yaml" | kubectl apply -f -
+  VIEWER_RB=`PROJECT_ROLE=viewer envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding.yaml"`
+  DEVELOPER_RB=`PROJECT_ROLE=developer envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding.yaml"`
+  IFS=',' read -r -a VIEWER_U <<< ${DEV_VIEWER_USERS}
+  IFS=',' read -r -a VIEWER_G <<< ${DEV_VIEWER_GROUPS}
+  IFS=',' read -r -a DEVELOPER_U <<< ${DEV_DEVELOPER_USERS}
+  IFS=',' read -r -a DEVELOPER_G <<< ${DEV_DEVELOPER_GROUPS}
+  for SUBJECT in "${VIEWER_U[@]}"; do
+    VIEWER_RB+=$'\n'`SUBJECT_TYPE=User SUBJECT_NAME=${SUBJECT} envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml"`
+  done
+  for SUBJECT in "${VIEWER_G[@]}"; do
+    VIEWER_RB+=$'\n'`SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml"`
+  done
+  for SUBJECT in "${DEVELOPER_U[@]}"; do
+    DEVELOPER_RB+=$'\n'`SUBJECT_TYPE=User SUBJECT_NAME=${SUBJECT} envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml"`
+  done
+  for SUBJECT in "${DEVELOPER_G[@]}"; do
+    DEVELOPER_RB+=$'\n'`SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst < "$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml"`
+  done
+  echo "$VIEWER_RB"
+  echo "$VIEWER_RB" | kubectl apply -f -
+  echo "$DEVELOPER_RB"
+  echo "$DEVELOPER_RB" | kubectl apply -f -
+}
+
+helm3-init() {
   helm3 repo add "stable" "https://charts.helm.sh/stable"
   helm3 repo add "sparkfabrik" "${SPARKFABRIK_CHART_REPO_URL:-https://storage.googleapis.com/spark-helm-charts}"
   helm3 repo update
 }
 
+create-ns-and-developer-roles
 helm3-init
