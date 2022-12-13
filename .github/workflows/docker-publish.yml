@@ -15,7 +15,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME-test
@@ -23,7 +23,7 @@ jobs:
   test-build-args:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME-test-args --build-arg QEMU_ARCHS="aarch64 arm x86_64"
@@ -34,7 +34,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
