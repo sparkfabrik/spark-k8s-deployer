@@ -91,7 +91,8 @@ if [[ $MR_BRANCH_NAME =~ ^release/.+ ]]; then
   TAG_NAME=${MR_BRANCH_NAME##release/}
   echo Pushing tag "$TAG_NAME" to origin
   git tag "$TAG_NAME"
-  git push ciremote --push-option=ci.skip "$TAG_NAME"
+  # shellcheck disable=SC2086
+  git push ciremote ${GIT_PUSH_OPTIONS:---push-option=ci.skip} "$TAG_NAME"
 else
   echo "$MR_BRANCH_NAME is not a release branch, doing nothing"
   exit 0

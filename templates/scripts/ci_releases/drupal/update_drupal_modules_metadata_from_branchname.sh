@@ -46,16 +46,17 @@ curl -Ls -o "$SCRIPT_DOWNLOAD_PATH/$SCRIPT_DRUPAL" \
 
 # Extract version from the branch name, check that is a valid semver string,
 # and that is greater (semver-wise) to the latest tag in the repo.
-VERSION_FROM_BRANCH_NAME=${CI_COMMIT_REF_NAME##release/}
+DESTINATION_BRANCH="${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$CI_COMMIT_REF_NAME}}"
+echo DESTINATION_BRANCH="$DESTINATION_BRANCH"
+VERSION_FROM_BRANCH_NAME=${DESTINATION_BRANCH##release/}
 echo VERSION_FROM_BRANCH_NAME="$VERSION_FROM_BRANCH_NAME"
-"$SCRIPT_DOWNLOAD_PATH"/validate_semver.sh "$VERSION_FROM_BRANCH_NAME"
 
+"$SCRIPT_DOWNLOAD_PATH"/validate_semver.sh "$VERSION_FROM_BRANCH_NAME"
 # Requires GITLAB_PROJECT_RW_AND_API_TOKEN vars.
 "$SCRIPT_DOWNLOAD_PATH"/setup_repo_for_writing.sh
-
 "$SCRIPT_DOWNLOAD_PATH"/update_drupal_info_yml_metadata.sh "$DRUPAL_PROJECT_NAME" "$VERSION_FROM_BRANCH_NAME"
 
-DESTINATION_BRANCH="${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$CI_COMMIT_REF_NAME}}"
 git add .
-git commit -m "[skip ci] [ci automation] Updated info.yml versions to $VERSION_FROM_BRANCH_NAME"
-git push ciremote --push-option=ci.skip "HEAD:$DESTINATION_BRANCH"
+git commit -m "[ci automation] Updated info.yml versions to $VERSION_FROM_BRANCH_NAME"
+# shellcheck disable=SC2086
+git push ciremote ${GIT_PUSH_OPTIONS:---push-option=ci.skip} "HEAD:$DESTINATION_BRANCH"
