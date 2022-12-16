@@ -3,7 +3,7 @@ FROM eu.gcr.io/google.com/cloudsdktool/cloud-sdk:405.0.0-alpine
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
 # https://github.com/docker/compose/releases
-ENV COMPOSE_VERSION 1.29.2
+ENV COMPOSE_VERSION v2.14.1
 # https://download.docker.com/linux/static/stable/x86_64
 ENV DOCKER_VERSION 20.10.7
 ENV DOCKER_BUILDX_VERSION v0.5.1
@@ -28,9 +28,11 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && rmdir docker \
     && rm docker.tgz \
     && docker -v \
-    && pip install "docker-compose==${COMPOSE_VERSION}" \
-    && docker-compose --version \
     && mkdir -p ~/.docker/cli-plugins \
+    && curl -SL https://github.com/docker/compose/releases/download/"${COMPOSE_VERSION}"/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose \
+    && chmod +x ~/.docker/cli-plugins/docker-compose \
+    && ln -s ~/.docker/cli-plugins/docker-compose /usr/local/bin/docker-compose \
+    && docker-compose --version \
     && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
     && for ARCH in ${QEMU_ARCHS}; do curl https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VERSION}/qemu-${ARCH}-static -o /usr/bin/qemu-${ARCH}-static; done \
