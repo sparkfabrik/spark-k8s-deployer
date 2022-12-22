@@ -3,6 +3,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: project-${CI_PROJECT_ID}-developer
   namespace: ${KUBE_NAMESPACE}
+  labels:
+    purpose: dev-team-namespace-access
 rules:
   - apiGroups: [ "", "extensions", "apps", "secrets", "networking", "rbac", "batch" ]
     resources: [ "deployments", "replicasets", "pods", "pods/log", "pods/exec", "configmaps", "events", "ingresses", "ingresses/status", "pods/portforward", "secrets", "services", "serviceaccounts", "jobs", "cronjobs", "persistentvolumeclaims" ]
