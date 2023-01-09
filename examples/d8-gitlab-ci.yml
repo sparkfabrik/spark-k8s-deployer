@@ -1,7 +1,5 @@
-image: sparkfabrik/spark-k8s-deployer:latest
-
-services:
-  - docker:dind
+include:
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml"
 
 stages:
   - build
@@ -9,12 +7,7 @@ stages:
   - deploy
   - cleanup
 
-before_script:
-  - docker login -u oauth2accesstoken -p "$(gcloud auth print-access-token)" https://gcr.io
-
 variables:
-  DOCKER_DRIVER: overlay
-  DOCKER_HOST: tcp://localhost:2375
   KUBE_DOMAIN: ci.sparkfabrik.cloud
   SPARK_PRJ_VENDOR: YOUR_VENDOR
   CI_REGISTRY_IMAGE_DB: gcr.io/spark-int-cloud-services/YOUR_VENDOR-db
@@ -24,8 +17,8 @@ variables:
 build:
   stage: build
   script:
-     - docker build --pull -t "$CI_REGISTRY_IMAGE_CODE:$CI_BUILD_REF_SLUG" .
-     - gcloud docker -- push "$CI_REGISTRY_IMAGE_CODE:$CI_BUILD_REF_SLUG"
+    - docker build --pull -t "$CI_REGISTRY_IMAGE_CODE:$CI_BUILD_REF_SLUG" .
+    - gcloud docker -- push "$CI_REGISTRY_IMAGE_CODE:$CI_BUILD_REF_SLUG"
 
 test:
   stage: test
@@ -60,4 +53,3 @@ delete_deploy:
   when: manual
   only:
     - develop
-
