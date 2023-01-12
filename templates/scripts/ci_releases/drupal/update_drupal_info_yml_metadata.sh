@@ -6,7 +6,7 @@ set -o pipefail
 
 function update_drupal_info_yml_metadata() {
   local timestamp
-  timestamp=$(date +%s)
+  timestamp="${3:-$(date +%s)}"
   for infofile in $(git ls-files | grep '\.info\.yml$'); do
     echo Changing metadata in "$infofile"
     if grep -q '^project: .*' "$infofile"; then
@@ -31,10 +31,12 @@ usage() {
   printf "%b" "
 Description: this script goes through all your info.yml files and sets the version,project,timestamp entries.
 Usage
-  ./update_drupal_info_yml_metadata.sh <project_name> <version>
+  ./update_drupal_info_yml_metadata.sh <project_name> <version> [timestamp]
+  If timestamp is not passed it will use the current timestamp.
 
 Examples
   ./update_drupal_info_yml_metadata.sh firestarter_cms 21.42.33
+  ./update_drupal_info_yml_metadata.sh firestarter_cms 21.42.33 1673542740
 "
 }
 
