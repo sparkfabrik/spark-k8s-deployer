@@ -12,6 +12,11 @@
 #       o--o--o---o SOURCE
 #      /         /
 #--o--A--o--o--B TARGET
+#
+# An useful rule to exec this job only on the feature branches is:
+# rules:
+#  - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != "" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == ""'
+#
 .check-changelog-base:
   script:
     # Safeguard to make the job actually run when at least one of the vars is set.
