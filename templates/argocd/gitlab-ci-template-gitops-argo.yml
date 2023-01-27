@@ -79,7 +79,7 @@ variables:
 # request or when adding a tag.
 workflow:
   rules:
-    - if: '$CI_COMMIT_REF_SLUG == "stage" || $CI_COMMIT_REF_SLUG == "production"'
+    - if: '$CI_COMMIT_BRANCH == "stage" || $CI_COMMIT_BRANCH == "production"'
       when: always
     - when: never
 
@@ -194,10 +194,6 @@ sync to infrastructure repo:
     paths:
       - ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       - ${INFRASTRUCTURE_REPO_DIR}/values.yaml
-  rules:
-    - if: '$CI_COMMIT_REF_SLUG == "stage" || $CI_COMMIT_REF_SLUG == "production"'
-      when: on_success
-    - when: never
 
 # --------------
 # CONFIGURE ARGO
@@ -237,10 +233,6 @@ configure deploy:
     expire_in: 1 weeks
     paths:
       - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
-  rules:
-    - if: '$CI_COMMIT_REF_SLUG == "stage" || $CI_COMMIT_REF_SLUG == "production"'
-      when: on_success
-    - when: never
 
 # --------------
 # DUMP CLOUDSQL DATABASES
@@ -297,8 +289,7 @@ argo sync:
     # Stream pod logs.
     - mkdir -p "${CI_PROJECT_DIR}/logs"
     - stern "${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}" --namespace "${KUBE_NAMESPACE}"
-      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}"
-      -l pipeline_id="${CI_PIPELINE_ID}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
+      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
     # Sync app
     - argocd app sync ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
     - argocd app wait ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
