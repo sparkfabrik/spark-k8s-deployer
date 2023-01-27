@@ -61,7 +61,7 @@ variables:
 
   # This pipeline is specific for Sparkfabrik Drupal Helm Chart, but can easily
   # customized to use any Helm chart.
-  DRUPAL_HELM_CHART_VERSION: 4.8.0
+  DRUPAL_HELM_CHART_VERSION: 4.10.0
 
   # ------
   # PROJECT SPECIFIC VARS
