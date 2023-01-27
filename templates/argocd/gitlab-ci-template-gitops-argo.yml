@@ -2,7 +2,7 @@
 image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 include:
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/gitops_argocd_pipeline_template/templates/jobs/cloudsql-db-dump.yml'
+  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
 
 stages:
   - populate cache
