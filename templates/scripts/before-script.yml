@@ -1,0 +1,10 @@
+before_script:
+  # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
+  - |
+    for i in $(seq 1 30)
+    do
+        docker info && break
+        echo "Waiting for docker to start"
+        sleep 1s
+    done
+  - gcloud auth configure-docker

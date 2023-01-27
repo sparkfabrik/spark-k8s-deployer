@@ -1,0 +1,163 @@
+# To use this template in your project, you must include it:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-dynamic-child-trigger.yml'
+#
+# You need to define the following enviroment variable:
+#
+#   - COMPOSER_AUTH
+#     Value: a json formatted php composer auth string, example:
+#     {"http-basic":{"my-packagist.com":{"username":"xxx","password":"yyy"}}}
+#
+#   - FLUX_REPO_BASE_URL
+#     Value: set as your flux infrastructure repository baseurl, for example take your HTTPS repo url and remove the protocol:
+#     example: github.com/sparkfabrik/gitops-infrastructure.git
+#
+#   - FLUX_ACCESS_TOKEN
+#     Value: the access token used to access the FLUX_REPO_BASE_URL repository
+#
+#   - FLUX_USER
+#     Value: the user of the access token used to access the FLUX_REPO_BASE_URL repository
+#
+include:
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml"
+
+stages:
+  - install
+  - automation
+
+# Pipelines does not run on merge request events, only on commits on given branches.
+workflow:
+  rules:
+    - if: "$CI_COMMIT_BRANCH =~ /^(master|main|stage)$/"
+
+variables:
+  INSTALL_CACHE_NAME: ${CI_COMMIT_SHORT_SHA}-fs-install
+  FLUX_REPO_DEFAULT_BRANCH: main
+  # Keep the FLUX_TEMPLATES_DIR and artifact file in `start automation` job synced
+  FLUX_TEMPLATES_DIR: flux-templates
+  # Keep the PKGS_CI_DIR and artifact file in `start automation` job synced
+  PKGS_CI_DIR: pkgs_ci_dir_files
+  PKG_DRUPAL_VERSION: "^3.2.0"
+  # SparkFabrik Firestarter cli vars:
+  FSCLI_DOCKER_IMAGE: eu.gcr.io/spark-int-cloud-services/fs-cli:latest
+  PROJECT_VENDOR: sparkfabrik
+
+test requirements:
+  before_script: []
+  stage: install
+  script:
+    - |
+      if [ ! -f "${CI_PROJECT_DIR}/composer.json" ] || [ ! -f "${CI_PROJECT_DIR}/composer.lock" ]; then
+        echo "The requirements are not met!"
+        exit 1
+      fi
+
+install packages:
+  stage: install
+  script:
+    # Move thee original project in a temporary directory
+    - mkdir -p /tmp/sources
+    - find ${CI_PROJECT_DIR} -mindepth 1 -maxdepth 1 -exec mv {} /tmp/sources \;
+    # Init and require packages
+    - "docker run -t -v ${CI_PROJECT_DIR}:/app -w /app -e COMPOSER_AUTH ${FSCLI_DOCKER_IMAGE} pkg:init pkg-init-dir ${CI_PROJECT_NAME} ${PROJECT_VENDOR} ${CI_PROJECT_ID}"
+    - |
+      if [ -z "${PKG_BASE_VERSION}" ]; then
+        echo "A specific pkg_base version is required.";
+        docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH ${FSCLI_DOCKER_IMAGE} pkg:require sparkfabrik/pkg_base:${PKG_BASE_VERSION}
+      fi
+    - "docker run -t -v ${CI_PROJECT_DIR}:/app -w /app/pkg-init-dir -e COMPOSER_AUTH ${FSCLI_DOCKER_IMAGE} pkg:require sparkfabrik/pkg_drupal:${PKG_DRUPAL_VERSION}"
+    - find ${CI_PROJECT_DIR}/pkg-init-dir -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR} \;
+    # Clean the src/drupal folder from unwanted files
+    - cd ${CI_PROJECT_DIR}/src/drupal && rm -rf behat.yml build.xml composer.* config features phpunit.xml reports web
+    - cd ${CI_PROJECT_DIR}
+    # Move the original project in the final folder
+    - find /tmp/sources -mindepth 1 -maxdepth 1 -exec mv {} ${CI_PROJECT_DIR}/src/drupal \;
+    # Generate base .env file
+    - make base-generate-env
+    # Patch composer.json
+    - docker run --rm -v ${CI_PROJECT_DIR}/src/drupal:/app composer:2.1.11 config bin-dir bin/
+    # Test the composer patch
+    - 'cat ${CI_PROJECT_DIR}/src/drupal/composer.json | grep "\"bin-dir\": \"bin\/\""'
+    # Move the downloaded Gitlab CI into static folder
+    - mkdir -p ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/base && mkdir -p ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/drupal
+    - export PATH_PKG_BASE="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_BASE" | awk '{ print $2 }')"
+    - export PATH_PKG_DRUPAL="$(cat ${CI_PROJECT_DIR}/.gitlab-ci.yml | grep "PATH_PKG_DRUPAL" | awk '{ print $2 }')"
+    - cp -av "${PATH_PKG_BASE}/infrastructure/gitlab-ci.yml" "${CI_PROJECT_DIR}/${PKGS_CI_DIR}/base/gitlab-ci.yml"
+    - cp -av "${PATH_PKG_DRUPAL}/infrastructure/gitlab-ci.yml" "${CI_PROJECT_DIR}/${PKGS_CI_DIR}/drupal/gitlab-ci.yml"
+  cache:
+    key: ${INSTALL_CACHE_NAME}
+    paths:
+      - ${CI_PROJECT_DIR}
+    policy: push
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/gitlab-ci-fs-cli.yml
+      - ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/base/gitlab-ci.yml
+      - ${CI_PROJECT_DIR}/${PKGS_CI_DIR}/drupal/gitlab-ci.yml
+  needs:
+    - test requirements
+
+prepare automation:
+  before_script: []
+  stage: automation
+  script:
+    # Define local env vars for the destination repo.
+    - export PRE_GIT_PWD="${PWD}"
+    - export REPO_DIR="/tmp/flux_infrastructure"
+    - 'export DESTINATION_REPO_GIT_URL="https://${FLUX_USER}:${FLUX_ACCESS_TOKEN}@${FLUX_REPO_BASE_URL}"'
+    # Clone flux repo.
+    - mkdir -p ${REPO_DIR}
+    - cd ${REPO_DIR}
+    - git config --global user.email "gitlab-gitops-bot@sparkfabrik.cloud"
+    - git config --global user.name "Gitlab Bot"
+    - git clone ${DESTINATION_REPO_GIT_URL} ${REPO_DIR}
+    # Switch on current default branch
+    - git reset --hard origin/${FLUX_REPO_DEFAULT_BRANCH} || true
+    - cp -av "${REPO_DIR}/templates" "${CI_PROJECT_DIR}/${FLUX_TEMPLATES_DIR}"
+    - cd ${CI_PROJECT_DIR}/${FLUX_TEMPLATES_DIR}/pkgs
+    # Extract PKG PATHs from the generated Gitlab CI
+    - 'yq4 e "{\"variables\": with_entries(select(.key == \"variables\")) | .variables // {}}" ${CI_PROJECT_DIR}/.gitlab-ci.yml > ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp'
+    # Merge gitlab-ci-project.yml with vars
+    - yq4 ea '. as $item ireduce ({}; . * $item )' ${CI_PROJECT_DIR}/gitlab-ci-only-vars.tmp gitlab-ci-project.yml > ${CI_PROJECT_DIR}/gitlab-ci-project.yml
+    # Return on main folder
+    - cd "${PRE_GIT_PWD}"
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/gitlab-ci-project.yml
+  cache:
+    key: ${INSTALL_CACHE_NAME}
+    paths:
+      - ${CI_PROJECT_DIR}
+
+.start-deploy-pipeline:
+  stage: automation
+  variables:
+    DRUPAL_PHPQA_ENABLE: 0
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${CI_ENVIRONMENT_BASE_URL}
+  trigger:
+    include:
+      # NOTE: it seems that we can only add at max 3 artifacts.
+      - artifact: pkgs_ci_dir_files/base/gitlab-ci.yml
+        job: install packages
+      - artifact: pkgs_ci_dir_files/drupal/gitlab-ci.yml
+        job: install packages
+      - artifact: gitlab-ci-project.yml
+        job: prepare automation
+    strategy: depend
+  needs:
+    - prepare automation
+
+start stage deploy pipeline:
+  extends: .start-deploy-pipeline
+  variables:
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${STAGE_CI_ENVIRONMENT_BASE_URL}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+
+start production deploy pipeline:
+  extends: .start-deploy-pipeline
+  variables:
+    PKG_DRUPAL_CI_ENVIRONMENT_BASE_URL: ${PRODUCTION_CI_ENVIRONMENT_BASE_URL}
+  rules:
+    - if: "$CI_COMMIT_BRANCH =~ /^(master|main)$/"

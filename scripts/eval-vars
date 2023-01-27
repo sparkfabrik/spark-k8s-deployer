@@ -1,0 +1,18 @@
+#!/bin/bash
+VARS=$(env | grep "${1}")
+if [ -z "$VARS" ]; then
+  exit 0;
+fi
+
+function token_quote {
+  local quoted=()
+  for token; do
+   quoted+=( "$(printf '%q' "$token")" )
+  done
+  printf '%s\n' "${quoted[*]}"
+}
+
+while IFS='=' read -r key value; do
+  echo export "${key}"="$(eval token_quote "$value")"
+done <<< "$VARS"
+

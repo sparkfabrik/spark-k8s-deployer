@@ -1,0 +1,54 @@
+# -----------------------------
+# ENVIRONMENT STOP JOB TEMPLATE
+# -----------------------------
+# In order to use this job you must define in the global or job scope
+# these variables:
+#   - STOP_RELEASE_NAME: the helm release name which you want to stop
+#   - KUBE_NAMESPACE: in which namespace the release was installed
+#
+# You also need to set the relative rule to add the stop job only to 
+# the desired branch, since we simply disable it for production 
+# environments (usually main and master branches). 
+#
+# Below a full example to add the stop job to a `development` environment
+# running on `develop` branch:
+#
+# stop-develop-env:
+#   extends: .stop-deployment-template
+#   variables:
+#     STOP_RELEASE_NAME: myproject-develop
+#     KUBE_NAMESPACE: ${CI_PROJECT_NAME}-${CI_PROJECT_ID}
+#   environment:
+#     name: development
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE != "schedule"'
+#       when: manual
+#       allow_failure: true
+#
+# -----------------------------
+.stop-deployment-template:
+  # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
+  stage: .post
+  # We override the default before script, since we do not need it here.
+  before_script: []
+  script:
+    - |
+      if [ -z "${STOP_RELEASE_NAME}" ]; then
+        echo "You have to define the STOP_RELEASE_NAME variable in order to define which helm release you want to stop."
+        exit 1
+      fi
+      if [ -z "${KUBE_NAMESPACE}" ]; then
+        echo "You have to define the KUBE_NAMESPACE variable in order to define in which namespace your release was deployed."
+        exit 2
+      fi
+    - echo "Stopping the ${CI_ENVIRONMENT_NAME} environment and removing the ${STOP_RELEASE_NAME} helm release in ${KUBE_NAMESPACE} namespace"
+    # Removing the helm release.
+    - echo "RUNNING THE STOP JOB..."
+    - helm uninstall "${STOP_RELEASE_NAME}" --namespace "${KUBE_NAMESPACE}" --wait
+  environment:
+    # We need to use the exact same name of the environment we want to stop.
+    action: stop
+  # We do not want an environment stop job for production branches.
+  rules:
+    - if: '$CI_COMMIT_BRANCH !~ /^(master|main)$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME !~ /^(master|main)$/ && $CI_PIPELINE_SOURCE != "schedule"'
+      when: manual
