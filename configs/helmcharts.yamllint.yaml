@@ -1,0 +1,7 @@
+# https://yamllint.readthedocs.io
+# These linting rules have been optimised to avoid checking those elements that are out of our control.
+---
+extends: default
+rules:
+  trailing-spaces: disable
+  line-length: disable
