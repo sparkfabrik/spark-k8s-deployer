@@ -2,7 +2,13 @@ image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - name: docker:20.10.7-dind
-    command: ["--registry-mirror", "https://mirror.gcr.io", "--mtu=1300", "--network-control-plane-mtu=1300"]
+    command:
+      [
+        "--registry-mirror",
+        "https://mirror.gcr.io",
+        "--mtu=1300",
+        "--network-control-plane-mtu=1300",
+      ]
 
 variables:
   # When using dind service, we need to instruct docker to talk with
@@ -40,8 +46,8 @@ variables:
   DEV_DEVELOPER_GROUPS: ""
 
 .global-setup:
+  # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script: &script-global-docker-wait
-    # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
     - |
       if command -v docker &> /dev/null
       then
@@ -65,12 +71,12 @@ before_script:
   - *script-global-docker-wait
 
 include:
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-nginx-build.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-php-build.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-sync-to-infrastructure-repo.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-argo-sync.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/stop-environment.yml'
-  - remote: 'https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/rollback-release.yml'
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-argo-sync.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-sync-to-infrastructure-repo.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-nginx-build.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-php-build.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/rollback-release.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/stop-environment.yml"

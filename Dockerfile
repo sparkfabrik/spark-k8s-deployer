@@ -20,7 +20,7 @@ ENV USE_GKE_GCLOUD_AUTH_PLUGIN true
 ENV QEMU_VERSION 5.2.0-2
 ARG QEMU_ARCHS="aarch64 arm"
 
-RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync && \
+RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint && \
     # Install docker and docker-compose.
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar -xzvf docker.tgz \
@@ -65,6 +65,8 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64
 
 RUN pip install awscli==${AWS_CLI_VERSION}
+
+COPY configs /configs
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
