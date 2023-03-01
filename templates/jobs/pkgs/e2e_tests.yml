@@ -14,6 +14,13 @@
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
       eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
+    - >
+      docker run --rm -t
+      -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL
+      -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
+      -e COMPOSER_AUTH
+      -v /builds/newproject:/usr/src/app
+      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config minimum-stability stable
 
 .sparkfabrik-pkg-e2e-test-require:
   script:
