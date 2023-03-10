@@ -1,4 +1,4 @@
-image: eu.gcr.io/spark-int-cloud-services/spark-k8s-deployer:latest
+image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
   - name: docker:20.10.7-dind
