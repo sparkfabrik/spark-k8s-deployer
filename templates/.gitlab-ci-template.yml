@@ -65,6 +65,7 @@ variables:
       if command -v gcloud &> /dev/null
       then
         gcloud auth configure-docker
+        gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
       fi
 
 before_script:
