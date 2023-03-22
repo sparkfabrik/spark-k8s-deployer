@@ -7,11 +7,11 @@ ENV COMPOSE_VERSION v2.14.0
 # https://download.docker.com/linux/static/stable/x86_64
 ENV DOCKER_VERSION 20.10.7
 ENV DOCKER_BUILDX_VERSION v0.5.1
-ENV HELM3_VERSION 3.7.1
+ENV HELM3_VERSION 3.11.2
 ENV AWS_CLI_VERSION 1.16.305
 ENV YQ4_VERSION v4.14.2
 ENV FLUX2_RELEASE_VERSION 0.26.2
-ENV STERN_RELEASE_VERSION 1.20.1
+ENV STERN_RELEASE_VERSION 1.24.0
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN true
@@ -39,7 +39,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && gcloud components install kubectl beta gke-gcloud-auth-plugin --quiet \
     && kubectl version --client \
     # Install Helm 3:
-    && wget -O helm-v${HELM3_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
+    && wget -q -O helm-v${HELM3_VERSION}-linux-amd64.tar.gz https://get.helm.sh/helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
     && tar -xzf helm-v${HELM3_VERSION}-linux-amd64.tar.gz \
     && cp linux-amd64/helm /usr/local/bin/helm \
     && chmod +x /usr/local/bin/helm \
@@ -52,25 +52,25 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && curl -fSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4 \
     && chmod +x /usr/local/bin/yq4 \
     # Install flux
-    && wget -O flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/fluxcd/flux2/releases/download/v${FLUX2_RELEASE_VERSION}/flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && wget -q -O flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/fluxcd/flux2/releases/download/v${FLUX2_RELEASE_VERSION}/flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
     && tar -xvf flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
     && mv flux /usr/local/bin/flux \
     && chmod +x /usr/local/bin/flux \
     && rm flux_${FLUX2_RELEASE_VERSION}_linux_amd64.tar.gz \
     # Install stern
-    && wget -O stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/stern/stern/releases/download/v${STERN_RELEASE_VERSION}/stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz \
+    && wget -q -O stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz https://github.com/stern/stern/releases/download/v${STERN_RELEASE_VERSION}/stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz \
     && tar -xvf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz \
-    && mv stern_${STERN_RELEASE_VERSION}_linux_amd64/stern /usr/local/bin/stern \
+    && mv stern /usr/local/bin/stern \
     && chmod +x /usr/local/bin/stern \
     && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64
 
-RUN pip install awscli==${AWS_CLI_VERSION}
+RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION}
 
 COPY configs /configs
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ADD scripts /scripts
+COPY scripts /scripts
 RUN chmod -R +rwx scripts
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["sh"]
