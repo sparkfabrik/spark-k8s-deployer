@@ -1,0 +1,13 @@
+# This job enables the deployment of a Chart Helm on the Google Cloud Platform (GCP) OCI registry. refs: https://cloud.google.com/artifact-registry/docs/helm/store-helm-charts#push
+# Variables to be configured to use the job
+# variables:
+#   OCI_ARTIFACT_HOST: The host of the OCI registry
+#   OCI_ARTIFACT_REGISTRY: The name of the OCI registry
+#   CHART: The name of the Chart Helm
+
+.deploy_to_artifact_registry_gcp:
+  stage: deploy
+  script:
+    - echo "Deploying to GCP Artifact Registry"
+    - helm package .
+    - helm push ${CHART}-${CI_COMMIT_TAG}.tgz oci://${OCI_ARTIFACT_HOST}/${OCI_ARTIFACT_REGISTRY}
