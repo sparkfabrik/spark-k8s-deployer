@@ -14,7 +14,7 @@
 # Variables to configure to use the job template:
 #   OCI_HOST: The host of the OCI registry (e.g.: `europe.pkg.dev`)
 #   OCI_REGISTRY: The name of the OCI registry (e.g.: `my-project/my-registry`)
-#   CHART_ARCHIVE: The name of the Helm Chart archive (e.g.: `my-awesome-app-1.0.0.tgz`)
+#   CHART_ARCHIVE: The path of the Helm Chart archive (e.g.: `subdir/my-awesome-app-1.0.0.tgz`)
 
 .deploy_to_oci_registry:
   script:
