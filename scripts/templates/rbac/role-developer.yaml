@@ -15,3 +15,6 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "ingresses/status"]
     verbs: ["*"]
+  - apiGroups: ["rolebindings.rbac.authorization.k8s.io"]
+    resources: ["rolebindings", "roles"]
+    verbs: ["*"]
