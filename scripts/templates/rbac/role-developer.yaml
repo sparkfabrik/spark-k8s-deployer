@@ -7,8 +7,11 @@ metadata:
     purpose: dev-team-namespace-access
 rules:
   - apiGroups: [ "", "extensions", "apps", "secrets", "networking", "rbac", "batch" ]
-    resources: [ "deployments", "replicasets", "pods", "pods/log", "pods/exec", "configmaps", "events", "ingresses", "ingresses/status", "pods/portforward", "secrets", "services", "serviceaccounts", "jobs", "cronjobs", "persistentvolumeclaims" ]
+    resources: [ "deployments", "replicasets", "pods", "pods/log", "pods/exec", "configmaps", "events", "pods/portforward", "secrets", "services", "serviceaccounts", "jobs", "cronjobs", "persistentvolumeclaims" ]
     verbs: [ "*" ]
   - apiGroups: [ "autoscaling" ]
     resources: [ "*" ]
     verbs: [ "*" ]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingresses/status"]
+    verbs: ["*"]
