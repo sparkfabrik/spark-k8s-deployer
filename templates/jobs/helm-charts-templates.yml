@@ -2,11 +2,10 @@
 # This Gitlab job template packages an Helm Chart.
 # Variables to configure to use the job template:
 #  CHART_ARCHIVE_DIR: The directory where the Helm Chart archive will be created (e.g.: `./helm-charts`)
-
 .build_helm_chart:
   script:
     - mkdir -p ${CHART_ARCHIVE_DIR}
-    - helm3 package ${CI_PROJECT_DIR} --destination ${CHART_ARCHIVE_DIR}
+    - helm package ${CI_PROJECT_DIR} --destination ${CHART_ARCHIVE_DIR}
 
 # Helm push: https://helm.sh/docs/helm/helm_push/
 # Helm and OCI registries: https://helm.sh/docs/topics/registries/
@@ -15,7 +14,6 @@
 #   OCI_HOST: The host of the OCI registry (e.g.: `europe.pkg.dev`)
 #   OCI_REGISTRY: The name of the OCI registry (e.g.: `my-project/my-registry`)
 #   CHART_ARCHIVE: The path of the Helm Chart archive (e.g.: `subdir/my-awesome-app-1.0.0.tgz`)
-
 .deploy_to_oci_registry:
   script:
     - echo "Deploy to OCI registry"
