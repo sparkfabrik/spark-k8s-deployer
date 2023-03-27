@@ -5,7 +5,7 @@
 .build_helm_chart:
   script:
     - mkdir -p ${CHART_ARCHIVE_DIR}
-    - helm package ${CI_PROJECT_DIR} --destination ${CHART_ARCHIVE_DIR}
+    - helm package ${CI_PROJECT_DIR} --destination ${CHART_ARCHIVE_DIR} --dependency-update
 
 # Helm push: https://helm.sh/docs/helm/helm_push/
 # Helm and OCI registries: https://helm.sh/docs/topics/registries/
