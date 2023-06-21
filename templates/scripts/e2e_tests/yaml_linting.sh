@@ -17,10 +17,15 @@ LINT_OUTPUT=$(jq --null-input --arg yaml "$(<${TMPFILE})" '.content=$yaml' |
     --header 'Content-Type: application/json' \
     --header "PRIVATE-TOKEN: ${LINT_CI_TOKEN}" \
     --data @-)
-echo Linting output: "${LINT_OUTPUT}"
-LINT_VAL=$(echo "$LINT_OUTPUT" | jq --raw-output '.valid')
+echo "Linting output: ${LINT_OUTPUT}"
+LINT_VAL=$(echo "${LINT_OUTPUT}" | jq --raw-output '.valid')
 if [ "${LINT_VAL}" != "true" ]; then
   echo "The linting of the YAML pipeline file failed!"
-  echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
+  if [ "$(echo "${LINT_OUTPUT}" | jq --raw-output '.errors | length')" != "0" ]; then
+    echo "The following errors were found:"
+    echo "${LINT_OUTPUT}" | jq --raw-output '.errors[] | "- " + .'
+  else
+    echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
+  fi
   exit 1
 fi
