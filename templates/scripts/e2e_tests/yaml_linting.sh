@@ -21,11 +21,10 @@ echo "Linting output: ${LINT_OUTPUT}"
 LINT_VAL=$(echo "${LINT_OUTPUT}" | jq --raw-output '.valid')
 if [ "${LINT_VAL}" != "true" ]; then
   echo "The linting of the YAML pipeline file failed!"
-  if [ "$(echo "${LINT_OUTPUT}" | jq --raw-output '.errors | length')" != "0" ]; then
-    echo "The following errors were found:"
-    echo "${LINT_OUTPUT}" | jq --raw-output '.errors[] | "- " + .'
-  else
-    echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
-  fi
+  echo "The following errors were found:"
+  echo "${LINT_OUTPUT}" | jq --raw-output '.errors[] | "- " + .'
+  echo "The following warnings were found:"
+  echo "${LINT_OUTPUT}" | jq --raw-output '.warnings[] | "- " + .'
+  echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
   exit 1
 fi
