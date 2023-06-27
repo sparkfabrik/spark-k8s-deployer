@@ -10,21 +10,23 @@ TMPFILE="$(mktemp)"
 # Remove the lines that include local files.
 sed -i '/- local: ..*/d' "${CI_TO_TEST}"
 # concat the main gitlab file with the local ones to a tmp file.
-cat "${CI_TO_TEST}" "${YAML_LOCAL_FILES}" >"${TMPFILE}"
+# YAML_LOCAL_FILES should remain unquoted so that newlines become spaces.
+# shellcheck disable=SC2086
+cat "${CI_TO_TEST}" ${YAML_LOCAL_FILES} >"${TMPFILE}"
 LINT_OUTPUT=$(jq --null-input --arg yaml "$(<${TMPFILE})" '.content=$yaml' |
-  curl "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
-    --silent \
-    --header 'Content-Type: application/json' \
-    --header "PRIVATE-TOKEN: ${LINT_CI_TOKEN}" \
-    --data @-)
+	curl "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
+		--silent \
+		--header 'Content-Type: application/json' \
+		--header "PRIVATE-TOKEN: ${LINT_CI_TOKEN}" \
+		--data @-)
 echo "Linting output: ${LINT_OUTPUT}"
 LINT_VAL=$(echo "${LINT_OUTPUT}" | jq --raw-output '.valid')
 if [ "${LINT_VAL}" != "true" ]; then
-  echo "The linting of the YAML pipeline file failed!"
-  echo "The following errors were found:"
-  echo "${LINT_OUTPUT}" | jq --raw-output '.errors[] | "- " + .'
-  echo "The following warnings were found:"
-  echo "${LINT_OUTPUT}" | jq --raw-output '.warnings[] | "- " + .'
-  echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
-  exit 1
+	echo "The linting of the YAML pipeline file failed!"
+	echo "The following errors were found:"
+	echo "${LINT_OUTPUT}" | jq --raw-output '.errors[] | "- " + .'
+	echo "The following warnings were found:"
+	echo "${LINT_OUTPUT}" | jq --raw-output '.warnings[] | "- " + .'
+	echo "Check the corresponding GitLab CI file and the 'Linting output' in this log."
+	exit 1
 fi
