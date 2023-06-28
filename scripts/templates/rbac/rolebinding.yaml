@@ -6,7 +6,7 @@ metadata:
   labels:
     purpose: dev-team-namespace-access
 roleRef:
-  kind: Role
-  name: project-${CI_PROJECT_ID}-${PROJECT_ROLE}
+  kind: ClusterRole
+  name: dev-team-${PROJECT_ROLE}
   apiGroup: rbac.authorization.k8s.io
 subjects:

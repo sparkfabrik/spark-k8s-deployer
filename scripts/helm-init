@@ -1,107 +1,67 @@
 #!/bin/bash
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+DEPLOY_ROOT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/common.bash"
-export NODE_SELECTOR=${NODE_SELECTOR:-gitlab-ci}
 
-init-rbac() {
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: tiller
-  namespace: ${KUBE_NAMESPACE}
-  labels:
-    app.kubernetes.io/name: spark-k8s-deployer
-    app.kubernetes.io/component: deployer
-    app.kubernetes.io/part-of: sparkfabrik
-    app.kubernetes.io/managed-by: gitlab
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: tiller-pv-manager
-  labels:
-    app.kubernetes.io/name: spark-k8s-deployer
-    app.kubernetes.io/component: deployer
-    app.kubernetes.io/part-of: sparkfabrik
-    app.kubernetes.io/managed-by: gitlab
-rules:
- - apiGroups: [""]
-   resources: ["persistentvolumes"]
-   verbs: ["create", "get", "list", "watch", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: tiller-manager-pv-${KUBE_NAMESPACE}
-  labels:
-    app.kubernetes.io/name: spark-k8s-deployer
-    app.kubernetes.io/component: deployer
-    app.kubernetes.io/part-of: sparkfabrik
-    app.kubernetes.io/managed-by: gitlab
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: tiller-pv-manager
-subjects:
-- kind: ServiceAccount
-  name: tiller
-  namespace: ${KUBE_NAMESPACE}
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: tiller-manager
-  namespace: ${KUBE_NAMESPACE}
-  labels:
-    app.kubernetes.io/name: spark-k8s-deployer
-    app.kubernetes.io/component: deployer
-    app.kubernetes.io/part-of: sparkfabrik
-    app.kubernetes.io/managed-by: gitlab
-rules:
-- apiGroups: ["*"]
-  resources: ["*"]
-  verbs: ["*"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: tiller-binding
-  namespace: ${KUBE_NAMESPACE}
-  labels:
-    app.kubernetes.io/name: spark-k8s-deployer
-    app.kubernetes.io/component: deployer
-    app.kubernetes.io/part-of: sparkfabrik
-    app.kubernetes.io/managed-by: gitlab
-subjects:
-- kind: ServiceAccount
-  name: tiller
-  namespace: ${KUBE_NAMESPACE}
-roleRef:
-  kind: Role
-  name: tiller-manager
-  apiGroup: rbac.authorization.k8s.io
-EOF
+prepare-namespace() {
+    if [ -z "${KUBE_NAMESPACE}" ]; then
+        echo "KUBE_NAMESPACE is missing."
+        exit 1
+    fi
+    echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
+    kubectl create ns "$KUBE_NAMESPACE" || true
+}
+
+create-ns-and-developer-role-bindings() {
+    prepare-namespace
+    if [ -z "${CI_COMMIT_REF_SLUG}" ]; then
+        echo "CI_COMMIT_REF_SLUG is missing."
+        exit 1
+    fi
+    ALLOWED_PATTERN='^(dev|develop|(review-.*))$'
+    if ! [[ ${CI_COMMIT_REF_SLUG} =~ $ALLOWED_PATTERN ]]; then
+        echo "Not in Dev/Review branch: not handling team access via RBAC"
+        return 0
+    fi
+    if [ -z "${CI_PROJECT_ID}" ]; then
+        echo "CI_PROJECT_ID is missing."
+        exit 1
+    fi
+    VIEWER_RB=$(PROJECT_ROLE=viewer envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding.yaml")
+    DEVELOPER_RB=$(PROJECT_ROLE=developer envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding.yaml")
+    IFS=',' read -r -a VIEWER_U <<<${DEV_VIEWER_USERS}
+    IFS=',' read -r -a VIEWER_G <<<${DEV_VIEWER_GROUPS}
+    IFS=',' read -r -a DEVELOPER_U <<<${DEV_DEVELOPER_USERS}
+    IFS=',' read -r -a DEVELOPER_G <<<${DEV_DEVELOPER_GROUPS}
+    for SUBJECT in "${VIEWER_U[@]}"; do
+        VIEWER_RB+=$'\n'$(SUBJECT_TYPE=User SUBJECT_NAME=${SUBJECT} envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
+    done
+    for SUBJECT in "${VIEWER_G[@]}"; do
+        VIEWER_RB+=$'\n'$(SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
+    done
+    for SUBJECT in "${DEVELOPER_U[@]}"; do
+        DEVELOPER_RB+=$'\n'$(SUBJECT_TYPE=User SUBJECT_NAME=${SUBJECT} envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
+    done
+    for SUBJECT in "${DEVELOPER_G[@]}"; do
+        DEVELOPER_RB+=$'\n'$(SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
+    done
+    echo "$VIEWER_RB"
+    echo "$VIEWER_RB" | kubectl apply -f -
+    echo "$DEVELOPER_RB"
+    echo "$DEVELOPER_RB" | kubectl apply -f -
 }
 
 helm-init() {
-  if [ -z "${KUBE_NAMESPACE}" ]; then
-    echo "KUBE_NAMESPACE is missing."
-    exit 1
-  fi
-  kubectl create ns $KUBE_NAMESPACE || true
-  init-rbac
-  helm init --service-account tiller --node-selectors="cloud.google.com/gke-nodepool=${NODE_SELECTOR}" --tiller-namespace ${KUBE_NAMESPACE} --upgrade
-  kubectl rollout status -w deployment/tiller-deploy --namespace=${KUBE_NAMESPACE}
-  kubectl scale deployment tiller-deploy --replicas=1 --namespace=${KUBE_NAMESPACE}
-  helm repo add sparkfabrik https://storage.googleapis.com/spark-helm-charts/
+    helm repo add "stable" "https://charts.helm.sh/stable"
+    helm repo add "sparkfabrik" "${SPARKFABRIK_CHART_REPO_URL:-https://storage.googleapis.com/spark-helm-charts}"
+    helm repo update
 }
 
+create-ns-and-developer-role-bindings
 helm-init
