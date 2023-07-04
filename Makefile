@@ -5,7 +5,7 @@
 DOCKER_VERSION=20.10.5
 
 cli: build-docker-image
-  # Run the cli.
+	# Run the cli.
 	docker run --rm -v ${PWD}:/mnt \
 	--entrypoint "" \
 	--hostname "SPARK-K8S-DEPLOYER-TEST" --name spark-k8s-deployer \
