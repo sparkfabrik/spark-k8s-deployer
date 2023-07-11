@@ -27,6 +27,7 @@ create-ns-and-developer-role-bindings() {
     ALLOWED_PATTERN=${ALLOWED_PATTERN_OVERRIDE:-'^(dev|develop|(review-.*))$'}
     if ! [[ ${CI_COMMIT_REF_SLUG} =~ $ALLOWED_PATTERN ]]; then
         echo "Not in Dev/Review branch: not handling team access via RBAC"
+        echo "Used pattern is: ${ALLOWED_PATTERN}"
         return 0
     fi
     if [ -z "${CI_PROJECT_ID}" ]; then
