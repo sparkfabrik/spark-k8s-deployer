@@ -1,4 +1,4 @@
-FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:422.0.0-alpine
+FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:445.0.0-alpine
 
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
@@ -65,6 +65,8 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64
 
 RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION}
+
+RUN echo "source /google-cloud-sdk/path.bash.inc" >> /etc/profile
 
 COPY configs /configs
 

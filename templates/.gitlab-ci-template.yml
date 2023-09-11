@@ -49,8 +49,7 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script: &script-global-docker-wait
     - |
-      if command -v docker &> /dev/null
-      then
+      if command -v docker &> /dev/null; then
          for i in $(seq 1 30)
          do
            docker info && break
@@ -58,14 +57,20 @@ variables:
            sleep 1s
          done
       fi
-      if command -v docker-compose &> /dev/null
-      then
+      if command -v docker-compose &> /dev/null; then
         docker-compose version
       fi
-      if command -v gcloud &> /dev/null
-      then
-        gcloud auth configure-docker
+      if command -v gcloud &> /dev/null; then
+        gcloud version
+
+        echo "Configuring docker credentials for gcloud registries..."
+        gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+        if command -v jq &> /dev/null; then
+          echo "The following docker credHelpers are configured:"
+          jq '.credHelpers' ~/.docker/config.json
+        fi
       fi
 
 before_script:
