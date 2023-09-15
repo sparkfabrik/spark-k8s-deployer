@@ -137,7 +137,7 @@ workflow:
 
 .update_traffic_template:
   script:
-    - gcloud run services update-traffic ${DEPLOYMENT_NAME} --to-latest
+    - gcloud run services update-traffic ${DEPLOYMENT_NAME} --region ${GCP_REGION} --to-latest
 
 test variables:
   stage: test
