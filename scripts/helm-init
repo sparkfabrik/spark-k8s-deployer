@@ -64,5 +64,19 @@ helm-init() {
     helm repo update
 }
 
+setup-gitlab-agent() {
+    if [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ] && [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
+        echo "The deployment will use the GitLab Agent."
+        echo "Switching Kubernetes context to use the context provided by the GitLab Agent."
+        kubectl config use-context "${GITLAB_AGENT_PROJECT}:${GITLAB_AGENT_ID}"
+    fi
+}
+
+# Switch to the GitLab Agent context if needed.
+# This must be done before any other step to execute
+# commands in the correct cluster.
+setup-gitlab-agent
+
+# Proceed with the other steps.
 create-ns-and-developer-role-bindings
 helm-init
