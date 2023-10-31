@@ -1,7 +1,7 @@
 image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
-  - name: docker:20.10.7-dind
+  - name: docker:24.0.7-dind
     command:
       [
         "--registry-mirror",
