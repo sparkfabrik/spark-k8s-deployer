@@ -20,6 +20,14 @@ if [[ ( -z $GITLAB_PROJECT_RW_AND_API_TOKEN ) ]]; then
   exit 1
 fi
 
+if [[ ! -z "${GITLAB_PROJECT_RW_AND_API_TOKEN}" ]]; then
+  IFS=':' read -ra GITLAB_PROJECT_VALIDATE <<< "${GITLAB_PROJECT_RW_AND_API_TOKEN}"
+  if [[ "${#GITLAB_PROJECT_VALIDATE[@]}" -ne 2 ]]; then
+    echo "The GITLAB_PROJECT_RW_AND_API_TOKEN variable is not valid. It should be in the form of <project_id>:<token>."
+    exit 1
+  fi
+fi
+
 git config user.email "${GITLAB_USER_EMAIL:-spark_ci_script@sparkfabrik.com}"
 git config user.name "${GITLAB_USER_NAME:-Spark CI script}"
 NEWREMOTEURL=$(echo "$CI_REPOSITORY_URL" | sed -e "s|.*@\(.*\)|$CI_SERVER_PROTOCOL://$GITLAB_PROJECT_RW_AND_API_TOKEN@\1|")
