@@ -5,8 +5,8 @@ LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-d
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION v2.14.0
 # https://download.docker.com/linux/static/stable/x86_64
-ENV DOCKER_VERSION 20.10.7
-ENV DOCKER_BUILDX_VERSION v0.5.1
+ENV DOCKER_VERSION 24.0.7
+ENV DOCKER_BUILDX_VERSION v0.11.2
 ENV HELM3_VERSION 3.11.2
 ENV AWS_CLI_VERSION 1.29.47
 ENV YQ4_VERSION v4.14.2
