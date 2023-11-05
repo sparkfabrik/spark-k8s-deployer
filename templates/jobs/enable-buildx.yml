@@ -1,5 +1,5 @@
 .enable-buildx:
-  script:
+  before_script:
     - buildkitd --group $(id -gn) --addr unix://$HOME/buildkitd.sock &
     - docker context create build-multiarch
     - docker context use build-multiarch
