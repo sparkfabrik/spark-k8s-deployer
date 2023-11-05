@@ -9,6 +9,7 @@ services:
         "--mtu=1300",
         "--network-control-plane-mtu=1300",
       ]
+  - name: buildkit:0.12.3
 
 variables:
   # When using dind service, we need to instruct docker to talk with

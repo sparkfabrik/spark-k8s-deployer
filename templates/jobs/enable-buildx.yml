@@ -1,6 +1,8 @@
 .enable-buildx:
   script:
+    - buildkitd --group $(id -gn) --addr unix://$HOME/buildkitd.sock &
     - docker context create build-multiarch
     - docker context use build-multiarch
     - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-    - docker buildx create build-multiarch --use
+    - docker buildx create build-multiarch-remote --driver remote unix://$HOME/buildkitd.sock --use
+    - docker buildx create build-multiarch-service --driver remote docker-container://buildkit --use
