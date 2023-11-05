@@ -9,8 +9,15 @@ services:
         "--mtu=1300",
         "--network-control-plane-mtu=1300",
       ]
+  # TODO: To make it work the certs must be shared as we do for docker.
   - name: moby/buildkit:v0.12.3
-
+    command:
+      [
+        "--addr tcp://0.0.0.0:1234",
+        "--tlscacert /etc/buildkit/certs/daemon/ca.pem",
+        "--tlscert /etc/buildkit/certs/daemon/cert.pem",
+        "--tlskey /etc/buildkit/certs/daemon/key.pem",
+      ]
 variables:
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
