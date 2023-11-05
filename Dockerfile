@@ -67,6 +67,10 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
 
 RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION} --break-system-packages
 
+# Install buildkit
+ENV BUILDKIT_VERSION=0.12.3
+RUN curl -L https://github.com/moby/buildkit/releases/download/v0.12.3/buildkit-v0.12.3.linux-amd64.tar.gz | tar -xzC /usr/local/bin --strip-components=1
+
 RUN echo "source /google-cloud-sdk/path.bash.inc" >> /etc/profile
 
 COPY configs /configs
