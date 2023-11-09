@@ -3,7 +3,7 @@ FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:445.0.0-alpine
 LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
 
 # https://github.com/docker/compose/releases
-ENV COMPOSE_VERSION v2.14.0
+ENV COMPOSE_VERSION v2.23.0
 # https://download.docker.com/linux/static/stable/x86_64
 ENV DOCKER_VERSION 24.0.7
 ENV DOCKER_BUILDX_VERSION v0.11.2
