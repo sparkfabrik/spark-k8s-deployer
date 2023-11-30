@@ -6,7 +6,7 @@ within gitlab-ci.
 This image includes:
 
 - Docker client 20.10.7
-- Docker-compose v2.14.0
+- Docker-compose v2.23.1
 - Google cloud sdk 422.0.0
 - Helm 3.11.2 (helm3 binary)
 - Deploy scripts on `scripts`
