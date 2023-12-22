@@ -7,6 +7,7 @@ include:
 stages:
   - populate cache
   - build
+  - pre-sync
   - sync
   - configure deploy
   - pre-deploy
@@ -149,10 +150,64 @@ php:
       --destination ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_REF_SLUG}
       --destination ${CI_REGISTRY_IMAGE_PHP}:latest
 
+
+# --------------
+# DUMP CLOUDSQL DATABASES
+# --------------
+stage database backup:
+  extends: .cloudsql-database-dump
+  stage: pre-deploy
+  variables:
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
+    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
+  only:
+    refs:
+      - stage
+    variables:
+      - $DB_DUMP_STAGE_DB_NAMES != ""
+
+production database backup:
+  extends: .cloudsql-database-dump
+  stage: pre-deploy
+  variables:
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
+    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
+  only:
+    refs:
+      - production
+    variables:
+      - $DB_DUMP_PROD_DB_NAMES != ""
+
 # --------------
 # SYNC TO GITOPS REPO
 # --------------
-sync to infrastructure repo:
+# Push argocd crd manifest to the automation repo and update the app of apps.
+sync argocd crds to gitops repo:
+  stage: sync
+  script:
+    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
+    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+    - git config --global user.name "Gitlab Bot"
+    - cd ${AUTOMATION_REPO_DIR}
+    - git fetch -p && git reset --hard origin/master
+    - mkdir -p argocd-app-crds
+    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
+    # Commit generated crd manifest to the repo.
+    - git add .
+    # If we have some diff in code we commit and push to the updated manifests.
+    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
+    - git push -u origin master
+  artifacts:
+    when: always
+    expire_in: 1 weeks
+    paths:
+      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
+
+sync to gitops repo:
   stage: sync
   environment:
     # This section is needed to populate the CI_ENVIRONMENT_SLUG variable
@@ -188,6 +243,8 @@ sync to infrastructure repo:
     - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
     # Note that we are using a multi-branch strategy for the GitOps repo.
     - git push -u -f origin ${CI_COMMIT_REF_SLUG}
+  needs: 
+    - "sync argocd crds to gitops repo"
   artifacts:
     when: always
     expire_in: 1 weeks
@@ -198,103 +255,72 @@ sync to infrastructure repo:
 # --------------
 # CONFIGURE ARGO
 # --------------
-# Push argocd crd manifest to the automation repo and update the app of apps.
-configure deploy:
-  stage: configure deploy
-  script:
-    # Configure Argo CD cli
-    - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
-    - export ARGOCD_OPTS='--insecure'
-    - export ARGOCD_AUTH_TOKEN=${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
-    # Download Argo CD cli
-    # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
-    # the cli will always be compatible with the server (same version).
-    - curl -sSL --insecure -o /usr/local/bin/argocd http://${ARGOCD_SERVER}/download/argocd-linux-amd64
-    - chmod +x /usr/local/bin/argocd
-    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
-    - git config --global user.email "gitlab-bot@sparkfabrik.com"
-    - git config --global user.name "Gitlab Bot"
-    - cd ${AUTOMATION_REPO_DIR}
-    - git fetch -p && git reset --hard origin/master
-    - mkdir -p argocd-app-crds
-    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
-    # Commit generated crd manifest to the repo.
-    - git add .
-    # If we have some diff in code we commit and push to the updated manifests.
-    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
-    - git push -u origin master
-    # Trigger sync on the app of apps ArgoCD project.
-    - argocd app sync ${ARGOCD_APP_OF_APPS_NAME}
-    # We cannot wait for the wait for sync, since if one of the sub-apps is
-    #  degraded, the wait does not end successfully.
-    # - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
-  artifacts:
-    when: always
-    expire_in: 1 weeks
-    paths:
-      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
-
-# --------------
-# DUMP CLOUDSQL DATABASES
-# --------------
-stage database backup:
-  extends: .cloudsql-database-dump
-  stage: pre-deploy
-  variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
-    DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
-  only:
-    refs:
-      - stage
-    variables:
-      - $DB_DUMP_STAGE_DB_NAMES != ""
-
-production database backup:
-  extends: .cloudsql-database-dump
-  stage: pre-deploy
-  variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
-    DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
-  only:
-    refs:
-      - production
-    variables:
-      - $DB_DUMP_PROD_DB_NAMES != ""
+#.configure deploy:
+#  stage: configure deploy
+#  script:
+#    # Configure Argo CD cli
+#    - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
+#    - export ARGOCD_OPTS='--insecure'
+#    - export ARGOCD_AUTH_TOKEN=${ARGOCD_APP_OF_APPS_AUTH_TOKEN}
+#    # Download Argo CD cli
+#    # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
+#    # the cli will always be compatible with the server (same version).
+#    - curl -sSL --insecure -o /usr/local/bin/argocd http://${ARGOCD_SERVER}/download/argocd-linux-amd64
+#    - chmod +x /usr/local/bin/argocd
+#    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
+#    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+#    - git config --global user.name "Gitlab Bot"
+#    - cd ${AUTOMATION_REPO_DIR}
+#    - git fetch -p && git reset --hard origin/master
+#    - mkdir -p argocd-app-crds
+#    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
+#    # Commit generated crd manifest to the repo.
+#    - git add .
+#    # If we have some diff in code we commit and push to the updated manifests.
+#    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
+#    - git push -u origin master
+#    # Trigger sync on the app of apps ArgoCD project.
+#    - argocd app sync ${ARGOCD_APP_OF_APPS_NAME}
+#    # We cannot wait for the wait for sync, since if one of the sub-apps is
+#    #  degraded, the wait does not end successfully.
+#    # - argocd app wait ${ARGOCD_APP_OF_APPS_NAME}
+#  artifacts:
+#    when: always
+#    expire_in: 1 weeks
+#    paths:
+#      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
 
 # --------------
 # DEPLOY APP USING ARGO SYNC
 # --------------
 # See https://argoproj.github.io/argo-cd/user-guide/ci_automation/ for reference.
-argo sync:
-  stage: deploy
-  environment:
-    name: ${ENVIRONMENT_SCOPE_PREFIX}/${CI_COMMIT_REF_SLUG}
-    url: https://${CI_COMMIT_REF_SLUG}.${CI_PROJECT_NAME}.${KUBE_INGRESS_BASE_DOMAIN}
-    kubernetes:
-      namespace: ${KUBE_NAMESPACE}
-  script:
-    # Configure Argo CD cli
-    # NOTE: ARGOCD_AUTH_TOKEN env var must be set in Gitlab CI
-    - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
-    - export ARGOCD_OPTS='--insecure'
-    # Download Argo CD cli
-    # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
-    # the cli will always be compatible with the server (same version).
-    - curl -sSL --insecure -o /usr/local/bin/argocd http://${ARGOCD_SERVER}/download/argocd-linux-amd64
-    - chmod +x /usr/local/bin/argocd
-    # Stream pod logs.
-    - mkdir -p "${CI_PROJECT_DIR}/logs"
-    - stern "${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}" --namespace "${KUBE_NAMESPACE}"
-      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
-    # Sync app
-    - argocd app sync ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
-    - argocd app wait ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
-  artifacts:
-    when: always
-    expire_in: 1 week
-    paths:
-      - ${CI_PROJECT_DIR}/logs
+#.argo sync:
+#  stage: deploy
+#  environment:
+#    name: ${ENVIRONMENT_SCOPE_PREFIX}/${CI_COMMIT_REF_SLUG}
+#    url: https://${CI_COMMIT_REF_SLUG}.${CI_PROJECT_NAME}.${KUBE_INGRESS_BASE_DOMAIN}
+#    kubernetes:
+#      namespace: ${KUBE_NAMESPACE}
+#  script:
+#    # Configure Argo CD cli
+#    # NOTE: ARGOCD_AUTH_TOKEN env var must be set in Gitlab CI
+#    - export ARGOCD_SERVER='argocd-server.argocd.svc.cluster.local'
+#    - export ARGOCD_OPTS='--insecure'
+#    # Download Argo CD cli
+#    # We download argo CD cli from server instead of retrieve the version from official git repo. This is better, since
+#    # the cli will always be compatible with the server (same version).
+#    - curl -sSL --insecure -o /usr/local/bin/argocd http://${ARGOCD_SERVER}/download/argocd-linux-amd64
+#    - chmod +x /usr/local/bin/argocd
+#    # Stream pod logs.
+#    - mkdir -p "${CI_PROJECT_DIR}/logs"
+#    - stern "${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}" --namespace "${KUBE_NAMESPACE}"
+#      --color never --tail=1 --exclude "[^""]*""[^""]*""\s[2-3]{1}[0-9]{2}" | tee "${CI_PROJECT_DIR}/logs/application.logs" &
+#    # Sync app
+#    - argocd app sync ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
+#    - argocd app wait ${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
+#  artifacts:
+#    when: always
+#    expire_in: 1 week
+#    paths:
+#      - ${CI_PROJECT_DIR}/logs
+
