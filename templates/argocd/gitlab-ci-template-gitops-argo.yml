@@ -156,7 +156,7 @@ php:
 # --------------
 stage database backup:
   extends: .cloudsql-database-dump
-  stage: pre-deploy
+  stage: pre-sync
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
     GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
@@ -170,7 +170,7 @@ stage database backup:
 
 production database backup:
   extends: .cloudsql-database-dump
-  stage: pre-deploy
+  stage: pre-sync
   variables:
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
     GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
