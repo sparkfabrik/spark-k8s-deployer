@@ -1,13 +1,18 @@
 #!/bin/bash
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
   SOURCE="$(readlink "$SOURCE")"
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DEPLOY_ROOT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+DEPLOY_ROOT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 export DEPLOY_ROOT_DIR
+
+# shellcheck disable=SC1091
 source "$DEPLOY_ROOT_DIR/src/common.bash"
+
+# shellcheck disable=SC1091
+source "$DEPLOY_ROOT_DIR/src/functions.bash"
 
 CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_URL}"
 CI_ENVIRONMENT_HOSTNAME="${CI_ENVIRONMENT_HOSTNAME/http:\/\//}"
@@ -29,38 +34,35 @@ ensure_deploy_variables
 
 # Create standard k8s configurations.
 function init() {
-cat <<EOF | kubectl apply -f -
+  cat <<EOF | kubectl apply -f -
 kind: Namespace
 apiVersion: v1
 metadata:
   name: $KUBE_NAMESPACE
 EOF
 
-if [ "${CREATE_BASIC_AUTH}" = 1 ]; then
-  kubectl create secret generic ingress-basic-auth --from-file=/scripts/src/auth --namespace="${KUBE_NAMESPACE}" || true
-fi
+  if [ "${CREATE_BASIC_AUTH}" = 1 ]; then
+    kubectl create secret generic ingress-basic-auth --from-file=/scripts/src/auth --namespace="${KUBE_NAMESPACE}" || true
+  fi
 }
 
 # Materialize and run k8s configurations.
 function configure() {
   mkdir -p k8s
-  for conf in ${DEPLOY_CONF_DIR}/*
-  do
-    if [ -d ${conf} ]
-    then
-      continue;
+  for conf in ${DEPLOY_CONF_DIR}/*; do
+    if [ -d ${conf} ]; then
+      continue
     fi
     filename=$(basename "${conf}")
     echo "Processing ${filename}"
-    envsubst < "${conf}" > "k8s/${filename}"
-    kubectl apply -n "${KUBE_NAMESPACE}" -f - < "k8s/${filename}"
+    envsubst <"${conf}" >"k8s/${filename}"
+    kubectl apply -n "${KUBE_NAMESPACE}" -f - <"k8s/${filename}"
   done
 }
 
 # Run deploy scripts from subfolders.
 function configureSubfolders() {
-  for conf in ${DEPLOY_CONF_DIR}/*
-  do
+  for conf in ${DEPLOY_CONF_DIR}/*; do
     if [ -d ${conf} ]; then
       if [ -f ${conf}/deploy ]; then
         echo "Deploying subfolder ${conf}"
@@ -78,12 +80,11 @@ export STATUS_TIMEOUT
 function status() {
   SKIP="HorizontalPodAutoscaler"
   echo "Waiting for deployment app...."
-  for file in k8s/*
-  do
+  for file in k8s/*; do
     if [ -d $file ]; then
       continue
     fi
-    if grep -q "kind: Deployment" < "$file" && ! grep -q "$SKIP" < "$file"; then
+    if grep -q "kind: Deployment" <"$file" && ! grep -q "$SKIP" <"$file"; then
       echo "kubectl rollout status -n ${KUBE_NAMESPACE} -R -f ${file}"
       if ! timeout ${STATUS_TIMEOUT} kubectl rollout status -n "${KUBE_NAMESPACE}" -R -f "$file"; then
         echo "Deployment of ${file} is failed, exiting".
