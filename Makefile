@@ -3,6 +3,7 @@
 # make cli
 #
 DOCKER_VERSION=20.10.5
+GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 458.0.1-alpine
 
 cli: build-docker-image
 	# Run the cli.
@@ -13,10 +14,20 @@ cli: build-docker-image
 	-it sparkfabrik/spark-k8s-deployer:latest bash -il
 
 build-docker-image:
-	docker build -t sparkfabrik/spark-k8s-deployer:latest -f Dockerfile .
+	docker build \
+		-t sparkfabrik/spark-k8s-deployer:latest \
+		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
+		-f Dockerfile .
 
 build-docker-image-build-args:
-	docker build -t sparkfabrik/spark-k8s-deployer:latest -f Dockerfile . --build-arg QEMU_ARCHS="aarch64 arm x86_64"
+	docker build \
+		-t sparkfabrik/spark-k8s-deployer:latest \
+		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
+		--build-arg QEMU_ARCHS="aarch64 arm x86_64" \
+		-f Dockerfile .
 
 tests:
 	cd test && DOCKER_VERSION=$(DOCKER_VERSION) docker-compose run --rm docker-client ash -c "sleep 3; docker run --rm hello-world"
+
+print-google-cloud-cli-image-tag:
+	@echo $(GOOGLE_CLOUD_CLI_IMAGE_TAG)

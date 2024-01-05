@@ -1,6 +1,7 @@
-FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:445.0.0-alpine
+# Define the google cloud sdk image tag to use.
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG
 
-LABEL org.opencontainers.image.source https://github.com/sparkfabrik/spark-k8s-deployer
+FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
 
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION v2.23.1
