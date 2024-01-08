@@ -1,0 +1,201 @@
+############################################
+# CONFIGURE CDN USING GCP L7 LOAD BALANCER #
+############################################
+# We cannot use the BackendConfig to set the CDN configuration, since it does not
+# support the includeNamedCookie option. So we must switch to use the gcloud
+# command, at least until this issue https://github.com/kubernetes/ingress-gce/issues/1766
+# is fixed.
+# The gcloud command reference is available here:
+# https://cloud.google.com/sdk/gcloud/reference/compute/backend-services/update
+#
+# Configuration refs https://cloud.google.com/sdk/gcloud/reference/compute/backend-services/update:
+#
+# CLOUDSDK_CORE_PROJECT:  specifies the project ID of the project that contains the
+#                         backend service we want to update.
+# COOKIE_NAMES_LIST:      specifies a comma-separated list of HTTP cookie names to include
+#                         in cache keys. The name=value pair are used in the cache key Cloud
+#                         CDN generates. Cookies are not included in cache keys by default.
+#                         This is optional since it may be empty.
+# CACHE_MODE:             Specifies the cache setting for all responses from this backend.
+#                         CACHE_MODE must be one of: CACHE_ALL_STATIC, FORCE_CACHE_ALL or
+#                         USE_ORIGIN_HEADERS.
+
+##################################################
+# COMPLETE EXAMPLE USING THE FOLLOWING TEMPLATES #
+##################################################
+# ".production cdn variables":
+#   extends:
+#     - .gcloud-load-balancer-l7-cdn-variables
+#   variables:
+#     COOKIE_NAMES_LIST: SSESSmyawesomehash
+#     CACHE_MODE: USE_ORIGIN_HEADERS
+#     SERVICE_NAME: nginx-svc
+
+# "production cdn preflight":
+#   stage: test
+#   extends:
+#     - ".production cdn variables"
+#     - ".gcloud-load-balancer-l7-cdn-preflight"
+#   rules:
+#     - !reference [.pkg_base-rules-no-schedule]
+#     - if: '$CI_COMMIT_REF_NAME == "main"'
+
+# "production cdn setup":
+#   stage: deploy
+#   needs:
+#     - job: "YOUR DEPLOPY JOB"
+#       artifacts: true
+#   extends:
+#     - ".production cdn variables"
+#     - ".gcloud-load-balancer-l7-cdn-setup"
+
+.gcloud-load-balancer-l7-cdn-variables:
+  variables:
+    #################
+    # GCP Variables #
+    #################
+    # The GCP project id.
+    # CLOUDSDK_CORE_PROJECT:
+    # The cache setting for all responses from this backend (default=USE_ORIGIN_HEADERS).
+    CACHE_MODE: USE_ORIGIN_HEADERS
+    # A comma-separated list of HTTP cookie names to include in cache keys.
+    # COOKIE_NAMES_LIST:
+    # The name of the backend service to update.
+    # If not specified, the right backend service will be determined from the service annotations
+    # using the NEG status annotation of the `${SERVICE_NAME}` service in the `${KUBE_NAMESPACE}` namespace.
+    # BACKEND_SERVICE:
+
+    ########################
+    # Kubernetes Variables #
+    ########################
+    # The namespace where the service is deployed. This variable is not used if the BACKEND_SERVICE variable is specified.
+    # KUBE_NAMESPACE:
+    # The name of the service to update. This variable is not used if the BACKEND_SERVICE variable is specified.
+    # SERVICE_NAME:
+    # The port of the service to update. This variable is not used if the BACKEND_SERVICE variable is specified (default="80").
+    SERVICE_PORT: "80"
+
+    #####################################
+    # gcloud command additional options #
+    #####################################
+    # Enable including query string in cache key (default="true").
+    INCLUDE_QUERY_STRING: "true"
+    # Enable including protocol in cache key (default="true").
+    INCLUDE_PROTOCOL: "true"
+    # Enable including host in cache key (default="true").
+    INCLUDE_HOST: "true"
+    # Enable the cache status response header (default="true").
+    ENABLE_CACHE_STATUS_RESPONSE_HEADER: "true"
+    # Define the custom raw options to pass to the gcloud command.
+    # GCLOUD_RAW_OPTIONS:
+
+.gcloud-load-balancer-l7-cdn-print-vars:
+  script:
+    - |
+      PAD_LEN=${PAD_LEN:-40}
+      printf "\e[1mConfigured variables:\e[0m\n"
+      for VAR_NAME in "CLOUDSDK_CORE_PROJECT" "CACHE_MODE" "COOKIE_NAMES_LIST" "BACKEND_SERVICE" \
+        "KUBE_NAMESPACE" "SERVICE_NAME" "SERVICE_PORT" \
+        "INCLUDE_QUERY_STRING" "INCLUDE_PROTOCOL" "INCLUDE_HOST" "ENABLE_CACHE_STATUS_RESPONSE_HEADER" "GCLOUD_RAW_OPTIONS"; do
+        printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
+      done
+    # Please remember to keep the following `gcloud compute backend-services update` command in sync
+    # with the one in the `.gcloud-load-balancer-l7-cdn-setup` job.
+    - |
+      printf "\e[1mThe final 'gcloud compute backend-services update' command will be:\e[0m\n"
+      echo "gcloud compute backend-services update "${BACKEND_SERVICE}" --global --cache-mode=\"${CACHE_MODE}\" --cache-key-include-named-cookie=\"${COOKIE_NAMES_LIST:-}\" ${INCLUDE_QUERY_STRING_OPT} ${INCLUDE_PROTOCOL_OPT} ${INCLUDE_HOST_OPT} ${ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT} ${GCLOUD_RAW_OPTIONS:-}"
+
+# The final job (the one that will use this template) must extend a template
+# that defines all the needed variables. You can extend the .gcloud-load-balancer-l7-cdn-variables
+# job template or define your own.
+# Do not extend the .gcloud-load-balancer-l7-cdn-variables job template here because in that case
+# the final job has to pay attention to the order of the extends. If this job is extended as the last one,
+# the default variables, defined in the .gcloud-load-balancer-l7-cdn-variables job, will be used.
+.gcloud-load-balancer-l7-cdn-preflight:
+  script:
+    - |
+      if [ -z "${CLOUDSDK_CORE_PROJECT}" ]; then
+        echo -e "\e[1m\e[31mYou have to define the CLOUDSDK_CORE_PROJECT variable.\e[0m"
+        exit 1
+      fi
+    - |
+      if [ -z "${CACHE_MODE}" ]; then
+        echo -e "\e[1m\e[31mYou have to define the CACHE_MODE variable.\e[0m"
+        exit 1
+      fi
+    - |
+      source /scripts/src/functions.bash
+      setup-gitlab-agent
+    - |
+      if [ -z "${BACKEND_SERVICE}" ]; then
+        if [ -z "${KUBE_NAMESPACE}" ]; then
+          echo -e "\e[1m\e[31mYou have to define the KUBE_NAMESPACE variable.\e[0m"
+          exit 1
+        fi
+        if [ -z "${SERVICE_NAME}" ]; then
+          echo -e "\e[1m\e[31mYou have to define the SERVICE_NAME variable.\e[0m"
+          exit 1
+        fi
+
+        echo "Try to get the backend service name from the service annotations (${KUBE_NAMESPACE}/${SERVICE_NAME})."
+
+        BACKEND_SERVICE=$(kubectl -n "${KUBE_NAMESPACE}" get service "${SERVICE_NAME}" -ojsonpath={.metadata.annotations.cloud\\.google\\.com/neg-status} | jq --arg SERVICE_PORT "${SERVICE_PORT:-80}" --raw-output '.network_endpoint_groups | .[$SERVICE_PORT]')
+        export BACKEND_SERVICE
+
+        echo "Backend service found!"
+        echo "The retrieved backend service name is '${BACKEND_SERVICE}'."
+      fi
+    - |
+      echo "Calculating the INCLUDE_QUERY_STRING_OPT ..."
+      INCLUDE_QUERY_STRING_OPT=""
+      if [ "${INCLUDE_QUERY_STRING}" = "true" ]; then
+        INCLUDE_QUERY_STRING_OPT="--cache-key-include-query-string"
+      fi
+      export INCLUDE_QUERY_STRING_OPT
+
+      echo "Calculating the INCLUDE_PROTOCOL_OPT ..."
+      INCLUDE_PROTOCOL_OPT=""
+      if [ "${INCLUDE_PROTOCOL}" = "true" ]; then
+        INCLUDE_PROTOCOL_OPT="--cache-key-include-protocol"
+      fi
+      export INCLUDE_PROTOCOL_OPT
+
+      echo "Calculating the INCLUDE_HOST_OPT ..."
+      INCLUDE_HOST_OPT=""
+      if [ "${INCLUDE_HOST}" = "true" ]; then
+        INCLUDE_HOST_OPT="--cache-key-include-host"
+      fi
+      export INCLUDE_HOST_OPT
+
+      echo "Calculating the ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT ..."
+      ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT=""
+      if [ "${ENABLE_CACHE_STATUS_RESPONSE_HEADER}" = "true" ]; then
+        ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT="--custom-response-header 'X-CDN-cache-status:{cdn_cache_status}'"
+      fi
+    - !reference [.gcloud-load-balancer-l7-cdn-print-vars, script]
+    - |
+      if [ -z "${BACKEND_SERVICE}" ] || [ "${BACKEND_SERVICE}" = "null" ]; then
+        echo -e "\e[1m\e[31mIt seems that the backend service is not configured correctly or perhaps the configuration has not yet propagated.\e[0m"
+        echo -e "\e[1m\e[31mBACKEND_SERVICE variable is empty or 'null'.\e[0m"
+        exit 1
+      fi
+
+# The final job (the one that will use this template) must extend a template
+# that defines all the needed variables. You can extend the .gcloud-load-balancer-l7-cdn-variables
+# job template or define your own.
+# Do not extend the .gcloud-load-balancer-l7-cdn-variables job template here because in that case
+# the final job has to pay attention to the order of the extends. If this job is extended as the last one,
+# the default variables, defined in the .gcloud-load-balancer-l7-cdn-variables job, will be used.
+.gcloud-load-balancer-l7-cdn-setup:
+  script:
+    - !reference [.gcloud-load-balancer-l7-cdn-preflight, script]
+    # Please remember to keep the following `gcloud compute backend-services update` command in sync
+    # with the one in the `.gcloud-load-balancer-l7-cdn-print-vars` job.
+    - gcloud compute backend-services update "${BACKEND_SERVICE}" --global
+      --cache-mode="${CACHE_MODE}"
+      --cache-key-include-named-cookie="${COOKIE_NAMES_LIST:-}"
+      ${INCLUDE_QUERY_STRING_OPT}
+      ${INCLUDE_PROTOCOL_OPT}
+      ${INCLUDE_HOST_OPT}
+      ${ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT}
+      ${GCLOUD_RAW_OPTIONS:-}
