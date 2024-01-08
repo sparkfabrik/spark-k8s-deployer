@@ -9,7 +9,7 @@ ENV COMPOSE_VERSION v2.23.1
 ENV DOCKER_VERSION 24.0.7
 ENV DOCKER_BUILDX_VERSION v0.11.2
 ENV HELM3_VERSION 3.11.2
-ENV AWS_CLI_VERSION 1.29.47
+ENV AWS_CLI_VERSION 1.32.14
 ENV YQ4_VERSION v4.14.2
 ENV FLUX2_RELEASE_VERSION 0.26.2
 ENV STERN_RELEASE_VERSION 1.24.0
@@ -65,7 +65,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && chmod +x /usr/local/bin/stern \
     && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64
 
-RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION}
+RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION} --break-system-packages
 
 RUN echo "source /google-cloud-sdk/path.bash.inc" >> /etc/profile
 
