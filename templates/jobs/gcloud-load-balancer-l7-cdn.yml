@@ -170,7 +170,7 @@
       echo "Calculating the ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT ..."
       ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT=""
       if [ "${ENABLE_CACHE_STATUS_RESPONSE_HEADER}" = "true" ]; then
-        ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT="--custom-response-header \"X-CDN-cache-status:{cdn_cache_status}\""
+        ENABLE_CACHE_STATUS_RESPONSE_HEADER_OPT="--custom-response-header X-CDN-cache-status:{cdn_cache_status}"
       fi
     - !reference [.gcloud-load-balancer-l7-cdn-print-vars, script]
     - |
