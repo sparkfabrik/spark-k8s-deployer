@@ -8,6 +8,7 @@ services:
         "https://mirror.gcr.io",
         "--mtu=1300",
         "--network-control-plane-mtu=1300",
+        "--env DOCKER_IPTABLES_LEGACY=1"
       ]
 
 variables:
