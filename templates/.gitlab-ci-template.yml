@@ -8,8 +8,6 @@ services:
         "https://mirror.gcr.io",
         "--mtu=1300",
         "--network-control-plane-mtu=1300",
-        "--env",
-        "DOCKER_IPTABLES_LEGACY=1",
       ]
 
 variables:
@@ -36,6 +34,9 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4125
   DOCKER_TLS_VERIFY: 1
   DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  #
+  # Variable added to fix Docker in Docker https://github.com/docker-library/docker/issues/463
+  DOCKER_IPTABLES_LEGACY: 1
   # Variables for defining dev team access to the deployment namespace.
   # Currently, only development/review branches in GCP are supported; groups
   # are supported as long as "Google Groups for RBAC" are enabled on the target
