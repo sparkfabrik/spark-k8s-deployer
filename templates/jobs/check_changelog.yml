@@ -34,6 +34,12 @@
         echo 'Found fix/.+ branch name, bailing out.'
         exit 0
       fi
+    # If the branch is a renovate the check will be skipped
+    - |
+      if [ -n "$(echo "${CI_COMMIT_REF_NAME}" | grep -E "^renovate\/.+")" ]; then
+        echo 'Found renovate/.+ branch name, bailing out.'
+        exit 0
+      fi
     # If the pipeline is running for a tag, we check if the tag is present in the changelog
     # otherwise the CHANGELOG.md should be edited
     - |
