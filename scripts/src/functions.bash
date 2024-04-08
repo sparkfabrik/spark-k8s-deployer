@@ -114,6 +114,7 @@ create-ns-and-developer-role-bindings() {
 }
 
 helm-init() {
+  helm version
   helm repo add "stable" "https://charts.helm.sh/stable"
   helm repo add "sparkfabrik" "${SPARKFABRIK_CHART_REPO_URL:-https://storage.googleapis.com/spark-helm-charts}"
   helm repo update
