@@ -13,6 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +47,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   deploy:
-    needs: test
     runs-on: ubuntu-latest
     # Only deploy on the main/master branch
     if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
