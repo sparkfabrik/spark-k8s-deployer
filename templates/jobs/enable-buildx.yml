@@ -2,7 +2,7 @@
   before_script:
     - !reference [.global-setup, before_script]
     # TO BE REMOVED: install buildkit, it is part of dockerfile i need it to test it a PR.
-    - curl -L https://github.com/moby/buildkit/releases/download/v0.12.3/buildkit-v0.12.3.linux-amd64.tar.gz | tar -xzC /usr/local/bin --strip-components=1
+    - curl -L https://github.com/moby/buildkit/releases/download/v0.14.1/buildkit-v0.12.3.linux-amd64.tar.gz | tar -xzC /usr/local/bin --strip-components=1
     - buildkitd --group $(id -gn) --addr unix://$HOME/buildkitd.sock &
     - docker context create build-multiarch
     - docker context use build-multiarch
