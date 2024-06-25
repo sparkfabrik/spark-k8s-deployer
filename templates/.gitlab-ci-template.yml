@@ -78,7 +78,8 @@ variables:
       echo "Install qemu deps for buildx multiarch (https://docs.docker.com/build/building/multi-platform/#qemu-without-docker-desktop).."
       echo ""
       docker run --privileged --rm tonistiigi/binfmt --install all
-      docker buildx ls
+      docker buildx create --use
+      unset DOCKER_HOST
 
 before_script:
   - *script-global-docker-wait
