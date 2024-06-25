@@ -81,7 +81,6 @@ variables:
 
       echo "Configure buildx..."
       docker context create build-multiarch --docker host=${DOCKER_HOST}
-      unset DOCKER_HOST
       docker context use build-multiarch
       docker buildx create build-multiarch --use
 
