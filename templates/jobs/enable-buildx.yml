@@ -1,5 +1,10 @@
 .enable-buildx:
   script: |
     echo "-----------------ACTION REQUIRED------------------------"
-    echo "WARNING - This template is outdated, everything is already included in the base template, you can safely remove this import. "
+    echo "--------------------------------------------------------"
+    echo "--------------------------------------------------------"
+    echo "This template "enable-buildx.yml" that you are using is outdated, everything is already included in the base template now, you can safely remove this import from your gitlab ci."
+    echo "--------------------------------------------------------"
+    echo "--------------------------------------------------------"
     echo "-----------------ACTION REQUIRED------------------------"
+
