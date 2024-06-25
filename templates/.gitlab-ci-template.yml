@@ -11,10 +11,9 @@ services:
       ]
   # TODO: To make it work the certs must be shared as we do for docker.
   - name: moby/buildkit:v0.14.1
-    entrypoint: ["sh", "-c"]
+    entrypoint: ["sh"]
     command:
-      - sleep 5
-      - buildkitd --tlscacert=/certs/client/ca.pem --tlscert=/certs/client/cert.pem --tlskey=/certs/client/key.pem --addr=tcp://0.0.0.0:1234
+      - sleep 5 && buildkitd --tlscacert=/certs/client/ca.pem --tlscert=/certs/client/cert.pem --tlskey=/certs/client/key.pem --addr=tcp://0.0.0.0:1234
 variables:
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
