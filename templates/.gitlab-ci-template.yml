@@ -78,7 +78,12 @@ variables:
       echo "Install qemu deps for buildx multiarch (https://docs.docker.com/build/building/multi-platform/#qemu-without-docker-desktop).."
       echo ""
       docker run --privileged --rm tonistiigi/binfmt --install all
-      docker buildx create --use
+
+      echo "Configure buildx..."
+      docker context create build-multiarch
+      docker context use build-multiarch
+      docker buildx create build-multiarch --use
+
       unset DOCKER_HOST
 
 before_script:
