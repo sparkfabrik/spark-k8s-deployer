@@ -8,12 +8,26 @@ variables:
   IMAGE_TAG: ${CI_COMMIT_REF_SLUG}
   CACHE_TAG: cache-${IMAGE_TAG}
 
-build:
+build registry cache:
   before_script:
-     - !reference [.enable-buildx, before_script]
+    - !reference [.global-setup, before_script]
+    - !reference [.enable-buildx, script]
   script: |
-    docker buildx build --push --platform "linux/amd64,linux/arm64" \
+    docker buildx build --platform "linux/amd64,linux/arm64" \
     --cache-to type=registry,ref=${REGISTRY}/${IMAGE_NAME}:${CACHE_TAG},mode=max \
     --cache-from type=registry,ref=${REGISTRY}/${IMAGE_NAME}:${CACHE_TAG} \
     -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
 
+build gitlab cache:
+  before_script:
+    - !reference [.global-setup, before_script]
+    - !reference [.enable-buildx, script]
+  script: |
+    docker buildx build --platform "linux/amd64,linux/arm64" \
+    --cache-to type=local,src=build-cache,mode=max \
+    --cache-from type=local,src=build-cache \
+    -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+  cache:
+    key: cache-$CI_COMMIT_REF_SLUG
+    paths:
+      - build-cache/
