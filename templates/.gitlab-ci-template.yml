@@ -82,7 +82,8 @@ variables:
       echo "Configure buildx..."
       docker context create build-multiarch
       docker context use build-multiarch
-      docker buildx create build-multiarch --use
+      docker buildx create build-multiarch --docker host=tcp://docker:2376 --use
+      unset DOCKER_HOST
 
 before_script:
   - *script-global-docker-wait
