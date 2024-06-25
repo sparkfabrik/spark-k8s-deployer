@@ -80,7 +80,7 @@ variables:
       docker run --privileged --rm tonistiigi/binfmt --install all
 
       echo "Configure buildx..."
-      docker context create build-multiarch --docker host=${DOCKER_HOST}\
+      docker context create build-multiarch --docker host=${DOCKER_HOST}
       unset DOCKER_HOST
       docker context use build-multiarch
       docker buildx create build-multiarch --use
