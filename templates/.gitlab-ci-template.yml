@@ -13,7 +13,7 @@ services:
   - name: moby/buildkit:v0.14.1
     command:
       [
-        "--addr tcp://0.0.0.0:1234",
+        "---addr tcp://0.0.0.0:1234",
         "--tlscacert /certs/client/ca.pem",
         "--tlscert /certs/client/cert.pem",
         "--tlskey /certs/client/key.pem",
