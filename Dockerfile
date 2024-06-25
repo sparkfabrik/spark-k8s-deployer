@@ -6,10 +6,17 @@ FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION v2.23.1
 # https://download.docker.com/linux/static/stable/x86_64
+<<<<<<< HEAD
 ENV DOCKER_VERSION 24.0.7
 ENV DOCKER_BUILDX_VERSION v0.11.2
 ENV HELM3_VERSION 3.14.3
 ENV AWS_CLI_VERSION 1.32.14
+=======
+ENV DOCKER_VERSION 26.1.0
+ENV DOCKER_BUILDX_VERSION v0.15.1
+ENV HELM3_VERSION 3.11.2
+ENV AWS_CLI_VERSION 1.29.47
+>>>>>>> e0e0828 (feat: upgrade docker, buildx and finalize build enable)
 ENV YQ4_VERSION v4.14.2
 ENV FLUX2_RELEASE_VERSION 0.26.2
 ENV STERN_RELEASE_VERSION 1.28.0
@@ -68,8 +75,8 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
 RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION} --break-system-packages
 
 # Install buildkit
-ENV BUILDKIT_VERSION=0.12.3
-RUN curl -L https://github.com/moby/buildkit/releases/download/v0.12.3/buildkit-v0.12.3.linux-amd64.tar.gz | tar -xzC /usr/local/bin --strip-components=1
+ENV BUILDKIT_VERSION=0.14.1
+RUN curl -L https://github.com/moby/buildkit/releases/download/v${BUILDKIT_VERSION}/buildkit-v${BUILDKIT_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local/bin --strip-components=1
 
 RUN echo "source /google-cloud-sdk/path.bash.inc" >> /etc/profile
 
