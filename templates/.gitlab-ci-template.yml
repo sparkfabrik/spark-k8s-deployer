@@ -13,10 +13,10 @@ services:
   - name: moby/buildkit:v0.14.1
     command:
       [
-        "--addr tcp://0.0.0.0:1234",
         "--tlscacert /certs/client/ca.pem",
         "--tlscert /certs/client/cert.pem",
         "--tlskey /certs/client/key.pem",
+        "--addr tcp://0.0.0.0:1234"
       ]
 variables:
   # When using dind service, we need to instruct docker to talk with
