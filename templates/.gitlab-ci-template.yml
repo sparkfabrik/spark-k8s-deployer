@@ -12,7 +12,7 @@ services:
   # TODO: To make it work the certs must be shared as we do for docker.
   - name: moby/buildkit:v0.14.1
     command:
-      - --tlscacer=/certs/client/ca.pem
+      - --tlscacert=/certs/client/ca.pem
       - --tlscert=/certs/client/cert.pem
       - --tlskey=/certs/client/key.pem
       - --addr=tcp://0.0.0.0:1234
