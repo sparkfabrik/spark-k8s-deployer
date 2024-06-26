@@ -1,7 +1,7 @@
-image: eu.gcr.io/spark-int-cloud-services/test-deployer-no-qemu:latest
+image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
-  - name: docker:24.0.7-dind-alpine3.19
+  - name: docker:26.1.0-dind-alpine3.19
     command:
       [
         "--registry-mirror",

@@ -25,3 +25,16 @@ build local gitlab cache:
     key: cache-$CI_COMMIT_REF_SLUG
     paths:
       - build-cache/
+## Compose.
+
+# docker-compose.yml
+# services:
+#   my_service:
+#     build:
+#       context: .
+#       cache_from:
+#         - type=local,src=./${CACHE_DIR:-build-cache}/my_service
+#       cache_to:
+#         - type=local,dest=./${CACHE_DIR:-build-cache}/my_service
+#       dockerfile: Dockerfile
+#     image: ${MY_IMAGE_TAG:-dockerbuild:latest}
