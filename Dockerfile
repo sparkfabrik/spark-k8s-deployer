@@ -6,8 +6,8 @@ FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION v2.23.1
 # https://download.docker.com/linux/static/stable/x86_64
-ENV DOCKER_VERSION 24.0.7
-ENV DOCKER_BUILDX_VERSION v0.11.2
+ENV DOCKER_VERSION 26.1.0
+ENV DOCKER_BUILDX_VERSION v0.15.1
 ENV HELM3_VERSION 3.14.3
 ENV AWS_CLI_VERSION 1.32.14
 ENV YQ4_VERSION v4.14.2
@@ -16,10 +16,6 @@ ENV STERN_RELEASE_VERSION 1.28.0
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN true
-
-# https://github.com/multiarch/qemu-user-static/releases
-ENV QEMU_VERSION 5.2.0-2
-ARG QEMU_ARCHS="aarch64 arm"
 
 RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint util-linux && \
     # Install docker and docker-compose.
@@ -36,7 +32,6 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && docker-compose --version \
     && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
-    && for ARCH in ${QEMU_ARCHS}; do curl https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VERSION}/qemu-${ARCH}-static -o /usr/bin/qemu-${ARCH}-static; done \
     && gcloud components install kubectl beta gke-gcloud-auth-plugin --quiet \
     && kubectl version --client \
     # Install Helm 3:

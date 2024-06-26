@@ -1,0 +1,40 @@
+include:
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/.gitlab-ci-template.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml"
+
+variables:
+  REGISTRY: europe-west1-docker.pkg.dev
+  IMAGE_NAME: registry.loc/namespace
+  IMAGE_TAG: ${CI_COMMIT_REF_SLUG}
+  CACHE_TAG: cache-${IMAGE_TAG}
+
+build remote registry cache:
+  script: |
+    docker buildx build --platform "linux/amd64,linux/arm64" \
+    --cache-to type=registry,ref=${REGISTRY}/${IMAGE_NAME}:${CACHE_TAG},mode=max \
+    --cache-from type=registry,ref=${REGISTRY}/${IMAGE_NAME}:${CACHE_TAG} \
+    -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+
+build local gitlab cache:
+  script: |
+    docker buildx build --platform "linux/amd64,linux/arm64" \
+    --cache-to type=local,dest=build-cache,mode=max \
+    --cache-from type=local,src=build-cache \
+    -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+  cache:
+    key: cache-$CI_COMMIT_REF_SLUG
+    paths:
+      - build-cache/
+## Compose.
+
+# docker-compose.yml
+# services:
+#   my_service:
+#     build:
+#       context: .
+#       cache_from:
+#         - type=local,src=./${CACHE_DIR:-build-cache}/my_service
+#       cache_to:
+#         - type=local,dest=./${CACHE_DIR:-build-cache}/my_service
+#       dockerfile: Dockerfile
+#     image: ${MY_IMAGE_TAG:-dockerbuild:latest}

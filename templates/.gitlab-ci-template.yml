@@ -1,7 +1,7 @@
 image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
 services:
-  - name: docker:24.0.7-dind-alpine3.19
+  - name: docker:26.1.0-dind-alpine3.19
     command:
       [
         "--registry-mirror",
@@ -9,7 +9,6 @@ services:
         "--mtu=1300",
         "--network-control-plane-mtu=1300",
       ]
-
 variables:
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
@@ -75,6 +74,13 @@ variables:
           jq '.credHelpers' ~/.docker/config.json
         fi
       fi
+
+      echo "Configure buildx..."
+      echo ""
+      docker context create build-multiarch
+      docker context use build-multiarch
+      docker buildx create build-multiarch --use
+      docker buildx ls
 
 before_script:
   - *script-global-docker-wait
