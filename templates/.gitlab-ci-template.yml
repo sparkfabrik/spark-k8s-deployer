@@ -77,7 +77,7 @@ variables:
 
       echo "Install qemu deps for buildx multiarch (https://docs.docker.com/build/building/multi-platform/#qemu-without-docker-desktop).."
       echo ""
-      docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
+      # docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
 
       echo "Configure buildx..."
       docker context create build-multiarch
