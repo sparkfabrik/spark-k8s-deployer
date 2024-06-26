@@ -79,7 +79,7 @@ variables:
       echo ""
       docker context create build-multiarch
       docker context use build-multiarch
-      docker buildx create build-multiarch --use
+      docker buildx create --name build-multiarch --bootstrap --use
       docker buildx ls
 
 before_script:
