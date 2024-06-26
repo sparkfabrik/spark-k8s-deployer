@@ -1,4 +1,4 @@
-image: eu.gcr.io/spark-int-cloud-services/test-deployer-no-qemu:latest:latest
+image: eu.gcr.io/spark-int-cloud-services/test-deployer-no-qemu:latest
 
 services:
   - name: docker:24.0.7-dind-alpine3.19
