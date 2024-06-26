@@ -77,8 +77,6 @@ variables:
 
       echo "Configure buildx..."
       echo ""
-      docker context create build-multiarch
-      docker context use build-multiarch
       docker buildx create --name build-multiarch --bootstrap --use
       docker buildx ls
 
