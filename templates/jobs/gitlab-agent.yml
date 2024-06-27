@@ -1,0 +1,19 @@
+# This file contains two job templates that could be used to simplify
+# the configuration of GitLab agent.
+# The idea is to extend the right job template in the job definition
+# for the deployment in develop or production environment.
+#
+# The `scripts/helm-init` script calls the `setup-gitlab-agent` function
+# defined in the `scripts/src/functions.bash` file.
+# If the `GITLAB_AGENT_ID` and `GITLAB_AGENT_PROJECT` variables are set,
+# the function activates the right kubernetes context based on these variables.
+
+.gitlab_agent_for_develop:
+  variables:
+    GITLAB_AGENT_ID: ${DEVELOP_AGENT_ID}
+    GITLAB_AGENT_PROJECT: ${DEVELOP_AGENT_PROJECT}
+
+.gitlab_agent_for_production:
+  variables:
+    GITLAB_AGENT_ID: ${PRODUCTION_AGENT_ID}
+    GITLAB_AGENT_PROJECT: ${PRODUCTION_AGENT_ID}

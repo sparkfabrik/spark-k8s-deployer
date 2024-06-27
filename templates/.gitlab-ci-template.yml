@@ -52,8 +52,7 @@ variables:
   before_script: &script-global-docker-wait
     - |
       if command -v docker &> /dev/null; then
-        for i in $(seq 1 30)
-        do
+        for i in $(seq 1 30); do
           docker info && break
           echo "Waiting for docker to start..."
           sleep 1s
@@ -82,7 +81,6 @@ variables:
         fi
       fi
 
-
 before_script:
   - *script-global-docker-wait
 
@@ -90,10 +88,11 @@ include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gcloud-load-balancer-l7-cdn.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitlab-agent.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-argo-sync.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gitops-sync-to-infrastructure-repo.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-nginx-build.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/kaniko-drupal-php-build.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/rollback-release.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/stop-environment.yml"
-  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/gcloud-load-balancer-l7-cdn.yml"
