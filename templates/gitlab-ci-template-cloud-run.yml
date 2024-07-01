@@ -105,25 +105,17 @@ workflow:
 .build_template:
   script:
     - docker build --build-arg PORT=${PORT} -t ${CI_REGISTRY_IMAGE} -f ${DOCKERFILE} .
-    - mkdir -p ./docker-images-cache
-    - docker save --output ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
-  cache:
-    key: 
-      files:
-        - ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar
+    - mkdir -p ./docker-images
+    - docker save --output ./docker-images/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
+  artifacts:
+    expire_in: 1 hrs
     paths:
-      - docker-images-cache/
+      - ./docker-images
 
 .load_and_push_template:
   script:
-    - docker load --input ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar
+    - docker load --input ./docker-images/${DOCKER_IMAGE_NAME}.tar
     - docker push ${CI_REGISTRY_IMAGE}
-  cache:
-    key: 
-      files:
-        - ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar
-    paths:
-      - docker-images-cache/
 
 .deploy_template:
   script:
@@ -134,12 +126,6 @@ workflow:
     - gcloud run deploy ${DEPLOYMENT_NAME} --image=${CI_REGISTRY_IMAGE}
       --region ${GCP_REGION} --platform managed --allow-unauthenticated --project ${GCP_PROJECT_ID} --port=${PORT}
       ${SERVICE_ACCOUNT_OPT} ${CLOUD_RUN_ENV_VARS_OPT} ${CLOUD_RUN_DEPLOY_RAW_OPTIONS}
-  cache:
-    key: 
-      files:
-        - ./docker-images-cache/${DOCKER_IMAGE_NAME}.tar
-    paths:
-      - docker-images-cache/
 
 .update_traffic_template:
   script:
