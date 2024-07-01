@@ -107,6 +107,10 @@ workflow:
     - docker build --build-arg PORT=${PORT} -t ${CI_REGISTRY_IMAGE} -f ${DOCKERFILE} .
     - mkdir -p ./docker-images
     - docker save --output ./docker-images/${DOCKER_IMAGE_NAME}.tar ${CI_REGISTRY_IMAGE}
+  artifacts:
+    expire_in: 1 hrs
+    paths:
+      - ./docker-images
 
 .load_and_push_template:
   script:
@@ -146,16 +150,9 @@ test variables:
 build:
   stage: build
   extends: .build_template
-  artifacts:
-    expire_in: 1 day
-    paths:
-      - ./docker-images
 
 # The following jobs run only for the branch defined in the `DEPLOYMENT_MAIN_BRANCH` variable.
 deploy:
-  needs:
-    - job: build
-      artifacts: true
   stage: deploy
   extends:
     - .deploy_template
