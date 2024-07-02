@@ -5,8 +5,14 @@
 # Including this file in a script will make all functions available
 # but will not change the environment.
 
+print-banner() {
+  if [ -n "${1:-}" ]; then
+    echo "----- ${1} -----"
+  fi
+}
+
 create_kubeconfig() {
-  echo "Generating kubeconfig..."
+  print-banner "CREATING KUBECONFIG"
   KUBECONFIG="$(pwd)/kubeconfig"
   export KUBECONFIG
   export KUBE_CLUSTER_OPTIONS=
@@ -24,7 +30,7 @@ create_kubeconfig() {
     --cluster=gitlab-deploy --user=gitlab-deploy \
     --namespace="$KUBE_NAMESPACE"
   kubectl config use-context gitlab-deploy
-  echo ""
+  print-banner "END CREATING KUBECONFIG"
 }
 
 ensure_deploy_variables() {
@@ -114,16 +120,100 @@ create-ns-and-developer-role-bindings() {
 }
 
 helm-init() {
+  print-banner "HELM INIT"
   helm version
   helm repo add "stable" "https://charts.helm.sh/stable"
   helm repo add "sparkfabrik" "${SPARKFABRIK_CHART_REPO_URL:-https://storage.googleapis.com/spark-helm-charts}"
   helm repo update
+  print-banner "HELM INIT"
+}
+
+_gitlab-agent-print-vars() {
+  local PAD_LEN VAR_NAME
+  PAD_LEN=${PAD_LEN:-40}
+  printf "\e[1mConfigured Gitlab Agent related variables in order of precedence:\e[0m\n"
+  for VAR_NAME in "DISABLE_GITLAB_AGENT" \
+    "GITLAB_AGENT_PROJECT" "GITLAB_AGENT_ID" \
+    "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
+    "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
+    "NON_DEVELOP_BRANCHES_REGEX"; do
+    printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
+  done
+}
+
+_gitlab-agent-print-workflow() {
+  # Flow description:
+  # 1. GITLAB_AGENT_PROJECT and GITLAB_AGENT_ID (no branch dependency)
+  # 2. BRANCH = NON_DEVELOP_BRANCHES_REGEX ? DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID : PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID
+
+  if [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
+    echo "The deployment will not use the GitLab Agent because it is disabled by using the DISABLE_GITLAB_AGENT environment variable."
+  elif [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ]; then
+    echo "You have configured a specific GitLab Agent project and ID. It will be used for the deployment."
+  elif echo "${CI_COMMIT_REF_SLUG}" | grep -qvE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
+    echo "Your branch '${CI_COMMIT_REF_SLUG} does not match the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a development branch."
+    echo "The PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID variables will be used, if they are present."
+  elif echo "${CI_COMMIT_REF_SLUG}" | grep -qE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
+    echo "Your branch '${CI_COMMIT_REF_SLUG} matches the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a production branch."
+    echo "The DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID variables will be used, if present."
+  elif [ "${CI_SERVER_VERSION_MAJOR}" -ge "17" ]; then
+    echo "The GitLab Agent is not configured correctly. Please check the variables and the workflow."
+  else
+    echo "The GitLab Agent is not configured. We use the environment based cluster configuration."
+  fi
+}
+
+_setup-gitlab-agent-kubernetes-context() {
+  if [ "${1:-}" = "" ]; then
+    echo "Missing the GitLab Agent host project name."
+    exit 1
+  fi
+  if [ "${2:-}" = "" ]; then
+    echo "Missing the GitLab Agent ID."
+    exit 1
+  fi
+
+  echo "Switching Kubernetes context to use the context provided by the GitLab Agent."
+  echo "The used GitLab Agent ID is: ${2}"
+
+  kubectl config use-context "${1}:${2}"
 }
 
 setup-gitlab-agent() {
-  if [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ] && [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
-    echo "The deployment will use the GitLab Agent."
-    echo "Switching Kubernetes context to use the context provided by the GitLab Agent."
-    kubectl config use-context "${GITLAB_AGENT_PROJECT}:${GITLAB_AGENT_ID}"
+  print-banner "SETUP GITLAB AGENT"
+  _gitlab-agent-print-vars
+  _gitlab-agent-print-workflow
+  print-banner "END SETUP GITLAB AGENT"
+
+  # If the GitLab Agent is disabled, return early.
+  if [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
+    return
+  fi
+
+  # If the GitLab Agent variables are configured to a specific project and ID, use them.
+  if [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ]; then
+    _setup-gitlab-agent-kubernetes-context "${GITLAB_AGENT_PROJECT}" "${GITLAB_AGENT_ID}"
+    return
+  fi
+
+  # If the current branch is non-production and the development variables are set, use the develop GitLab Agent.
+  # Please note the `-v` in the grep command that is used to invert the match.
+  if echo "${CI_COMMIT_REF_SLUG}" | grep -qvE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
+    if [ -z "${DEVELOP_GITLAB_AGENT_PROJECT:-}" ] && [ -z "${DEVELOP_GITLAB_AGENT_ID:-}" ]; then
+      return
+    fi
+
+    _setup-gitlab-agent-kubernetes-context "${DEVELOP_GITLAB_AGENT_PROJECT}" "${DEVELOP_GITLAB_AGENT_ID}"
+    return
+  fi
+
+  # If the current branch is a production ones and the production variables are set, use the production GitLab Agent.
+  if echo "${CI_COMMIT_REF_SLUG}" | grep -qE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
+    if [ -n "${PRODUCTION_GITLAB_AGENT_PROJECT:-}" ] && [ -n "${PRODUCTION_GITLAB_AGENT_ID:-}" ]; then
+      return
+    fi
+
+    _setup-gitlab-agent-kubernetes-context "${PRODUCTION_GITLAB_AGENT_PROJECT}" "${PRODUCTION_GITLAB_AGENT_ID}"
+    return
   fi
 }
