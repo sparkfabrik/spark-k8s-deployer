@@ -146,7 +146,7 @@ _gitlab-agent-print-workflow() {
   # 1. GITLAB_AGENT_PROJECT and GITLAB_AGENT_ID (no branch dependency)
   # 2. BRANCH = NON_DEVELOP_BRANCHES_REGEX ? DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID : PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID
 
-  if [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
+  if [ "${DISABLE_GITLAB_AGENT:-0}" = "1" ]; then
     echo "The deployment will not use the GitLab Agent because it is disabled by using the DISABLE_GITLAB_AGENT environment variable."
   elif [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ]; then
     echo "You have configured a specific GitLab Agent project and ID. It will be used for the deployment."
@@ -186,7 +186,7 @@ setup-gitlab-agent() {
   print-banner "END SETUP GITLAB AGENT"
 
   # If the GitLab Agent is disabled, return early.
-  if [ "${DISABLE_GITLAB_AGENT:-0}" != "1" ]; then
+  if [ "${DISABLE_GITLAB_AGENT:-0}" = "1" ]; then
     return
   fi
 
