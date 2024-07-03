@@ -57,13 +57,15 @@ variables:
           echo "Waiting for docker to start..."
           sleep 1s
         done
-         
-        echo "Configure buildx..."
-        echo ""
-        docker context create build-multiarch
-        docker context use build-multiarch
-        docker buildx create build-multiarch --name buildx-builder --bootstrap --use
-        docker buildx ls
+
+        if [ "${DOCKER_USE_BUILDX:-1}" = "1" ]; then
+          echo "Configure buildx..."
+          echo ""
+          docker context create build-multiarch
+          docker context use build-multiarch
+          docker buildx create build-multiarch --name buildx-builder --bootstrap --use
+          docker buildx ls
+        fi
       fi
       if command -v docker-compose &> /dev/null; then
         docker-compose version
