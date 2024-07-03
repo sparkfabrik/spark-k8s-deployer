@@ -137,7 +137,7 @@ _gitlab-agent-print-vars() {
     "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
     "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
     "NON_DEVELOP_BRANCHES_REGEX"; do
-    printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
+    printf "%-${PAD_LEN}s: \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
   done
 }
 
