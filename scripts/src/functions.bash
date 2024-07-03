@@ -151,11 +151,11 @@ _gitlab-agent-print-workflow() {
   elif [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ]; then
     echo "You have configured a specific GitLab Agent project and ID. It will be used for the deployment."
   elif echo "${CI_COMMIT_REF_SLUG}" | grep -qvE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
-    echo "Your branch '${CI_COMMIT_REF_SLUG} does not match the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a development branch."
-    echo "The PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID variables will be used, if they are present."
+    echo "Your branch '${CI_COMMIT_REF_SLUG}' does not match the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a development branch."
+    echo "The DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID variables will be used, if they are present."
   elif echo "${CI_COMMIT_REF_SLUG}" | grep -qE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
-    echo "Your branch '${CI_COMMIT_REF_SLUG} matches the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a production branch."
-    echo "The DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID variables will be used, if present."
+    echo "Your branch '${CI_COMMIT_REF_SLUG}' matches the '${NON_DEVELOP_BRANCHES_REGEX}' regex, it means that we handle it as a production branch."
+    echo "The PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID variables will be used, if present."
   elif [ "${CI_SERVER_VERSION_MAJOR}" -ge "17" ]; then
     echo "The GitLab Agent is not configured correctly. Please check the variables and the workflow."
   else
@@ -199,7 +199,7 @@ setup-gitlab-agent() {
   # If the current branch is non-production and the development variables are set, use the develop GitLab Agent.
   # Please note the `-v` in the grep command that is used to invert the match.
   if echo "${CI_COMMIT_REF_SLUG}" | grep -qvE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
-    if [ -z "${DEVELOP_GITLAB_AGENT_PROJECT:-}" ] && [ -z "${DEVELOP_GITLAB_AGENT_ID:-}" ]; then
+    if [ -z "${DEVELOP_GITLAB_AGENT_PROJECT:-}" ] || [ -z "${DEVELOP_GITLAB_AGENT_ID:-}" ]; then
       return
     fi
 
@@ -209,7 +209,7 @@ setup-gitlab-agent() {
 
   # If the current branch is a production ones and the production variables are set, use the production GitLab Agent.
   if echo "${CI_COMMIT_REF_SLUG}" | grep -qE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
-    if [ -n "${PRODUCTION_GITLAB_AGENT_PROJECT:-}" ] && [ -n "${PRODUCTION_GITLAB_AGENT_ID:-}" ]; then
+    if [ -n "${PRODUCTION_GITLAB_AGENT_PROJECT:-}" ] || [ -n "${PRODUCTION_GITLAB_AGENT_ID:-}" ]; then
       return
     fi
 
