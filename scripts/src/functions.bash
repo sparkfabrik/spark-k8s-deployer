@@ -209,7 +209,7 @@ setup-gitlab-agent() {
 
   # If the current branch is a production ones and the production variables are set, use the production GitLab Agent.
   if echo "${CI_COMMIT_REF_SLUG}" | grep -qE "^(${NON_DEVELOP_BRANCHES_REGEX})$"; then
-    if [ -n "${PRODUCTION_GITLAB_AGENT_PROJECT:-}" ] || [ -n "${PRODUCTION_GITLAB_AGENT_ID:-}" ]; then
+    if [ -z "${PRODUCTION_GITLAB_AGENT_PROJECT:-}" ] || [ -z "${PRODUCTION_GITLAB_AGENT_ID:-}" ]; then
       return
     fi
 
