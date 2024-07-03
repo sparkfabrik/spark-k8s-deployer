@@ -132,12 +132,12 @@ _gitlab-agent-print-vars() {
   local PAD_LEN VAR_NAME
   PAD_LEN=${PAD_LEN:-40}
   printf "\e[1mConfigured Gitlab Agent related variables in order of precedence:\e[0m\n"
-  for VAR_NAME in "DISABLE_GITLAB_AGENT" \
+  for VAR_NAME in "KUBE_NAMESPACE" "DISABLE_GITLAB_AGENT" \
     "GITLAB_AGENT_PROJECT" "GITLAB_AGENT_ID" \
     "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
     "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
     "NON_DEVELOP_BRANCHES_REGEX"; do
-    printf "%-${PAD_LEN}s: \e[1m%s\e[0m\n" "${VAR_NAME}" "${!VAR_NAME}"
+    printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
   done
 }
 
