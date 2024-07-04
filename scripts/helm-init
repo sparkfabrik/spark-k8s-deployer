@@ -15,11 +15,6 @@ source "$DEPLOY_ROOT_DIR/src/common.bash"
 # shellcheck disable=SC1091
 source "$DEPLOY_ROOT_DIR/src/functions.bash"
 
-# Switch to the GitLab Agent context if needed.
-# This must be done before any other step to execute
-# commands in the correct cluster.
-setup-gitlab-agent
-
 # Proceed with the other steps.
 create-ns-and-developer-role-bindings
 helm-init

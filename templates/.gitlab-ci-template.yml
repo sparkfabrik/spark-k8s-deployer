@@ -81,6 +81,13 @@ variables:
         fi
       fi
 
+      # Switch to the GitLab Agent context if needed.
+      # This must be done before any other step to execute
+      # commands in the correct cluster.
+      source "/scripts/src/common.bash"
+      source "/scripts/src/functions.bash"
+      setup-gitlab-agent
+
 before_script:
   - *script-global-docker-wait
 
