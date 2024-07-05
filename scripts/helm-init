@@ -15,6 +15,13 @@ source "$DEPLOY_ROOT_DIR/src/common.bash"
 # shellcheck disable=SC1091
 source "$DEPLOY_ROOT_DIR/src/functions.bash"
 
+# Switch to the GitLab Agent context if needed.
+# This configuration is also used in the default `before_script`
+# of the `.gitlab-ci-template.yml`. In some rare cases, the `before_script`
+# section is completely overridden in the project's jobs.
+# To avoid any issues, we call the `setup-gitlab-agent` function also here.
+setup-gitlab-agent
+
 # Proceed with the other steps.
 create-ns-and-developer-role-bindings
 helm-init
