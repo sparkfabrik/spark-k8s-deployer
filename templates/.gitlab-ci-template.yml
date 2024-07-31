@@ -3,7 +3,13 @@ image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 # MTU configuration: https://docs.gitlab.com/runner/executors/kubernetes/troubleshooting.html#curl-35-openssl-ssl_connect-ssl_error_syscall-in-connection-to-githubcom443
 services:
   - name: docker:26.1.0-dind-alpine3.19
-    command: ["--registry-mirror", "https://mirror.gcr.io", "--mtu=1450"]
+    command:
+      [
+        "--registry-mirror",
+        "https://mirror.gcr.io",
+        "--mtu=1460",
+        "--network-control-plane-mtu=1460",
+      ]
 variables:
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
