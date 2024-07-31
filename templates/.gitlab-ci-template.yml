@@ -9,6 +9,7 @@ services:
         "https://mirror.gcr.io",
         "--mtu=1460",
         "--network-control-plane-mtu=1460",
+        "--default-network-opt=bridge=com.docker.network.driver.mtu=1460"
       ]
 variables:
   # When using dind service, we need to instruct docker to talk with
