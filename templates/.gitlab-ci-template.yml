@@ -7,8 +7,8 @@ services:
       [
         "--registry-mirror",
         "https://mirror.gcr.io",
-        "--mtu=1460",
-        "--network-control-plane-mtu=1460",
+        "--mtu=1200",
+        "--network-control-plane-mtu=1200",
       ]
 variables:
   # When using dind service, we need to instruct docker to talk with
