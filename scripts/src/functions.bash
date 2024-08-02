@@ -29,9 +29,9 @@ print_job_info() {
 print_debug_sleep_help() {
   print-banner "DEBUG SLEEP HELP"
   echo "If DEBUG_JOB_SLEEP is 1 and CI_JOB_NAME_SLUG matches DEBUG_JOB_SLEEP_JOB_NAME, the job will sleep for the specified duration."
-  echo "You should set the variables like this: DEBUG_JOB_SLEEP=1 DEBUG_JOB_SLEEP_JOB_NAME=${CI_JOB_NAME_SLUG} DEBUG_JOB_SLEEP_DURATION=3600"
+  echo "To activate it, you can set the variables as follows:"
+  echo "DEBUG_JOB_SLEEP=1 DEBUG_JOB_SLEEP_JOB_NAME=${CI_JOB_NAME_SLUG} DEBUG_JOB_SLEEP_DURATION=3600"
   print-banner "END DEBUG SLEEP HELP"
-
 }
 
 create_kubeconfig() {
