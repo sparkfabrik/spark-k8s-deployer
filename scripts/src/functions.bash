@@ -13,10 +13,8 @@ print-banner() {
 
 print_job_info() {
   print-banner "JOB INFO"
-
   local PAD_LEN VAR_NAME
   PAD_LEN=${PAD_LEN:-40}
-  printf "\e[1mCI Job informations:\e[0m\n"
   for VAR_NAME in "HOSTNAME" "CI_JOB_NAME" "CI_JOB_NAME_SLUG" \
     "CI_COMMIT_AUTHOR" "CI_RUNNER_EXECUTABLE_ARCH" \
     "CI_RUNNER_DESCRIPTION"; do
