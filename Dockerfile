@@ -6,8 +6,8 @@ FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION v2.23.1
 # https://download.docker.com/linux/static/stable/x86_64
-ENV DOCKER_VERSION 26.1.0
-ENV DOCKER_BUILDX_VERSION v0.15.1
+ENV DOCKER_VERSION 27.1.1
+ENV DOCKER_BUILDX_VERSION 0.16.2
 ENV HELM3_VERSION 3.14.3
 ENV AWS_CLI_VERSION 1.32.14
 ENV YQ4_VERSION v4.14.2
@@ -30,7 +30,7 @@ RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-
     && chmod +x ~/.docker/cli-plugins/docker-compose \
     && ln -s ~/.docker/cli-plugins/docker-compose /usr/local/bin/docker-compose \
     && docker-compose --version \
-    && curl -fSL "https://github.com/docker/buildx/releases/download/${DOCKER_BUILDX_VERSION}/buildx-${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
+    && curl -fSL "https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx \
     && chmod +x ~/.docker/cli-plugins/docker-buildx \
     && gcloud components install kubectl beta gke-gcloud-auth-plugin --quiet \
     && kubectl version --client \
