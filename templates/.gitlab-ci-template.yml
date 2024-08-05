@@ -100,9 +100,9 @@ variables:
       # Handle debug sleep.
       print_debug_sleep_help
       DEBUG_JOB_SLEEP_SECONDS=${DEBUG_JOB_SLEEP_SECONDS:-3600}  # Default to 1 hour if not set
-      if [ "$DEBUG_JOB_SLEEP" -eq 1 ] && [ "$CI_JOB_NAME_SLUG" == "$DEBUG_JOB_SLEEP_JOB_NAME" ]; then
-        echo "Sleeping for $DEBUG_JOB_SLEEP_SECONDS seconds..."
-        sleep $DEBUG_JOB_SLEEP_SECONDS
+      if [ "${DEBUG_JOB_SLEEP}" -eq 1 ] && [ "${CI_JOB_NAME_SLUG}" == "${DEBUG_JOB_SLEEP_JOB_NAME}" ]; then
+        echo "Sleeping for ${DEBUG_JOB_SLEEP_SECONDS} seconds..."
+        sleep "${DEBUG_JOB_SLEEP_SECONDS}"
       fi
 
 before_script:
