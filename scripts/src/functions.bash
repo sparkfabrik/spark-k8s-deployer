@@ -11,6 +11,29 @@ print-banner() {
   fi
 }
 
+print_job_info() {
+  print-banner "JOB INFO"
+
+  local PAD_LEN VAR_NAME
+  PAD_LEN=${PAD_LEN:-40}
+  printf "\e[1mCI Job informations:\e[0m\n"
+  for VAR_NAME in "HOSTNAME" "CI_JOB_NAME" "CI_JOB_NAME_SLUG" \
+    "CI_COMMIT_AUTHOR" "CI_RUNNER_EXECUTABLE_ARCH" \
+    "CI_RUNNER_DESCRIPTION"; do
+    printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
+  done
+
+  print-banner "END JOB INFO"
+}
+
+print_debug_sleep_help() {
+  print-banner "DEBUG SLEEP HELP"
+  echo "If DEBUG_JOB_SLEEP is 1 and CI_JOB_NAME_SLUG matches DEBUG_JOB_SLEEP_JOB_NAME, the job will sleep for the specified duration."
+  echo "To activate it, you can set the variables as follows:"
+  echo "DEBUG_JOB_SLEEP=1 DEBUG_JOB_SLEEP_JOB_NAME=${CI_JOB_NAME_SLUG} DEBUG_JOB_SLEEP_DURATION=3600"
+  print-banner "END DEBUG SLEEP HELP"
+}
+
 create_kubeconfig() {
   print-banner "CREATING KUBECONFIG"
   KUBECONFIG="$(pwd)/kubeconfig"
