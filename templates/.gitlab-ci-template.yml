@@ -96,8 +96,6 @@ variables:
         setup-gitlab-agent
 
         # Print some useful job info.
-        # export the current gcloud authenticated user.
-        export GCLOUD_AUTH_USER=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
         print_job_info
 
         # Handle debug sleep.
