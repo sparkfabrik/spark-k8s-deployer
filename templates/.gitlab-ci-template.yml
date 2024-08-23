@@ -53,6 +53,7 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script: &script-global-docker-wait
     - |
+      PAD_LEN=${PAD_LEN:-40}
       if command -v docker &> /dev/null; then
         for i in $(seq 1 30); do
           docker info && break
@@ -78,7 +79,7 @@ variables:
         echo "Configuring docker credentials for gcloud registries..."
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-        printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "GCP Auth user:" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
 
         if command -v jq &> /dev/null; then
           echo "The following docker credHelpers are configured:"
