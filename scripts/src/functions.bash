@@ -17,7 +17,7 @@ print_job_info() {
   PAD_LEN=${PAD_LEN:-40}
   for VAR_NAME in "HOSTNAME" "CI_JOB_NAME" "CI_JOB_NAME_SLUG" \
     "CI_COMMIT_AUTHOR" "CI_RUNNER_EXECUTABLE_ARCH" \
-    "CI_RUNNER_DESCRIPTION"; do
+    "CI_RUNNER_DESCRIPTION" "GCLOUD_AUTH_USER"; do
     printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
   done
 
