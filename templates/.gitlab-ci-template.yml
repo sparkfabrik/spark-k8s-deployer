@@ -111,7 +111,7 @@ variables:
         # Switch to the GitLab Agent context if needed.
         section_start "gitlab-agent" "Setup gitlab agent"
         setup-gitlab-agent
-        section_end
+        section_end "gitlab-agent"
 
         # Print some useful job info.
         section_start "job-info" "Job information"
