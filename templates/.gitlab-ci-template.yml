@@ -67,6 +67,7 @@ variables:
       
         echo -e "section_end:`date +%s`:${section_title}\r\e[0K"
       }
+
       PAD_LEN=${PAD_LEN:-40}
           
       if command -v docker &> /dev/null; then
