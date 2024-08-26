@@ -118,15 +118,14 @@ variables:
         section_end "gitlab-agent"
 
         # Print some useful job info.
-        section_start "job-info" "Job information"
+        section_start "job-info" "Print useful job information"
         print_job_info
         section_end "job-info"
 
         # Handle debug sleep.
-        section_start "debug-sleep" "Job information"
+        section_start "debug-sleep" "Print debug information"
         print_debug_sleep_help
-
-
+        
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
         if [ "${DEBUG_JOB_SLEEP}" = "1" ] && [ "${CI_JOB_NAME_SLUG}" = "${DEBUG_JOB_SLEEP_JOB_NAME}" ]; then
