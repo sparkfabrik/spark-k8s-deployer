@@ -94,15 +94,15 @@ variables:
       fi
 
       if command -v gcloud &> /dev/null; then
-        section_start "gcloud" "Configuring docker credentials for gcloud registries"
+        section_start "gcloud" "Gcloud authentication setup"
         gcloud version
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
         if command -v jq &> /dev/null; then
           echo "The following docker credHelpers are configured:"
           jq '.credHelpers' ~/.docker/config.json
         fi
+        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
         section_end "gcloud"
       fi
 
