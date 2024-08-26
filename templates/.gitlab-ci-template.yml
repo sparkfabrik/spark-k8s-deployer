@@ -57,19 +57,19 @@ variables:
       function section_start () {
         local section_title="${1}"
         local section_description="${2:-$section_title}"
-      
+
         echo -e "section_start:`date +%s`:${section_title}[collapsed=true]\r\e[0K${section_description}"
       }
-      
+
       # Function for ending the Gitlab section
       function section_end () {
         local section_title="${1}"
-      
+
         echo -e "section_end:`date +%s`:${section_title}\r\e[0K"
       }
 
       PAD_LEN=${PAD_LEN:-40}
-          
+
       if command -v docker &> /dev/null; then
         section_start "docker" "Configure Docker services"
         for i in $(seq 1 30); do
@@ -85,12 +85,14 @@ variables:
           docker buildx create build-multiarch --name buildx-builder --bootstrap --use
           docker buildx ls
         fi
+
+        if command -v docker-compose &> /dev/null; then
+          docker-compose version
+        fi
+        
+        section_end "docker"
       fi
-      if command -v docker-compose &> /dev/null; then
-        docker-compose version
-      fi
-      section_end "docker"
-      
+
       if command -v gcloud &> /dev/null; then
         section_start "gcloud" "Configuring docker credentials for gcloud registries"
         gcloud version
@@ -123,7 +125,7 @@ variables:
         # Handle debug sleep.
         section_start "debug-sleep" "Job information"
         print_debug_sleep_help
-        
+
 
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
