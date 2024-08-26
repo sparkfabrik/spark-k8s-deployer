@@ -53,7 +53,21 @@ variables:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script: &script-global-docker-wait
     - |
+      function section_start () {
+        local section_title="${1}"
+        local section_description="${2:-$section_title}"
+      
+        echo -e "section_start:`date +%s`:${section_title}[collapsed=true]\r\e[0K${section_description}"
+      }
+      
+      # Function for ending the section
+      function section_end () {
+        local section_title="${1}"
+      
+        echo -e "section_end:`date +%s`:${section_title}\r\e[0K"
+      }
       PAD_LEN=${PAD_LEN:-40}
+          
       if command -v docker &> /dev/null; then
         for i in $(seq 1 30); do
           docker info && break
@@ -62,29 +76,29 @@ variables:
         done
 
         if [ "${DOCKER_USE_BUILDX:-1}" = "1" ]; then
-          echo "Configure buildx..."
+          section_start "docker" "Configure buildx"
           echo ""
           docker context create build-multiarch
           docker context use build-multiarch
           docker buildx create build-multiarch --name buildx-builder --bootstrap --use
           docker buildx ls
+          section_end "docker"
         fi
       fi
       if command -v docker-compose &> /dev/null; then
         docker-compose version
       fi
       if command -v gcloud &> /dev/null; then
+        section_start "gcloud" "Configuring docker credentials for gcloud registries"
         gcloud version
-
-        echo "Configuring docker credentials for gcloud registries..."
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
         printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
-
         if command -v jq &> /dev/null; then
           echo "The following docker credHelpers are configured:"
           jq '.credHelpers' ~/.docker/config.json
         fi
+        section_end "gcloud"
       fi
 
       # If the job is running using `spark-k8s-deployer`, source the common
@@ -94,13 +108,19 @@ variables:
         source "/scripts/src/functions.bash"
 
         # Switch to the GitLab Agent context if needed.
+        section_start "gitlab-agent" "Setup gitlab agent"
         setup-gitlab-agent
+        section_end
 
         # Print some useful job info.
+        section_start "job-info" "Job information"
         print_job_info
+        section_end "job-info"
 
         # Handle debug sleep.
+        section_start "debug-sleep" "Job information"
         print_debug_sleep_help
+        
 
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
@@ -108,6 +128,7 @@ variables:
           echo "Sleeping for ${DEBUG_JOB_SLEEP_SECONDS} seconds..."
           sleep "${DEBUG_JOB_SLEEP_SECONDS}"
         fi
+        section_end "debug-sleep"
       fi
 
 before_script:
