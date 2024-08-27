@@ -1,21 +1,21 @@
 # Define the google cloud sdk image tag to use.
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=489.0.0-alpine
 
 FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
 
 # https://github.com/docker/compose/releases
-ENV COMPOSE_VERSION v2.23.1
+ENV COMPOSE_VERSION=v2.23.1
 # https://download.docker.com/linux/static/stable/x86_64
-ENV DOCKER_VERSION 27.1.1
-ENV DOCKER_BUILDX_VERSION 0.16.2
-ENV HELM3_VERSION 3.14.3
-ENV AWS_CLI_VERSION 1.32.14
-ENV YQ4_VERSION v4.14.2
-ENV FLUX2_RELEASE_VERSION 0.26.2
-ENV STERN_RELEASE_VERSION 1.28.0
+ENV DOCKER_VERSION=27.1.1
+ENV DOCKER_BUILDX_VERSION=0.16.2
+ENV HELM3_VERSION=3.14.3
+ENV AWS_CLI_VERSION=1.32.14
+ENV YQ4_VERSION=v4.14.2
+ENV FLUX2_RELEASE_VERSION=0.26.2
+ENV STERN_RELEASE_VERSION=1.28.0
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
-ENV USE_GKE_GCLOUD_AUTH_PLUGIN true
+ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
 
 RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint util-linux && \
     # Install docker and docker-compose.

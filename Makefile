@@ -3,7 +3,7 @@
 # make cli
 #
 DOCKER_VERSION=20.10.5
-GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 474.0.0-alpine
+GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 489.0.0-alpine
 
 cli: build-docker-image
 	# Run the cli.
@@ -14,13 +14,13 @@ cli: build-docker-image
 	-it sparkfabrik/spark-k8s-deployer:latest bash -il
 
 build-docker-image:
-	docker build \
+	docker --debug buildx build \
 		-t sparkfabrik/spark-k8s-deployer:latest \
 		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
 		-f Dockerfile .
 
 build-docker-image-build-args:
-	docker build \
+	docker --debug buildx build \
 		-t sparkfabrik/spark-k8s-deployer:latest \
 		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
 		--build-arg QEMU_ARCHS="aarch64 arm x86_64" \
