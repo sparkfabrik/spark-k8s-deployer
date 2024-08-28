@@ -18,6 +18,7 @@ if [ -z "$DOCKER_HOST" -a "$DOCKER_PORT_2375_TCP" ]; then
 fi
 
 # Alias docker to use gcloud version.
+# test
 alias docker="gcloud docker --"
 
 # Authenticate docker client.
