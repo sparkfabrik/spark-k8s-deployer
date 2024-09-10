@@ -1,5 +1,5 @@
 # Define the google cloud sdk image tag to use.
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=490.0.0-alpine
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=492.0.0-alpine
 
 FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
 
