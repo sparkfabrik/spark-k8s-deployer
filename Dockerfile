@@ -17,7 +17,7 @@ ENV STERN_RELEASE_VERSION=1.28.0
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
 
-RUN apk add --no-cache py-pip python3-dev curl make gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint util-linux && \
+RUN apk add --no-cache py-pip python3-dev curl make mysql-client mariadb-connector-c gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint util-linux && \
     # Install docker and docker-compose.
     curl -fSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
     && tar -xzvf docker.tgz \
