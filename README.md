@@ -14,3 +14,5 @@ This image includes:
 - YQ4 4.14.2
 - Stern 1.24.0
 - AWS-cli 1.16.305
+
+- test pr-agent
