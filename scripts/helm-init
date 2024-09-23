@@ -24,4 +24,9 @@ setup-gitlab-agent
 
 # Proceed with the other steps.
 create-ns-and-developer-role-bindings
+
+# Change permission of KUBECONFIG to avoid warnings.
+chmod 600 $KUBECONFIG || true
+
+# Init helm.
 helm-init
