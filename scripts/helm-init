@@ -26,7 +26,11 @@ setup-gitlab-agent
 create-ns-and-developer-role-bindings
 
 # Change permission of KUBECONFIG to avoid warnings.
-chmod 600 $KUBECONFIG || true
+if [ -n "$KUBECONFIG" ] && [ -f "$KUBECONFIG" ]; then
+  chmod 600 "$KUBECONFIG" || echo "Warning: Failed to change permissions of KUBECONFIG file" >&2
+else
+  echo "Warning: KUBECONFIG is not set or file does not exist" >&2
+fi
 
 # Init helm.
 helm-init
