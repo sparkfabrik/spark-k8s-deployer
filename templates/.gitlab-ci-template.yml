@@ -98,7 +98,7 @@ variables:
         GCP_SERVICE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
 
         # if service account is empty, wait for it to be set.
-        if [ -z "${gcp_service_account}" ]; then
+        if [ -z "${GCP_SERVICE_ACCOUNT}" ]; then
           i=0
           while [ $i -lt 3 ]; do
             echo "Waiting for gcloud to authenticate..."
