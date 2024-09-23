@@ -104,7 +104,7 @@ variables:
             echo "Waiting for gcloud to authenticate..."
             sleep 5s
             GCP_SERVICE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
-            if [ -n "${gcp_service_account}" ]; then
+            if [ -n "${GCP_SERVICE_ACCOUNT}" ]; then
               break
             fi
             i=$((i+1))
