@@ -99,8 +99,9 @@ variables:
 
         # if service account is empty, wait for it to be set.
         if [ -z "${GCP_SERVICE_ACCOUNT##*[![:space:]]*}" ]; then
+          MAX_ATTEMPTS=3
           i=0
-          while [ $i -lt 3 ]; do
+          while [ $i -lt $MAX_ATTEMPTS ]; do
             echo "Waiting for gcloud to authenticate..."
             sleep 5s
             GCP_SERVICE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
