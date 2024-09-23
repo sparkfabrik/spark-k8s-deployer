@@ -89,12 +89,32 @@ variables:
         if command -v docker-compose &> /dev/null; then
           docker-compose version
         fi
-        
+
         section_end "docker"
       fi
 
       if command -v gcloud &> /dev/null; then
         section_start "gcloud" "Gcloud authentication setup"
+        gcp_service_account = $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+
+        # if service account is empty, wait for it to be set.
+        if [ -z "${gcp_service_account}" ]; then
+          for i in $(seq 1 3); do
+            echo "Waiting for gcloud to authenticate..."
+            sleep 5s
+            gcp_service_account = $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+            if [ -n "${gcp_service_account}" ]; then
+              break
+            fi
+          done
+        fi
+
+        # if still empty, fail.
+        if [ -z "${gcp_service_account}" ]; then
+          echo "Failed to authenticate with gcloud."
+          exit 1
+        fi
+
         gcloud version
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
@@ -102,7 +122,8 @@ variables:
           echo "The following docker credHelpers are configured:"
           jq '.credHelpers' ~/.docker/config.json
         fi
-        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+
+        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity): ${gcp_service_account}"
         section_end "gcloud"
       fi
 
@@ -125,7 +146,7 @@ variables:
         # Handle debug sleep.
         section_start "debug-sleep" "Print debug information"
         print_debug_sleep_help
-        
+
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
         if [ "${DEBUG_JOB_SLEEP}" = "1" ] && [ "${CI_JOB_NAME_SLUG}" = "${DEBUG_JOB_SLEEP_JOB_NAME}" ]; then
