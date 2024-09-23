@@ -113,7 +113,7 @@ variables:
 
         # if still empty, fail.
         if [ -z "${GCP_SERVICE_ACCOUNT}" ]; then
-          echo "Failed to authenticate with gcloud."
+          echo "Failed to authenticate with gcloud after multiple attempts."
           exit 1
         fi
 
