@@ -15,7 +15,7 @@ services:
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
       ]
-  - name: gcp-artifact-registry-docker-proxy
+  - name: ghcr.io/persona-id/gcp-artifact-registry-docker-proxy:v1.4.0
     command:
       [
         "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
