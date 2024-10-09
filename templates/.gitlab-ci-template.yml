@@ -7,9 +7,20 @@ services:
       [
         "--registry-mirror",
         "https://mirror.gcr.io",
+        "--registry-mirror",
+        "http://127.0.0.1:5000/spark-int-cloud-services/docker-hub-mirror/",
+        "--insecure-registry",
+        "127.0.0.1:5000",
+        "--debug=true",
         "--mtu=1460",
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
+      ]
+  - name: ghcr.io/sparkfabrik/gcp-artifact-registry-docker-proxy:latest
+    command:
+      [
+        "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
+        "--listen=0.0.0.0:5000"
       ]
 variables:
   # When using dind service, we need to instruct docker to talk with
