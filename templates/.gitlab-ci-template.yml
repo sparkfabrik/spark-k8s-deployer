@@ -6,9 +6,9 @@ services:
     command:
       [
         "--registry-mirror",
-        "https://mirror.gcr.io",
-        "--registry-mirror",
         "http://127.0.0.1:5000/spark-int-cloud-services/docker-hub-mirror/",
+        "--registry-mirror",
+        "https://mirror.gcr.io",
         "--insecure-registry",
         "127.0.0.1:5000",
         "--debug=true",
