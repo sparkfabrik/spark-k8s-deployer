@@ -7,8 +7,6 @@ services:
       [
         "--registry-mirror",
         "http://127.0.0.1:5000/spark-int-cloud-services/docker-hub-mirror/",
-        "--registry-mirror",
-        "https://mirror.gcr.io",
         "--insecure-registry",
         "127.0.0.1:5000",
         "--debug=true",
@@ -20,7 +18,7 @@ services:
     command:
       [
         "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
-        "--listen=0.0.0.0:5000"
+        "--listen=0.0.0.0:5000",
       ]
 variables:
   # When using dind service, we need to instruct docker to talk with
