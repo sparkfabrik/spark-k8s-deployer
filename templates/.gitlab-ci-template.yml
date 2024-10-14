@@ -142,7 +142,7 @@ variables:
         
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
-        if [ "${DEBUG_JOB_SLEEP}" = "1" ] && [ "${CI_JOB_NAME_SLUG}" = "${DEBUG_JOB_SLEEP_JOB_NAME}" ]; then
+        if [ "${DEBUG_JOB_SLEEP}" = "1" ] && [ "${DEBUG_JOB_SLEEP_JOB_NAME}" = "${CI_JOB_NAME_SLUG}" ]; then
           echo "Sleeping for ${DEBUG_JOB_SLEEP_SECONDS} seconds..."
           sleep "${DEBUG_JOB_SLEEP_SECONDS}"
         fi
