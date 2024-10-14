@@ -81,6 +81,11 @@ variables:
 
       PAD_LEN=${PAD_LEN:-40}
 
+      # Print general information
+      section_start "info" "General information"
+      echo "The current date is: $(date)"
+      section_end "info"
+
       if command -v docker &> /dev/null; then
         section_start "docker" "Configure Docker services"
         for i in $(seq 1 30); do
