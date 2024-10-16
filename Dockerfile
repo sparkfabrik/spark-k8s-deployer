@@ -1,6 +1,14 @@
 # Define the google cloud sdk image tag to use.
 ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=497.0.0-alpine
 
+# Build go binaries
+FROM golang:1.23.0-alpine3.20 AS gobinaries
+
+# https://github.com/stackrox/kube-linter
+ENV KUBELINTER_VERSION=0.6.8
+RUN apk --no-cache add git \
+    && go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
+
 FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
 
 # https://github.com/docker/compose/releases
@@ -63,6 +71,10 @@ RUN apk add --no-cache py-pip python3-dev curl make mysql-client mariadb-connect
 RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION} --break-system-packages
 
 RUN echo "source /google-cloud-sdk/path.bash.inc" >> /etc/profile
+
+# Install kube-linter copying the binary from the gobinaries stage
+COPY --from=gobinaries /go/bin/kube-linter /usr/local/bin/kube-linter
+RUN chmod +x /usr/local/bin/kube-linter
 
 COPY configs /configs
 
