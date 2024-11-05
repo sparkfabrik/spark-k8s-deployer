@@ -103,7 +103,7 @@ variables:
 
         if [ "${DOCKER_USE_BUILDX:-1}" = "1" ]; then
           echo "Configure buildx..."
-          # docker context create build-multiarch
+          docker context create build-multiarch
           docker buildx create build-multiarch --name buildx-builder --bootstrap --use
           docker buildx ls
         fi
@@ -128,6 +128,7 @@ variables:
         section_end "gcloud"
       fi
 
+      # Test Docker mirrors
       section_start "test-docker-mirrors" "Test Docker mirrors"
       echo "Test docker-mirror GitLab service"
       if ! nc -w10 -zv docker-mirror 5000; then
