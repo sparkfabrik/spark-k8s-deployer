@@ -87,9 +87,9 @@ variables:
       if command -v docker &> /dev/null; then
         section_start "docker" "Configure Docker services"
 
-        if [ -f /root/.docker/config.custom.json ]; then
-          echo "Custom Docker configuration found, copying it to /root/.docker/config.json"
-          cp /root/.docker/config.custom.json /root/.docker/config.json
+        if [ -f /tmp/.docker/config.custom.json ]; then
+          echo "Custom Docker configuration found, copying it to /tmp/.docker/config.json"
+          cp /tmp/.docker/config.custom.json /root/.docker/config.json
         fi
 
         for i in $(seq 1 30); do
