@@ -88,7 +88,7 @@ variables:
         section_start "docker" "Configure Docker services"
 
         if [ -f /tmp/.docker/config.custom.json ]; then
-          echo "Custom Docker configuration found, copying it to /tmp/.docker/config.json"
+          echo "Custom Docker configuration found, copying it to /root/.docker/config.json"
           cp /tmp/.docker/config.custom.json /root/.docker/config.json
         fi
 
