@@ -106,7 +106,7 @@ variables:
 
         if [ "${DOCKER_USE_BUILDX:-1}" = "1" ]; then
           echo "Configure buildx..."
-          # docker context create build-multiarch
+          docker context create build-multiarch
           docker buildx create build-multiarch --name buildx-builder --bootstrap --use
           docker buildx ls
         fi
