@@ -92,6 +92,9 @@ variables:
 
         if [ -f /tmp/.docker/config.custom.json ]; then
           echo "Custom Docker configuration found, copying it to /root/.docker/config.json"
+          if [ ! -d /root/.docker ]; then
+            mkdir -p /root/.docker
+          fi
           cp /tmp/.docker/config.custom.json /root/.docker/config.json
         fi
 
@@ -128,6 +131,7 @@ variables:
         section_end "gcloud"
       fi
 
+      # Test Docker mirrors
       section_start "test-docker-mirrors" "Test Docker mirrors"
       echo "Test docker-mirror GitLab service"
       if ! nc -w10 -zv docker-mirror 5000; then
