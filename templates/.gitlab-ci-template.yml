@@ -86,6 +86,13 @@ variables:
 
       if command -v docker &> /dev/null; then
         section_start "docker" "Configure Docker services"
+
+        # If /root/config.custom.json exists, copy it to /root/.docker/config.json
+        if [ -f /root/config.custom.json ]; then
+          echo "Custom Docker configuration found, copying it to /root/.docker/config.json"
+          cp /root/config.custom.json /root/.docker/config.json
+        fi
+
         for i in $(seq 1 30); do
           docker info && break
           echo "Waiting for docker to start..."
@@ -102,7 +109,7 @@ variables:
         if command -v docker-compose &> /dev/null; then
           docker-compose version
         fi
-        
+
         section_end "docker"
       fi
 
@@ -138,7 +145,7 @@ variables:
         # Handle debug sleep.
         section_start "debug-sleep" "Print debug information"
         print_debug_sleep_help
-        
+
         # Default to 1 hour if not set
         DEBUG_JOB_SLEEP_SECONDS="${DEBUG_JOB_SLEEP_SECONDS:-3600}"
         if [ "${DEBUG_JOB_SLEEP}" = "1" ] && [ "${DEBUG_JOB_SLEEP_JOB_NAME}" = "${CI_JOB_NAME_SLUG}" ]; then
