@@ -3,6 +3,7 @@ image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 # MTU configuration: https://docs.gitlab.com/runner/executors/kubernetes/troubleshooting.html#curl-35-openssl-ssl_connect-ssl_error_syscall-in-connection-to-githubcom443
 services:
   - name: ghcr.io/sparkfabrik/gcp-artifact-registry-docker-proxy:latest
+    alias: docker-mirror
     command:
       [
         "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
@@ -12,9 +13,11 @@ services:
     command:
       [
         "--registry-mirror",
-        "http://127.0.0.1:5000/spark-int-cloud-services/docker-hub-mirror/",
+        "http://docker-mirror:5000/spark-int-cloud-services/docker-hub-mirror/",
+        "--registry-mirror",
+        "https://mirror.gcr.io",
         "--insecure-registry",
-        "127.0.0.1:5000",
+        "docker-mirror:5000",
         "--debug=true",
         "--mtu=1460",
         "--network-control-plane-mtu=1460",
@@ -100,7 +103,7 @@ variables:
 
         if [ "${DOCKER_USE_BUILDX:-1}" = "1" ]; then
           echo "Configure buildx..."
-          docker context create build-multiarch
+          # docker context create build-multiarch
           docker buildx create build-multiarch --name buildx-builder --bootstrap --use
           docker buildx ls
         fi
@@ -124,6 +127,21 @@ variables:
         printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
         section_end "gcloud"
       fi
+
+      section_start "test-docker-mirrors" "Test Docker mirrors"
+      echo "Test docker-mirror GitLab service"
+      if ! nc -w10 -zv docker-mirror 5000; then
+        echo "docker-mirror service not available"
+      else
+        echo "docker-mirror service available"
+      fi
+      echo "Test GCP mirror.gcr.io"
+      if ! nc -w10 -zv mirror.gcr.io 443; then
+        echo "mirror.gcr.io service not available"
+      else
+        echo "mirror.gcr.io service available"
+      fi
+      section_end "test-docker-mirrors"
 
       # If the job is running using `spark-k8s-deployer`, source the common
       # functions and execute initialization setup.
