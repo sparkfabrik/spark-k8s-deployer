@@ -90,12 +90,13 @@ variables:
       if command -v docker &> /dev/null; then
         section_start "docker" "Configure Docker services"
 
-        if [ -f /tmp/.docker/config.custom.json ]; then
-          echo "Custom Docker configuration found, copying it to /root/.docker/config.json"
-          if [ ! -d /root/.docker ]; then
-            mkdir -p /root/.docker
+        if [ -f "/tmp/.docker/config.custom.json" ]; then
+          FINAL_DOCKER_CONFIG_DIR="${HOME:-"/root"}/.docker"
+          echo "Custom Docker configuration found, copying it to ${FINAL_DOCKER_CONFIG_DIR}/config.json"
+          if [ ! -d "${FINAL_DOCKER_CONFIG_DIR}" ]; then
+            mkdir -p "${FINAL_DOCKER_CONFIG_DIR}"
           fi
-          cp /tmp/.docker/config.custom.json /root/.docker/config.json
+          cp /tmp/.docker/config.custom.json "${FINAL_DOCKER_CONFIG_DIR}/config.json"
         fi
 
         for i in $(seq 1 30); do
