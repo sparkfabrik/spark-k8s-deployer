@@ -1,5 +1,5 @@
 # Define the google cloud sdk image tag to use.
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=497.0.0-alpine
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=500.0.0-alpine
 
 # Build go binaries
 FROM golang:1.23.0-alpine3.20 AS gobinaries
