@@ -199,10 +199,8 @@ _setup-gitlab-agent-kubernetes-context() {
 
   kubectl config use-context "${1}:${2}"
 
-  if [ -n "${KUBE_NAMESPACE}" ]; then
-    echo "Setting the namespace to: ${KUBE_NAMESPACE}"
-    kubectl config set-context --current --namespace="${KUBE_NAMESPACE}"
-  fi
+  echo "Setting the namespace to: ${KUBE_NAMESPACE:-default}"
+  kubectl config set-context --current --namespace="${KUBE_NAMESPACE:-default}"
 }
 
 setup-gitlab-agent() {
