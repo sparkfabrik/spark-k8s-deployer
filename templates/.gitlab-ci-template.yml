@@ -18,7 +18,6 @@ services:
         "https://mirror.gcr.io",
         "--insecure-registry",
         "docker-mirror:5000",
-        "--debug=true",
         "--mtu=1460",
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
