@@ -97,7 +97,11 @@ prepare-namespace() {
     exit 1
   fi
   echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
-  kubectl create ns "$KUBE_NAMESPACE" || true
+  if ! kubectl get ns "$KUBE_NAMESPACE" >/dev/null 2>&1; then
+    kubectl create ns "$KUBE_NAMESPACE"
+  else
+    echo "Namespace $KUBE_NAMESPACE already exists."
+  end
 }
 
 create-ns-and-developer-role-bindings() {
