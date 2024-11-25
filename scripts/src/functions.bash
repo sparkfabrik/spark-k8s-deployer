@@ -96,9 +96,12 @@ prepare-namespace() {
     echo "KUBE_NAMESPACE is missing."
     exit 1
   fi
-  echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
+  echo "Namespace \"$KUBE_NAMESPACE\" already exists."
   if ! kubectl get ns "$KUBE_NAMESPACE" >/dev/null 2>&1; then
-    kubectl create ns "$KUBE_NAMESPACE"
+    if ! kubectl create ns "$KUBE_NAMESPACE"; then
+      echo "Failed to create namespace $KUBE_NAMESPACE"
+      exit 1
+    fi
   else
     echo "Namespace $KUBE_NAMESPACE already exists."
   fi
