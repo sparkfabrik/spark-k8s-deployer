@@ -29,7 +29,7 @@ fi
 
 export CREATE_BASIC_AUTH=${CREATE_BASIC_AUTH:-1}
 
-ensure_deploy_variables
+# ensure_deploy_variables
 # Create_kubeconfig
 
 # Create standard k8s configurations.
