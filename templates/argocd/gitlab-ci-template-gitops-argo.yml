@@ -120,10 +120,8 @@ nginx:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    # Set gcr.io credentials. Don't use /tmp because multistage builds will destroy FS across stages.
-    - mkdir -p /kaniko/.gcr; echo -n ${KANIKO_SERVICE_ACCOUNT} | base64 -d > /kaniko/.gcr/sa.json
-    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/.gcr/sa.json
     # Build and push image using Kaniko executor.
+    # We authenticate on the artifact registry using the GCP Workload Identity.
     - /kaniko/executor
       --context ${CI_PROJECT_DIR}
       --dockerfile ${AUTOMATION_REPO_DIR}/docker/images/nginx/Dockerfile
@@ -138,18 +136,14 @@ php:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    # Set gcr.io credentials. Don't use /tmp because multistage builds will destroy FS across stages
-    # IMPORTANT: use a dedicated service account with limited scope.
-    - mkdir -p /kaniko/.gcr; echo -n ${KANIKO_SERVICE_ACCOUNT} | base64 -d > /kaniko/.gcr/sa.json
-    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/.gcr/sa.json
     # Build and push image using Kaniko executor.
+    # We authenticate on the artifact registry using the GCP Workload Identity.
     - /kaniko/executor
       --context ${CI_PROJECT_DIR}
       --dockerfile ${AUTOMATION_REPO_DIR}/docker/images/php/Dockerfile
       --destination ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA}
       --destination ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_REF_SLUG}
       --destination ${CI_REGISTRY_IMAGE_PHP}:latest
-
 
 # --------------
 # DUMP CLOUDSQL DATABASES
@@ -158,12 +152,10 @@ stage database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    GCLOUD_PROJECT_NAME: ${GCLOUD_STAGE_PROJECT_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_STAGE_CLOUD_SQL_INSTANCE_NAME}
     BUCKET_NAME: ${DB_DUMP_STAGE_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
-  tags:
-    - ${STAGE_RUNNER_TAG}
   only:
     refs:
       - stage
@@ -174,12 +166,10 @@ production database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    GCLOUD_PROJECT_NAME: ${GCLOUD_PROD_PROJECT_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
     CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_PROD_CLOUD_SQL_INSTANCE_NAME}
     BUCKET_NAME: ${DB_DUMP_PROD_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
-  tags:
-    - ${PROD_RUNNER_TAG}
   only:
     refs:
       - production
