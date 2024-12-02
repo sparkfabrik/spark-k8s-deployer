@@ -1,6 +1,10 @@
 # Available here https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/gitops_argocd_pipeline_template/templates/gitlab-ci-template-gitops-argo.yml
 image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
+default:
+  tags:
+    - ${RUNNER_TAG}
+
 include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
 
