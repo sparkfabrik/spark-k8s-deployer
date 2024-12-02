@@ -158,10 +158,12 @@ stage database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_STAGE_PROJECT_NAME}
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_STAGE_CLOUD_SQL_INSTANCE_NAME}
+    BUCKET_NAME: ${DB_DUMP_STAGE_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
+  tags:
+    - ${STAGE_RUNNER_TAG}
   only:
     refs:
       - stage
@@ -172,10 +174,12 @@ production database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
-    GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    GCLOUD_PROJECT_NAME: ${GCLOUD_PROD_PROJECT_NAME}
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_PROD_CLOUD_SQL_INSTANCE_NAME}
+    BUCKET_NAME: ${DB_DUMP_PROD_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
+  tags:
+    - ${PROD_RUNNER_TAG}
   only:
     refs:
       - production
@@ -186,30 +190,30 @@ production database backup:
 # SYNC TO GITOPS REPO
 # --------------
 # Push argocd crd manifest to the automation repo and update the app of apps.
-sync argocd crds to gitops repo:
-  stage: sync
-  script:
-    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
-    - git config --global user.email "gitlab-bot@sparkfabrik.com"
-    - git config --global user.name "Gitlab Bot"
-    - cd ${AUTOMATION_REPO_DIR}
-    - git fetch -p && git reset --hard origin/master
-    - mkdir -p argocd-app-crds
-    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
-    # Commit generated crd manifest to the repo.
-    - git add .
-    # If we have some diff in code we commit and push to the updated manifests.
-    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
-    - git push -u origin master
-  artifacts:
-    when: always
-    expire_in: 1 weeks
-    paths:
-      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
-  rules:
-    - if: ${DISABLE_AUTOMATIC_SYNC_CRD} == "true"
-      when: never
-    - when: always
+#sync argocd crds to gitops repo:
+#  stage: sync
+#  script:
+#    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
+#    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+#    - git config --global user.name "Gitlab Bot"
+#    - cd ${AUTOMATION_REPO_DIR}
+#    - git fetch -p && git reset --hard origin/master
+#    - mkdir -p argocd-app-crds
+#    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
+#    # Commit generated crd manifest to the repo.
+#    - git add .
+#    # If we have some diff in code we commit and push to the updated manifests.
+#    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
+#    - git push -u origin master
+#  artifacts:
+#    when: always
+#    expire_in: 1 weeks
+#    paths:
+#      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
+#  rules:
+#    - if: ${DISABLE_AUTOMATIC_SYNC_CRD} == "true"
+#      when: never
+#    - when: always
 
 sync to gitops repo:
   stage: sync
@@ -247,14 +251,14 @@ sync to gitops repo:
     - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
     # Note that we are using a multi-branch strategy for the GitOps repo.
     - git push -u -f origin ${CI_COMMIT_REF_SLUG}
-  needs: 
-    - "sync argocd crds to gitops repo"
   artifacts:
     when: always
     expire_in: 1 weeks
     paths:
       - ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       - ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+#  needs:
+#    - "sync argocd crds to gitops repo"
 
 # --------------
 # CONFIGURE ARGO
