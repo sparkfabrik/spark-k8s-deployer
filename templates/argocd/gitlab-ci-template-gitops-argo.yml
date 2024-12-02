@@ -206,6 +206,8 @@ sync argocd crds to gitops repo:
     expire_in: 1 weeks
     paths:
       - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
+  rules:
+    - if: '${DISABLE_AUTOMATIC_SYNC_CRD} != "true"'
 
 sync to gitops repo:
   stage: sync
