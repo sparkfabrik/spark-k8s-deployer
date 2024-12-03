@@ -56,6 +56,7 @@ variables:
   AUTOMATION_REPO_DIR: ${CI_PROJECT_DIR}/automation
   INFRASTRUCTURE_REPO_DIR: ${CI_PROJECT_DIR}/infrastructure
 
+  # It was used in `sync argocd crds to gitops repo` job that we have disabled.
   # KUBE_NAMESPACE: ${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
   ENVIRONMENT_SCOPE_PREFIX: review
 
