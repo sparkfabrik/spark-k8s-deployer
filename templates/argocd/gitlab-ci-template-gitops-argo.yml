@@ -1,6 +1,10 @@
 # Available here https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/task/gitops_argocd_pipeline_template/templates/gitlab-ci-template-gitops-argo.yml
 image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
 
+default:
+  tags:
+    - ${RUNNER_TAG}
+
 include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
 
@@ -52,11 +56,12 @@ variables:
   AUTOMATION_REPO_DIR: ${CI_PROJECT_DIR}/automation
   INFRASTRUCTURE_REPO_DIR: ${CI_PROJECT_DIR}/infrastructure
 
-  KUBE_NAMESPACE: ${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
+  # It was used in `sync argocd crds to gitops repo` job that we have disabled.
+  # KUBE_NAMESPACE: ${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}
   ENVIRONMENT_SCOPE_PREFIX: review
 
-  CI_REGISTRY_IMAGE_PHP: eu.gcr.io/${GCLOUD_PROJECT_NAME}/${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-php
-  CI_REGISTRY_IMAGE_NGINX: eu.gcr.io/${GCLOUD_PROJECT_NAME}/${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-nginx
+  CI_REGISTRY_IMAGE_PHP: ${DOCKER_REGISTRY_URL}/${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-php
+  CI_REGISTRY_IMAGE_NGINX: ${DOCKER_REGISTRY_URL}/${CI_PROJECT_ROOT_NAMESPACE}-${CI_PROJECT_NAME}-nginx
 
   CI_ENVIRONMENT_BASE_URL: ${CI_COMMIT_REF_SLUG}.${CI_PROJECT_NAME}.${KUBE_INGRESS_BASE_DOMAIN}
 
@@ -120,10 +125,8 @@ nginx:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    # Set gcr.io credentials. Don't use /tmp because multistage builds will destroy FS across stages.
-    - mkdir -p /kaniko/.gcr; echo -n ${KANIKO_SERVICE_ACCOUNT} | base64 -d > /kaniko/.gcr/sa.json
-    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/.gcr/sa.json
     # Build and push image using Kaniko executor.
+    # We authenticate on the artifact registry using the GCP Workload Identity.
     - /kaniko/executor
       --context ${CI_PROJECT_DIR}
       --dockerfile ${AUTOMATION_REPO_DIR}/docker/images/nginx/Dockerfile
@@ -138,18 +141,14 @@ php:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    # Set gcr.io credentials. Don't use /tmp because multistage builds will destroy FS across stages
-    # IMPORTANT: use a dedicated service account with limited scope.
-    - mkdir -p /kaniko/.gcr; echo -n ${KANIKO_SERVICE_ACCOUNT} | base64 -d > /kaniko/.gcr/sa.json
-    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/.gcr/sa.json
     # Build and push image using Kaniko executor.
+    # We authenticate on the artifact registry using the GCP Workload Identity.
     - /kaniko/executor
       --context ${CI_PROJECT_DIR}
       --dockerfile ${AUTOMATION_REPO_DIR}/docker/images/php/Dockerfile
       --destination ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_SHA}
       --destination ${CI_REGISTRY_IMAGE_PHP}:${CI_COMMIT_REF_SLUG}
       --destination ${CI_REGISTRY_IMAGE_PHP}:latest
-
 
 # --------------
 # DUMP CLOUDSQL DATABASES
@@ -158,9 +157,9 @@ stage database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
     GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_STAGE_CLOUD_SQL_INSTANCE_NAME}
+    BUCKET_NAME: ${DB_DUMP_STAGE_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_STAGE_DB_NAMES}
   only:
     refs:
@@ -172,9 +171,9 @@ production database backup:
   extends: .cloudsql-database-dump
   stage: pre-sync
   variables:
-    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_CLOUD_SQL_INSTANCE_NAME}
     GCLOUD_PROJECT_NAME: ${GCLOUD_PROJECT_NAME}
-    BUCKET_NAME: ${DB_DUMP_BUCKET_NAME}
+    CLOUD_SQL_INSTANCE_NAME: ${DB_DUMP_PROD_CLOUD_SQL_INSTANCE_NAME}
+    BUCKET_NAME: ${DB_DUMP_PROD_BUCKET_NAME}
     DB_NAMES: ${DB_DUMP_PROD_DB_NAMES}
   only:
     refs:
@@ -186,26 +185,30 @@ production database backup:
 # SYNC TO GITOPS REPO
 # --------------
 # Push argocd crd manifest to the automation repo and update the app of apps.
-sync argocd crds to gitops repo:
-  stage: sync
-  script:
-    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
-    - git config --global user.email "gitlab-bot@sparkfabrik.com"
-    - git config --global user.name "Gitlab Bot"
-    - cd ${AUTOMATION_REPO_DIR}
-    - git fetch -p && git reset --hard origin/master
-    - mkdir -p argocd-app-crds
-    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
-    # Commit generated crd manifest to the repo.
-    - git add .
-    # If we have some diff in code we commit and push to the updated manifests.
-    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
-    - git push -u origin master
-  artifacts:
-    when: always
-    expire_in: 1 weeks
-    paths:
-      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
+#sync argocd crds to gitops repo:
+#  stage: sync
+#  script:
+#    # Clone repo, generate ArgoCD application CRD and push the manifest to the repo.
+#    - git config --global user.email "gitlab-bot@sparkfabrik.com"
+#    - git config --global user.name "Gitlab Bot"
+#    - cd ${AUTOMATION_REPO_DIR}
+#    - git fetch -p && git reset --hard origin/master
+#    - mkdir -p argocd-app-crds
+#    - envsubst < ${AUTOMATION_REPO_DIR}/docker/argocd/application.yaml.tpl > ${AUTOMATION_REPO_DIR}/argocd-app-crds/${ARGOCD_APP_NAME}.yaml
+#    # Commit generated crd manifest to the repo.
+#    - git add .
+#    # If we have some diff in code we commit and push to the updated manifests.
+#    - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
+#    - git push -u origin master
+#  artifacts:
+#    when: always
+#    expire_in: 1 weeks
+#    paths:
+#      - ${AUTOMATION_REPO_DIR}/argocd-app-crds/
+#  rules:
+#    - if: ${DISABLE_AUTOMATIC_SYNC_CRD} == "true"
+#      when: never
+#    - when: always
 
 sync to gitops repo:
   stage: sync
@@ -243,14 +246,14 @@ sync to gitops repo:
     - git diff-index --cached --quiet HEAD || git commit -a -m "${CI_PROJECT_TITLE} release on branch ${CI_COMMIT_REF_SLUG}@${CI_COMMIT_SHORT_SHA}"
     # Note that we are using a multi-branch strategy for the GitOps repo.
     - git push -u -f origin ${CI_COMMIT_REF_SLUG}
-  needs: 
-    - "sync argocd crds to gitops repo"
   artifacts:
     when: always
     expire_in: 1 weeks
     paths:
       - ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       - ${INFRASTRUCTURE_REPO_DIR}/values.yaml
+#  needs:
+#    - "sync argocd crds to gitops repo"
 
 # --------------
 # CONFIGURE ARGO
