@@ -1,8 +1,8 @@
-image: ghcr.io/sparkfabrik/spark-k8s-deployer:latest
+image: ${DEFAULT_IMAGE_REGISTRY}/${DEFAULT_IMAGE_REPOSITORY}:${DEFAULT_IMAGE_TAG}
 
 # MTU configuration: https://docs.gitlab.com/runner/executors/kubernetes/troubleshooting.html#curl-35-openssl-ssl_connect-ssl_error_syscall-in-connection-to-githubcom443
 services:
-  - name: ghcr.io/sparkfabrik/gcp-artifact-registry-docker-proxy:latest
+  - name: ${DOCKER_MIRROR_IMAGE_REGISTRY}/${DOCKER_MIRROR_IMAGE_REPOSITORY}:${DOCKER_MIRROR_IMAGE_TAG}
     alias: docker-mirror
     command:
       [
@@ -23,6 +23,18 @@ services:
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
       ]
 variables:
+  # Default image configuration.
+  # You can override these variables in your project's .gitlab-ci.yml file
+  # to change the image used for the jobs.
+  DEFAULT_IMAGE_REGISTRY: ghcr.io
+  DEFAULT_IMAGE_REPOSITORY: sparkfabrik/spark-k8s-deployer
+  DEFAULT_IMAGE_TAG: latest
+  # Docker-mirror image configuration.
+  # You can override these variables in your project's .gitlab-ci.yml file
+  # to change the image used for docker-mirror service.
+  DOCKER_MIRROR_IMAGE_REGISTRY: ghcr.io
+  DOCKER_MIRROR_IMAGE_REPOSITORY: sparkfabrik/gcp-artifact-registry-docker-proxy
+  DOCKER_MIRROR_IMAGE_TAG: latest
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
   # with a network connection instead of the default
