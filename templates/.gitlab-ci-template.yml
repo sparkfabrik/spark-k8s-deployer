@@ -2,8 +2,8 @@ image: ${DEFAULT_IMAGE_REGISTRY}/${DEFAULT_IMAGE_REPOSITORY}:${DEFAULT_IMAGE_TAG
 
 # MTU configuration: https://docs.gitlab.com/runner/executors/kubernetes/troubleshooting.html#curl-35-openssl-ssl_connect-ssl_error_syscall-in-connection-to-githubcom443
 services:
-  - name: ${DOCKER_MIRROR_IMAGE_REGISTRY}/${DOCKER_MIRROR_IMAGE_REPOSITORY}:${DOCKER_MIRROR_IMAGE_TAG}
-    alias: docker-mirror
+  - name: ${DOCKER_PROXY_IMAGE_REGISTRY}/${DOCKER_PROXY_IMAGE_REPOSITORY}:${DOCKER_PROXY_IMAGE_TAG}
+    alias: docker-proxy
     command:
       [
         "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
@@ -13,11 +13,11 @@ services:
     command:
       [
         "--registry-mirror",
-        "http://docker-mirror:5000/spark-int-cloud-services/docker-hub-mirror/",
+        "http://docker-proxy:5000/spark-int-cloud-services/docker-hub-mirror/",
         "--registry-mirror",
         "https://mirror.gcr.io",
         "--insecure-registry",
-        "docker-mirror:5000",
+        "docker-proxy:5000",
         "--mtu=1460",
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
@@ -29,12 +29,12 @@ variables:
   DEFAULT_IMAGE_REGISTRY: ghcr.io
   DEFAULT_IMAGE_REPOSITORY: sparkfabrik/spark-k8s-deployer
   DEFAULT_IMAGE_TAG: latest
-  # Docker-mirror image configuration.
+  # Docker-proxy image configuration.
   # You can override these variables in your project's .gitlab-ci.yml file
-  # to change the image used for docker-mirror service.
-  DOCKER_MIRROR_IMAGE_REGISTRY: ghcr.io
-  DOCKER_MIRROR_IMAGE_REPOSITORY: sparkfabrik/gcp-artifact-registry-docker-proxy
-  DOCKER_MIRROR_IMAGE_TAG: latest
+  # to change the image used for docker-proxy service.
+  DOCKER_PROXY_IMAGE_REGISTRY: ghcr.io
+  DOCKER_PROXY_IMAGE_REPOSITORY: sparkfabrik/gcp-artifact-registry-docker-proxy
+  DOCKER_PROXY_IMAGE_TAG: latest
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
   # with a network connection instead of the default
@@ -144,12 +144,12 @@ variables:
       fi
 
       # Test Docker mirrors
-      section_start "test-docker-mirrors" "Test Docker mirrors"
-      echo "Test docker-mirror GitLab service"
-      if ! nc -w10 -zv docker-mirror 5000; then
-        echo "docker-mirror service not available"
+      section_start "test-docker-proxy" "Test Docker proxy"
+      echo "Test docker-proxy GitLab service"
+      if ! nc -w10 -zv docker-proxy 5000; then
+        echo "docker-proxy service not available"
       else
-        echo "docker-mirror service available"
+        echo "docker-proxy service available"
       fi
       echo "Test GCP mirror.gcr.io"
       if ! nc -w10 -zv mirror.gcr.io 443; then
@@ -157,7 +157,7 @@ variables:
       else
         echo "mirror.gcr.io service available"
       fi
-      section_end "test-docker-mirrors"
+      section_end "test-docker-proxy"
 
       # If the job is running using `spark-k8s-deployer`, source the common
       # functions and execute initialization setup.
