@@ -240,6 +240,16 @@ sync to gitops repo:
       --output-dir ${INFRASTRUCTURE_REPO_DIR}/generated-manifests
       --include-crds
       --wait
+    # Remove namespace from generated manifests. ArgoCD will manage the target namespace.
+    - find ${INFRASTRUCTURE_REPO_DIR}/generated-manifests -iname '*.yml' -exec yq -i 'del(.metadata.namespace)' {} \; && find ${INFRASTRUCTURE_REPO_DIR}/generated-manifests -iname '*.yaml' -exec yq -i 'del(.metadata.namespace)' {} \;
+    # If static-manifests/${CI_COMMIT_REF_SLUG} folder exists, use envsubst to generate them.
+    # ATTENTION: the static-manifests files could OVERWRITE the helm generated ones.
+    - |
+      if [ -d "${CI_PROJECT_DIR}/static-manifests/${CI_COMMIT_REF_SLUG}" ]; then
+        for template in "${CI_PROJECT_DIR}/static-manifests/${CI_COMMIT_REF_SLUG}"/*.y*ml.tpl; do
+          envsubst < $template > "${INFRASTRUCTURE_REPO_DIR}/generated-manifests/$(basename ${template%.tpl})";
+        done
+      fi
     # Commit updated manifests to the repo.
     - git add .
     # https://stackoverflow.com/questions/3878624/how-do-i-programmatically-determine-if-there-are-uncommitted-changes
@@ -326,4 +336,3 @@ sync to gitops repo:
 #    expire_in: 1 week
 #    paths:
 #      - ${CI_PROJECT_DIR}/logs
-
