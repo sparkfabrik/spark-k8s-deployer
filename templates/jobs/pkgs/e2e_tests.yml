@@ -5,7 +5,7 @@
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds:/usr/src/app
-      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:init newproject testprojectname testvendorname -n
+      europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:init newproject testprojectname testvendorname -n
     # Avoid type=path that skips symlinks.
     - >
       docker run --rm -t
@@ -13,7 +13,7 @@
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
-      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
+      europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:composer config repositories.${PKG_NAME} "'{ \"type\": \"git\", \"url\": \"$CI_REPOSITORY_URL\" }'"
 
 .sparkfabrik-pkg-e2e-test-require:
   script:
@@ -22,7 +22,7 @@
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds/newproject:/usr/src/app
-      eu.gcr.io/spark-int-cloud-services/fs-cli:latest pkg:require sparkfabrik/${PKG_NAME}:dev-"$CI_COMMIT_REF_NAME#$CI_COMMIT_SHA"
+      europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:require sparkfabrik/${PKG_NAME}:dev-"$CI_COMMIT_REF_NAME#$CI_COMMIT_SHA"
     # Jobs that use this template can set CI_TO_TEST to '' to skip this, in case they do not provide a ci.
     # We use sed to remove local project-level gitlab-ci (which cannot be linted).
     - |
