@@ -37,13 +37,13 @@
       # Check if the gcloud command is available.
       if ! command -v gcloud &> /dev/null; then
         echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
-        return 0
+        exit 0
       fi
       # Check if the Workload Identity Federation is correctly configured.
       if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
         echo "The Workload Identity Federation is not configured."
         echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
-        return 0
+        exit 0
       fi
   
       # Everything is configured correctly. Proceed with the authentication using the Workload Identity Federation.
