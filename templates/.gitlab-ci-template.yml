@@ -172,6 +172,8 @@ variables:
         fi
         section_end "debug-sleep"
       fi
+default:
+  !reference [.gcp-wif, default]
 
 before_script:
   - !reference [.gitlab-sections-functions, before_script]
