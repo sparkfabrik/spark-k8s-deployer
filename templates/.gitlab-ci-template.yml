@@ -190,7 +190,7 @@ variables:
 
 before_script:
   - !reference [.gitlab-sections-functions, before_script]
-  - !reference [.google-wif, before_script]
+  - !reference [.gcp-wif, before_script]
   - *script-global-docker-wait
 
 include: 
