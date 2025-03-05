@@ -172,8 +172,11 @@ variables:
         fi
         section_end "debug-sleep"
       fi
+
 default:
-  !reference [.gcp-wif, default]
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: https://${CI_SERVER_FQDN}
 
 before_script:
   - !reference [.gitlab-sections-functions, before_script]
