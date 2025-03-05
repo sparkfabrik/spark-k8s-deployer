@@ -1,4 +1,4 @@
-.gitlab-sections-functions: &functions-gitlab-sections      
+.gitlab-sections-functions:       
   before_script: 
     - |
       # Function for starting the Gitlab section
