@@ -5,7 +5,7 @@
   default:
     id_tokens:
       GITLAB_OIDC_TOKEN:
-        aud: https://gitlab.com
+        aud: https://${CI_SERVER_HOST}
   # @TODO: make a decision about using small or medium tier runners.
   # tags:
   #   # Use medium size runners.
@@ -32,7 +32,10 @@
       if command -v section_start &> /dev/null; then
         section_start "wif" "Workload Identity Federation"
       fi
-  
+      if [ "${SKIP_GCP_WIF}" = "1" ]; then
+        echo "The Workload Identity Federation is skipped because SKIP_GCP_WIF=1 ."
+        exit 0
+      fi
       # Try to authenticate to GCP using the Workload Identity Federation.
       # Check if the gcloud command is available.
       if ! command -v gcloud &> /dev/null; then
