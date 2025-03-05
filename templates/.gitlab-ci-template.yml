@@ -189,7 +189,7 @@ variables:
       fi
 
 before_script:
-  - *functions-gitlab-sections
+  - !reference [.functions-gitlab-sections, before_script]
   - *script-global-docker-wait
 
 include: 
