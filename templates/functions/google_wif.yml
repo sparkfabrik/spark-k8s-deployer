@@ -1,7 +1,7 @@
 ################################
 # WORKLOAD IDENTITY FEDERATION #
 ################################
-.google_wif:
+.google-wif:
   id_tokens:
     GITLAB_OIDC_TOKEN:
       aud: https://gitlab.com
