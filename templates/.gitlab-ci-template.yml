@@ -190,8 +190,9 @@ variables:
 
 before_script:
   - !reference [.gitlab-sections-functions, before_script]
-  - !reference [.gcp-wif]
   - *script-global-docker-wait
+
+!reference [.gcp-wif]
 
 include: 
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gitlab_section_management.yml"
