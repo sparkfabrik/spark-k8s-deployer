@@ -2,9 +2,10 @@
 # WORKLOAD IDENTITY FEDERATION #
 ################################
 .gcp-wif:
-  id_tokens:
-    GITLAB_OIDC_TOKEN:
-      aud: https://gitlab.com
+  default:
+    id_tokens:
+      GITLAB_OIDC_TOKEN:
+        aud: https://gitlab.com
   # @TODO: make a decision about using small or medium tier runners.
   # tags:
   #   # Use medium size runners.
@@ -13,83 +14,83 @@
   #   - saas-linux-medium-amd64
 
 # We need to override the default services to avoid the default registry mirror.
-services:
-  - name: docker:26.1.0-dind-alpine3.19
-    command:
-      [
-        "--registry-mirror",
-        "https://mirror.gcr.io",
-        "--mtu=1460",
-        "--network-control-plane-mtu=1460",
-        "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
-      ]
-
-before_script:
-  # If the gcloud command is available, we can configure the authentication with Workload Identity Federation.
-  - | #bash
-    # Start section
-    if command -v section_start &> /dev/null; then
-      section_start "wif" "Workload Identity Federation"
-    fi
-
-    # Try to authenticate to GCP using the Workload Identity Federation.
-    # Check if the gcloud command is available.
-    if ! command -v gcloud &> /dev/null; then
-      echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
-      return 0
-    fi
-    # Check if the Workload Identity Federation is correctly configured.
-    if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
-      echo "The Workload Identity Federation is not configured."
-      echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
-      return 0
-    fi
-
-    # Everything is configured correctly. Proceed with the authentication using the Workload Identity Federation.
-    # Set the GCP_WIF_SUCCESS variable to 0.
-    GCP_WIF_SUCCESS=0
-    # Export the GCP_WORKLOAD_IDENTITY_PROVIDER variable.
-    export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
-    # Generate the necessary temporary files.
-    GCP_WIF_TOKEN_FILE=$(mktemp -t gcp_wif_token.XXXXXX)
-    GCP_WIF_CRED_FILE=$(mktemp -t gcp_wif_cred.XXXXXX)
-    # Set strict permissions for the temporary files.
-    chmod 600 "${GCP_WIF_TOKEN_FILE}"
-    chmod 600 "${GCP_WIF_CRED_FILE}"
-    # Ensure temporary files are deleted on exit.
-    trap 'rm -f "${GCP_WIF_TOKEN_FILE}" "${GCP_WIF_CRED_FILE}"' EXIT
-    # Write the OIDC token to the temporary file.
-    echo ${GITLAB_OIDC_TOKEN} >"${GCP_WIF_TOKEN_FILE}"
-    # Generate the GCP credentials file.
-    if gcloud iam workload-identity-pools create-cred-config ${GCP_WORKLOAD_IDENTITY_PROVIDER} \
-    --service-account="${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" \
-    --output-file="${GCP_WIF_CRED_FILE}" \
-    --credential-source-file="${GCP_WIF_TOKEN_FILE}" 2>/dev/null; then
-      # Authenticate gcloud (and all the other tools that use gcloud libraries) with the generated credentials.
-      if gcloud auth login --cred-file="${GCP_WIF_CRED_FILE}" 2>/dev/null; then
-        # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
-        # to authenticate with GCP also other than gcloud (e.g.: terraform).
-        export GOOGLE_APPLICATION_CREDENTIALS="${GCP_WIF_CRED_FILE}"
-        # Set the GCP_WIF_SUCCESS variable to 1.
-        GCP_WIF_SUCCESS=1
-      else
-        echo "The Workload Identity Federation authentication failed (login)."
-      fi
-    else
-      echo "The Workload Identity Federation authentication failed (create-cred-config)."
-    fi
-
-    # Print messages if the authentication was successful.
-    if [ "${GCP_WIF_SUCCESS}" = "1" ]; then
-      echo "The Workload Identity Federation authentication was successful."
-      echo "Project ID: ${GCP_WIF_PROJECT_ID}"
-      echo "Service Account: ${GCP_WIF_SERVICE_ACCOUNT_EMAIL}"
-    fi
-
-    if command -v section_end &> /dev/null; then
-      section_end "wif"
-    fi
+  services:
+    - name: docker:26.1.0-dind-alpine3.19
+      command:
+        [
+          "--registry-mirror",
+          "https://mirror.gcr.io",
+          "--mtu=1460",
+          "--network-control-plane-mtu=1460",
+          "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
+        ]
   
+  before_script:
+    # If the gcloud command is available, we can configure the authentication with Workload Identity Federation.
+    - | #bash
+      # Start section
+      if command -v section_start &> /dev/null; then
+        section_start "wif" "Workload Identity Federation"
+      fi
+  
+      # Try to authenticate to GCP using the Workload Identity Federation.
+      # Check if the gcloud command is available.
+      if ! command -v gcloud &> /dev/null; then
+        echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
+        return 0
+      fi
+      # Check if the Workload Identity Federation is correctly configured.
+      if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
+        echo "The Workload Identity Federation is not configured."
+        echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
+        return 0
+      fi
+  
+      # Everything is configured correctly. Proceed with the authentication using the Workload Identity Federation.
+      # Set the GCP_WIF_SUCCESS variable to 0.
+      GCP_WIF_SUCCESS=0
+      # Export the GCP_WORKLOAD_IDENTITY_PROVIDER variable.
+      export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
+      # Generate the necessary temporary files.
+      GCP_WIF_TOKEN_FILE=$(mktemp -t gcp_wif_token.XXXXXX)
+      GCP_WIF_CRED_FILE=$(mktemp -t gcp_wif_cred.XXXXXX)
+      # Set strict permissions for the temporary files.
+      chmod 600 "${GCP_WIF_TOKEN_FILE}"
+      chmod 600 "${GCP_WIF_CRED_FILE}"
+      # Ensure temporary files are deleted on exit.
+      trap 'rm -f "${GCP_WIF_TOKEN_FILE}" "${GCP_WIF_CRED_FILE}"' EXIT
+      # Write the OIDC token to the temporary file.
+      echo ${GITLAB_OIDC_TOKEN} >"${GCP_WIF_TOKEN_FILE}"
+      # Generate the GCP credentials file.
+      if gcloud iam workload-identity-pools create-cred-config ${GCP_WORKLOAD_IDENTITY_PROVIDER} \
+      --service-account="${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" \
+      --output-file="${GCP_WIF_CRED_FILE}" \
+      --credential-source-file="${GCP_WIF_TOKEN_FILE}" 2>/dev/null; then
+        # Authenticate gcloud (and all the other tools that use gcloud libraries) with the generated credentials.
+        if gcloud auth login --cred-file="${GCP_WIF_CRED_FILE}" 2>/dev/null; then
+          # Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
+          # to authenticate with GCP also other than gcloud (e.g.: terraform).
+          export GOOGLE_APPLICATION_CREDENTIALS="${GCP_WIF_CRED_FILE}"
+          # Set the GCP_WIF_SUCCESS variable to 1.
+          GCP_WIF_SUCCESS=1
+        else
+          echo "The Workload Identity Federation authentication failed (login)."
+        fi
+      else
+        echo "The Workload Identity Federation authentication failed (create-cred-config)."
+      fi
+  
+      # Print messages if the authentication was successful.
+      if [ "${GCP_WIF_SUCCESS}" = "1" ]; then
+        echo "The Workload Identity Federation authentication was successful."
+        echo "Project ID: ${GCP_WIF_PROJECT_ID}"
+        echo "Service Account: ${GCP_WIF_SERVICE_ACCOUNT_EMAIL}"
+      fi
+  
+      if command -v section_end &> /dev/null; then
+        section_end "wif"
+      fi
+    
 ####################################
 # END WORKLOAD IDENTITY FEDERATION #
 ####################################
