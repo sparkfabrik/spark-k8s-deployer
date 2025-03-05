@@ -63,19 +63,19 @@
 
     - | #bash
       # Main script
-      SKIP_GCP_WIF="${SKIP_GCP_WIF:-0}"
+      DISABLE_GCP_WIF="${DISABLE_GCP_WIF:-0}"
       if command -v section_start &> /dev/null; then
         section_start "wif" "Workload Identity Federation"
       fi
 
-      if [ "${SKIP_GCP_WIF}" = 0 ]; then
+      if [ "${DISABLE_GCP_WIF}" = 0 ]; then
         if check_gcloud && check_wif_env; then
           if create_wif; then
             print_wif_info
           fi
         fi
       else
-        echo "The Workload Identity Federation is skipped because SKIP_GCP_WIF is set."
+        echo "The Workload Identity Federation is skipped because DISABLE_GCP_WIF is set."
       fi
 
       if command -v section_end &> /dev/null; then
