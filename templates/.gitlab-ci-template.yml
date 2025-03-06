@@ -179,12 +179,12 @@ default:
       aud: https://${CI_SERVER_FQDN}
 
 before_script:
-  - !reference [.gitlab-sections-functions, before_script]
+  - !reference [.gitlab-helper-functions, before_script]
   - !reference [.gcp-wif, before_script]
   - *script-global-docker-wait
 
 include: 
-  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gitlab_section_management.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gitlab_helper_functions.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gcp_wif.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"
