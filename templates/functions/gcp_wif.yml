@@ -78,10 +78,8 @@
       }
       
       print_wif_info() {
-        print-banner "GCP WIF CONFIGURATION"
         echo "The Workload Identity Federation authentication was successful."
         wif_print_vars
-        print-banner "END GCP WIF CONFIGURATION"
       }
 
     - |
@@ -90,7 +88,9 @@
       if command -v section_start &> /dev/null; then
         section_start "wif" "Workload Identity Federation"
       fi
-
+      if command -v print-banner &> /dev/null; then
+        print-banner "GCP WIF CONFIGURATION"
+      fi
       if [ "${DISABLE_GCP_WIF}" = 0 ]; then
         if check_gcloud && check_wif_env; then
           if create_wif; then
@@ -98,11 +98,11 @@
           fi
         fi
       else
-        print-banner "GCP WIF CONFIGURATION"
         echo "The Workload Identity Federation is skipped because DISABLE_GCP_WIF is set."
+      fi
+      if command -v print-banner &> /dev/null; then
         print-banner "END GCP WIF CONFIGURATION"
       fi
-
       if command -v section_end &> /dev/null; then
         section_end "wif"
       fi
