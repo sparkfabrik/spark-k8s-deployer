@@ -98,7 +98,9 @@
           fi
         fi
       else
+        print-banner "GCP WIF CONFIGURATION"
         echo "The Workload Identity Federation is skipped because DISABLE_GCP_WIF is set."
+        print-banner "END GCP WIF CONFIGURATION"
       fi
 
       if command -v section_end &> /dev/null; then
