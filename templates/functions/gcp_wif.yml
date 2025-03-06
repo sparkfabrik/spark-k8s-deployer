@@ -1,7 +1,7 @@
 .gcp-wif:
   before_script:
     # If the gcloud command is available, we can configure the authentication with Workload Identity Federation.
-    - | #bash
+    - |
       check_gcloud() {
         if ! command -v gcloud &> /dev/null; then
           echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
@@ -20,7 +20,7 @@
       }
 
       create_wif() {
-        local GCP_WIF_SUCCESS=0
+        local GCP_WIF_EXIT_CODE=0
         export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
 
         # Generate the necessary temporary files
@@ -44,15 +44,16 @@
         --credential-source-file="${GCP_WIF_TOKEN_FILE}" 2>/dev/null; then
           if gcloud auth login --cred-file="${GCP_WIF_CRED_FILE}" 2>/dev/null; then
             export GOOGLE_APPLICATION_CREDENTIALS="${GCP_WIF_CRED_FILE}"
-            GCP_WIF_SUCCESS=1
           else
             echo "The Workload Identity Federation authentication failed (login)."
+            GCP_WIF_EXIT_CODE=1    
           fi
         else
           echo "The Workload Identity Federation authentication failed (create-cred-config)."
+          GCP_WIF_EXIT_CODE=1
         fi
 
-        return ${GCP_WIF_SUCCESS}
+        return ${GCP_WIF_EXIT_CODE}
       }
 
       print_wif_info() {
@@ -61,7 +62,7 @@
         echo "Service Account: ${GCP_WIF_SERVICE_ACCOUNT_EMAIL}"
       }
 
-    - | #bash
+    - |
       # Main script
       DISABLE_GCP_WIF="${DISABLE_GCP_WIF:-0}"
       if command -v section_start &> /dev/null; then
