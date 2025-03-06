@@ -12,7 +12,7 @@
 #    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gcp_wif.yml"
 .gcp-wif:
   before_script:
-    # If the gcloud command is available, we can configure the authentication with Workload Identity Federation.
+    # Functions
     - |
       check_gcloud() {
         if ! command -v gcloud &> /dev/null; then
