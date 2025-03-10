@@ -199,6 +199,9 @@ _setup-gitlab-agent-kubernetes-context() {
 
   kubectl config use-context "${1}:${2}"
 
+  # Set the namespace using `default` as fallback. This is needed to enforce the namespace
+  # when this script is used in a pod inside a Kubernetes cluster.
+  # https://github.com/kubernetes/kubernetes/issues/118693
   echo "Setting the namespace to: ${KUBE_NAMESPACE:-default}"
   kubectl config set-context --current --namespace="${KUBE_NAMESPACE:-default}"
 }
