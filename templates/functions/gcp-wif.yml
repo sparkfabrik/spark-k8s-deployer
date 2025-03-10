@@ -1,14 +1,16 @@
 # This template provides a script that can be used to authenticate with GCP using the Workload Identity Federation.
-# It uses functions from the `gitlab_helper_functions` template; you must at least include it in your `.gitlab-ci.yml` file.
+# It uses functions from the `gitlab-helper-functions.yml` template; you must at least include it in your `.gitlab-ci.yml` file.
 # Example:
 # include: 
-#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
-#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
 # test_job:
-#  stage: test
-#  before_script:
-#   - !reference [.gitlab-helper-functions, before_script]
-#   - !reference [.gcp-wif, before_script]
+#   stage: test
+#   before_script:
+#     - !reference [.gitlab-helper-functions, before_script]
+#     - !reference [.gcp-wif, before_script]
+#   script:
+#     - <insert command that needs GCP authentication>
 
 .gcp-wif:
   before_script:
@@ -76,9 +78,9 @@
           printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
         done
       }
-      
+    
+    # Main script  
     - |
-      # Main script
       DISABLE_GCP_WIF="${DISABLE_GCP_WIF:-0}"
       if command -v section_start &> /dev/null; then
         section_start "wif" "Workload Identity Federation"
