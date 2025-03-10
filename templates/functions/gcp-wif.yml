@@ -14,7 +14,7 @@
   before_script:
     # Functions
     - |
-      check_gcloud() {
+      function check_gcloud() {
         if ! command -v gcloud &> /dev/null; then
           echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
           return 1
@@ -22,7 +22,7 @@
         return 0
       }
 
-      check_wif_env() {
+      function check_wif_env() {
         if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
           echo "The Workload Identity Federation is not configured."
           echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
@@ -31,7 +31,7 @@
         return 0
       }
 
-      create_wif() {
+      function create_wif() {
         local GCP_WIF_EXIT_CODE=0
         export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
 
@@ -68,7 +68,7 @@
         return ${GCP_WIF_EXIT_CODE}
       }
       
-      wif_print_vars() {
+      function wif_print_vars() {
         local PAD_LEN VAR_NAME
         PAD_LEN=${PAD_LEN:-40}
         printf "\e[1mConfigured WIF related variables in order of precedence:\e[0m\n"
