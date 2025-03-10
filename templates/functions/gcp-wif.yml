@@ -4,12 +4,11 @@
 # include: 
 #    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
 #    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
-#  test_job:
-#   stage: test
-#   before_script:
-#    - !reference [.gitlab-helper-functions, before_script]
-#    - !reference [.gcp-wif, before_script]
-#   
+# test_job:
+#  stage: test
+#  before_script:
+#   - !reference [.gitlab-helper-functions, before_script]
+#   - !reference [.gcp-wif, before_script]
 
 .gcp-wif:
   before_script:
