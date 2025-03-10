@@ -1,15 +1,16 @@
 # This template provides a script that can be used to authenticate with GCP using the Workload Identity Federation.
 # It uses functions from the `gitlab_helper_functions` template; you must at least include it in your `.gitlab-ci.yml` file.
 # Example:
-# test_job:
-#  stage: test
-#  before_script:
-#   - !reference [.gitlab-helper-functions, before_script]
-#   - !reference [.gcp-wif, before_script]
-#  
-#  include: 
-#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gitlab_helper_functions.yml"
-#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/refs/heads/3217_WIF_logic/templates/functions/gcp_wif.yml"
+# include: 
+#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
+#    - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+#  test_job:
+#   stage: test
+#   before_script:
+#    - !reference [.gitlab-helper-functions, before_script]
+#    - !reference [.gcp-wif, before_script]
+#   
+
 .gcp-wif:
   before_script:
     # Functions
@@ -106,3 +107,4 @@
       if command -v section_end &> /dev/null; then
         section_end "wif"
       fi
+      

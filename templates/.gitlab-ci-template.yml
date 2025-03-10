@@ -74,7 +74,7 @@ variables:
 
 .global-setup:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
-  before_script: &script-global-docker-wait
+  before_script:
     - |
       PAD_LEN=${PAD_LEN:-40}
 
@@ -181,7 +181,7 @@ default:
 before_script:
   - !reference [.gitlab-helper-functions, before_script]
   - !reference [.gcp-wif, before_script]
-  - *script-global-docker-wait
+  - !reference [.global-setup, before_script]
 
 include: 
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab_helper_functions.yml"
