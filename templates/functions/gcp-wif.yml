@@ -1,0 +1,106 @@
+# This template provides a script that can be used to authenticate with GCP using the Workload Identity Federation.
+# It uses functions from the `gitlab-helper-functions.yml` template; you must at least include it in your `.gitlab-ci.yml` file.
+# Example:
+# include: 
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+# test_job:
+#   stage: test
+#   before_script:
+#     - !reference [.gitlab-helper-functions, before_script]
+#     - !reference [.gcp-wif, before_script]
+#   script:
+#     - <insert command that needs GCP authentication>
+
+.gcp-wif:
+  before_script:
+    # Functions
+    - |
+      function check_gcloud() {
+        if ! command -v gcloud &> /dev/null; then
+          echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
+          return 1
+        fi
+        return 0
+      }
+
+      function check_wif_env() {
+        if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
+          echo "The Workload Identity Federation is not configured."
+          echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
+          return 1
+        fi
+        return 0
+      }
+
+      function create_wif() {
+        local GCP_WIF_EXIT_CODE=0
+        export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
+
+        # Generate the necessary temporary files
+        local GCP_WIF_TOKEN_FILE=$(mktemp -t gcp_wif_token.XXXXXX)
+        local GCP_WIF_CRED_FILE=$(mktemp -t gcp_wif_cred.XXXXXX)
+
+        # Set strict permissions for the temporary files
+        chmod 600 "${GCP_WIF_TOKEN_FILE}"
+        chmod 600 "${GCP_WIF_CRED_FILE}"
+
+        # Ensure temporary files are deleted on exit
+        trap 'rm -f "${GCP_WIF_TOKEN_FILE}" "${GCP_WIF_CRED_FILE}"' EXIT
+
+        # Write the OIDC token to the temporary file
+        echo ${GITLAB_OIDC_TOKEN} >"${GCP_WIF_TOKEN_FILE}"
+
+        # Generate the GCP credentials file
+        if gcloud iam workload-identity-pools create-cred-config ${GCP_WORKLOAD_IDENTITY_PROVIDER} \
+        --service-account="${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" \
+        --output-file="${GCP_WIF_CRED_FILE}" \
+        --credential-source-file="${GCP_WIF_TOKEN_FILE}" 2>/dev/null; then
+          if gcloud auth login --cred-file="${GCP_WIF_CRED_FILE}" 2>/dev/null; then
+            export GOOGLE_APPLICATION_CREDENTIALS="${GCP_WIF_CRED_FILE}"
+          else
+            echo "The Workload Identity Federation authentication failed (login)."
+            GCP_WIF_EXIT_CODE=1    
+          fi
+        else
+          echo "The Workload Identity Federation authentication failed (create-cred-config)."
+          GCP_WIF_EXIT_CODE=1
+        fi
+
+        return ${GCP_WIF_EXIT_CODE}
+      }
+      
+      function wif_print_vars() {
+        local PAD_LEN VAR_NAME
+        PAD_LEN=${PAD_LEN:-40}
+        printf "\e[1mConfigured WIF related variables in order of precedence:\e[0m\n"
+        for VAR_NAME in "GCP_WIF_PROJECT_ID" "GCP_WIF_POOL" "GCP_WIF_PROVIDER" "GCP_WIF_SERVICE_ACCOUNT_EMAIL"; do
+          printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
+        done
+      }
+    
+    # Main script  
+    - |
+      DISABLE_GCP_WIF="${DISABLE_GCP_WIF:-0}"
+      if command -v section_start &> /dev/null; then
+        section_start "wif" "Workload Identity Federation"
+      fi
+      if command -v print-banner &> /dev/null; then
+        print-banner "GCP WIF CONFIGURATION"
+      fi
+      wif_print_vars
+      if [ "${DISABLE_GCP_WIF}" = 0 ]; then
+        if check_gcloud && check_wif_env; then
+          if create_wif; then
+            echo "The Workload Identity Federation authentication was successful."
+          fi
+        fi
+      else
+        echo "The Workload Identity Federation is skipped because DISABLE_GCP_WIF is set."
+      fi
+      if command -v print-banner &> /dev/null; then
+        print-banner "END GCP WIF CONFIGURATION"
+      fi
+      if command -v section_end &> /dev/null; then
+        section_end "wif"
+      fi
