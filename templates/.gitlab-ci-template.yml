@@ -75,6 +75,8 @@ variables:
 .global-setup:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script:
+    - !reference [.gitlab-helper-functions, before_script]
+    - !reference [.gcp-wif, before_script]
     - |
       PAD_LEN=${PAD_LEN:-40}
 
