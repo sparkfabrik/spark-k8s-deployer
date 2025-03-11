@@ -177,6 +177,7 @@ default:
   id_tokens:
     GITLAB_OIDC_TOKEN:
       aud: https://${CI_SERVER_FQDN}
+
 .k8s-deployer-base:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
@@ -184,9 +185,7 @@ default:
     - !reference [.global-setup, before_script]
 
 before_script:
-  - !reference [.gitlab-helper-functions, before_script]
-  - !reference [.gcp-wif, before_script]
-  - !reference [.global-setup, before_script]
+  - !reference [.k8s-deployer-base, before_script]
 
 include: 
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
