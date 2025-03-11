@@ -72,7 +72,7 @@ variables:
   DEV_DEVELOPER_USERS: ""
   DEV_DEVELOPER_GROUPS: ""
 
-.global-setup:
+.default-setup:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script:
     - |
@@ -178,14 +178,14 @@ default:
     GITLAB_OIDC_TOKEN:
       aud: https://${CI_SERVER_FQDN}
 
-.k8s-deployer-base:
+.global-setup:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
-    - !reference [.global-setup, before_script]
+    - !reference [.default-setup, before_script]
 
 before_script:
-  - !reference [.k8s-deployer-base, before_script]
+  - !reference [.global-setup, before_script]
 
 include: 
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
