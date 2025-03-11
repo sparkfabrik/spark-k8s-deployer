@@ -75,8 +75,6 @@ variables:
 .global-setup:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27384#note_497228752
   before_script:
-    - !reference [.gitlab-helper-functions, before_script]
-    - !reference [.gcp-wif, before_script]
     - |
       PAD_LEN=${PAD_LEN:-40}
 
@@ -179,6 +177,11 @@ default:
   id_tokens:
     GITLAB_OIDC_TOKEN:
       aud: https://${CI_SERVER_FQDN}
+.k8s-deployer-base:
+  before_script:
+    - !reference [.gitlab-helper-functions, before_script]
+    - !reference [.gcp-wif, before_script]
+    - !reference [.global-setup, before_script]
 
 before_script:
   - !reference [.gitlab-helper-functions, before_script]
