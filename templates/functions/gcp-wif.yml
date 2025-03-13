@@ -15,7 +15,7 @@
 .gcp-wif:
   before_script:
     # Functions
-    - | 
+    - |
       function check_gcloud() {
         if ! command -v gcloud &> /dev/null; then
           echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
