@@ -16,7 +16,7 @@
   before_script:
     # Functions
     - |
-      function check_gcloud() {
+      check_gcloud() {
         if ! command -v gcloud &> /dev/null; then
           echo "The gcloud command is not available. I cannot try to authenticate with GCP using the Workload Identity Federation."
           return 1
@@ -24,7 +24,7 @@
         return 0
       }
 
-      function check_wif_env() {
+      check_wif_env() {
         if [ -z "${GITLAB_OIDC_TOKEN}" ] || [ -z "${GCP_WIF_PROJECT_ID}" ] || [ -z "${GCP_WIF_POOL}" ] || [ -z "${GCP_WIF_PROVIDER}" ] || [ -z "${GCP_WIF_SERVICE_ACCOUNT_EMAIL}" ]; then
           echo "The Workload Identity Federation is not configured."
           echo "The GITLAB_OIDC_TOKEN, GCP_WIF_PROJECT_ID, GCP_WIF_POOL, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT_EMAIL variables are required."
@@ -33,7 +33,7 @@
         return 0
       }
 
-      function create_wif() {
+      create_wif() {
         local GCP_WIF_EXIT_CODE=0
         export GCP_WORKLOAD_IDENTITY_PROVIDER="projects/${GCP_WIF_PROJECT_ID}/locations/global/workloadIdentityPools/${GCP_WIF_POOL}/providers/${GCP_WIF_PROVIDER}"
 
@@ -70,7 +70,7 @@
         return ${GCP_WIF_EXIT_CODE}
       }
       
-      function wif_print_vars() {
+      wif_print_vars() {
         local PAD_LEN
         PAD_LEN=${PAD_LEN:-40}
         printf "\e[1mConfigured WIF related variables:\e[0m\n"
@@ -96,7 +96,7 @@
       #   $3 - workload_identity_provider: The Workload Identity Provider ID (optional if GCP_WIF_PROVIDER is set)
       #   $4 - service_account_email: The email of the GCP service account (optional if GCP_WIF_SERVICE_ACCOUNT_EMAIL is set)
       #
-      function google_wif_get_federated_token() {
+      google_wif_get_federated_token() {
         local project_id=${1:-$GCP_WIF_PROJECT_ID}
         local workload_identity_pool=${2:-$GCP_WIF_POOL}
         local workload_identity_provider=${3:-$GCP_WIF_PROVIDER}
@@ -189,7 +189,7 @@
       #   gcloud_wif compute instances list
       #   gcloud_wif storage buckets list
       #   gcloud_wif --project=another-project compute instances list  # Overrides the default project
-      function gcloud_wif() {
+      gcloud_wif() {
           # Attempt to obtain a new GCP access token if it's not set
           if [ -z "$GCLOUD_WIF_TOKEN" ]; then
               # Attempt to get the token, but continue even if it fails
