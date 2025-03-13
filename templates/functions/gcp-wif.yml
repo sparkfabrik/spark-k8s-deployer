@@ -220,9 +220,10 @@
               "${cmd[@]}"
           fi
       }
-    # Main script  
+    # Main script
+    # Disable GCP WIF by default because it overwrites the standard runner permissions (i.e.: push to artifact registry)
     - |
-      DISABLE_GCP_WIF="${DISABLE_GCP_WIF:-0}"
+      ENABLE_GCP_WIF="${ENABLE_GCP_WIF:-0}"
       if command -v section_start &> /dev/null; then
         section_start "wif" "Workload Identity Federation"
       fi
@@ -230,14 +231,14 @@
         print-banner "GCP WIF CONFIGURATION"
       fi
       wif_print_vars
-      if [ "${DISABLE_GCP_WIF}" = 0 ]; then
+      if [ "${ENABLE_GCP_WIF}" = 1 ]; then
         if check_gcloud && check_wif_env; then
           if create_wif; then
             echo "The Workload Identity Federation authentication was successful."
           fi
         fi
       else
-        echo "The Workload Identity Federation is skipped because DISABLE_GCP_WIF is set."
+        echo "The Workload Identity Federation is skipped because ENABLE_GCP_WIF is not set."
       fi
       if command -v print-banner &> /dev/null; then
         print-banner "END GCP WIF CONFIGURATION"
