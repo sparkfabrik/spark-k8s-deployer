@@ -187,7 +187,7 @@ default:
 before_script:
   - !reference [.global-setup, before_script]
 
-include: 
+include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
