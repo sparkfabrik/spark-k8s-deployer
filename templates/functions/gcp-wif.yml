@@ -1,7 +1,7 @@
 # This template provides a script that can be used to authenticate with GCP using the Workload Identity Federation.
 # It uses functions from the `gitlab-helper-functions.yml` template; you must at least include it in your `.gitlab-ci.yml` file.
 # Example:
-# include: 
+# include:
 #   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
 #   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
 # test_job:
@@ -69,7 +69,7 @@
 
         return ${GCP_WIF_EXIT_CODE}
       }
-      
+
       wif_print_vars() {
         local PAD_LEN
         PAD_LEN=${PAD_LEN:-40}
@@ -107,64 +107,64 @@
 
         # Function to check if a variable is set
         check_var() {
-          local var_name=$1
-          local var_value=$2
-          if [ -z "$var_value" ]; then
-            echo "Error: $var_name is not set. Please provide it as an argument or set the corresponding GitLab variable." >&2
+          local var_name="${1}"
+          local var_value="${2}"
+          if [ -z "${var_value}" ]; then
+            echo "Error: ${var_name} is not set. Please provide it as an argument or set the corresponding GitLab variable." >&2
             return 1
           fi
           return 0
         }
 
         # Check all required variables
-        check_var "project_id" "$project_id" || { return 1; }
-        check_var "workload_identity_pool" "$workload_identity_pool" || { return 1; }
-        check_var "workload_identity_provider" "$workload_identity_provider" || { return 1; }
-        check_var "service_account_email" "$service_account_email" || { return 1; }
+        check_var "project_id" "${project_id}" || { return 1; }
+        check_var "workload_identity_pool" "${workload_identity_pool}" || { return 1; }
+        check_var "workload_identity_provider" "${workload_identity_provider}" || { return 1; }
+        check_var "service_account_email" "${service_account_email}" || { return 1; }
 
         # Check if GITLAB_OIDC_TOKEN is set
-        if [ -z "$GITLAB_OIDC_TOKEN" ]; then
+        if [ -z "${GITLAB_OIDC_TOKEN}" ]; then
           echo "Error: GITLAB_OIDC_TOKEN is not set. This should be provided by GitLab CI/CD." >&2
           return 1
         fi
 
         local PAYLOAD="{
-          \"audience\": \"//iam.googleapis.com/projects/$project_id/locations/global/workloadIdentityPools/$workload_identity_pool/providers/$workload_identity_provider\",
+          \"audience\": \"//iam.googleapis.com/projects/${project_id}/locations/global/workloadIdentityPools/${workload_identity_pool}/providers/${workload_identity_provider}\",
           \"grantType\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
           \"requestedTokenType\": \"urn:ietf:params:oauth:token-type:access_token\",
           \"scope\": \"https://www.googleapis.com/auth/cloud-platform\",
           \"subjectTokenType\": \"urn:ietf:params:oauth:token-type:jwt\",
-          \"subjectToken\": \"$GITLAB_OIDC_TOKEN\"
+          \"subjectToken\": \"${GITLAB_OIDC_TOKEN}\"
         }"
 
         local FEDERATED_TOKEN
         FEDERATED_TOKEN=$(curl --fail --silent "https://sts.googleapis.com/v1/token" \
           --header "Accept: application/json" \
           --header "Content-Type: application/json" \
-          --data "$PAYLOAD" \
+          --data "${PAYLOAD}" \
           | jq -r '.access_token')
 
-        if [ -z "$FEDERATED_TOKEN" ]; then
+        if [ -z "${FEDERATED_TOKEN}" ]; then
           echo "Error: Failed to obtain federated token." >&2
           return 1
         fi
 
         local ACCESS_TOKEN
-        ACCESS_TOKEN=$(curl --fail --silent "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/$service_account_email:generateAccessToken" \
+        ACCESS_TOKEN=$(curl --fail --silent "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${service_account_email}:generateAccessToken" \
           --header "Accept: application/json" \
           --header "Content-Type: application/json" \
-          --header "Authorization: Bearer $FEDERATED_TOKEN" \
+          --header "Authorization: Bearer ${FEDERATED_TOKEN}" \
           --data '{"scope": ["https://www.googleapis.com/auth/cloud-platform"]}' \
           | jq -r '.accessToken')
 
-        if [ -z "$ACCESS_TOKEN" ]; then
+        if [ -z "${ACCESS_TOKEN}" ]; then
           echo "Error: Failed to obtain access token." >&2
           return 1
         fi
 
-        echo "$ACCESS_TOKEN"
+        echo "${ACCESS_TOKEN}"
       }
-      
+
       # Global variables with prefix
       GCLOUD_WIF_TOKEN=""
 
@@ -190,35 +190,35 @@
       #   gcloud_wif storage buckets list
       #   gcloud_wif --project=another-project compute instances list  # Overrides the default project
       gcloud_wif() {
-          # Attempt to obtain a new GCP access token if it's not set
-          if [ -z "$GCLOUD_WIF_TOKEN" ]; then
-              # Attempt to get the token, but continue even if it fails
-              GCLOUD_WIF_TOKEN=$(google_wif_get_federated_token 2>/dev/null | xargs)
+        # Attempt to obtain a new GCP access token if it's not set
+        if [ -z "${GCLOUD_WIF_TOKEN}" ]; then
+          # Attempt to get the token, but continue even if it fails
+          GCLOUD_WIF_TOKEN="$(google_wif_get_federated_token 2>/dev/null | xargs)"
 
-              # If token acquisition failed, log a warning but continue
-              if [ -z "$GCLOUD_WIF_TOKEN" ]; then
-                  echo "Warning: Failed to obtain GCP access token. Continuing without authentication." >&2
-              fi
+          # If token acquisition failed, log a warning but continue
+          if [ -z "${GCLOUD_WIF_TOKEN}" ]; then
+            echo "Warning: Failed to obtain GCP access token. Continuing without authentication." >&2
           fi
+        fi
 
-          # Prepare the command array
-          local cmd=(gcloud)
+        # Prepare the command array
+        local cmd="gcloud"
 
-          # Add project ID if set and not already in arguments
-          if [ -n "$GCP_WIF_PROJECT_ID" ] && [[ ! "$*" =~ --project ]]; then
-              cmd+=(--project="$GCP_WIF_PROJECT_ID")
-          fi
+        # Add project ID if set and not already in arguments
+        if [ -n "${GCP_WIF_PROJECT_ID}" ] && [[ ! "$*" =~ --project ]]; then
+          cmd = "${cmd} --project=\"${GCP_WIF_PROJECT_ID}\""
+        fi
 
-          # Add the rest of the arguments
-          cmd+=("$@")
+        # Add the rest of the arguments
+        cmd = "${cmd} $@"
 
-          # Execute gcloud command with the token if available
-          if [ -n "$GCLOUD_WIF_TOKEN" ]; then
-              CLOUDSDK_AUTH_ACCESS_TOKEN=$GCLOUD_WIF_TOKEN "${cmd[@]}"
-          else
-              # Execute without the token if it's not available
-              "${cmd[@]}"
-          fi
+        # Execute gcloud command with the token if available
+        if [ -n "${GCLOUD_WIF_TOKEN}" ]; then
+          CLOUDSDK_AUTH_ACCESS_TOKEN="${GCLOUD_WIF_TOKEN} ${cmd}"
+        else
+          # Execute without the token if it's not available
+          ${cmd}
+        fi
       }
     # Main script
     # Disable GCP WIF by default because it overwrites the standard runner permissions (i.e.: push to artifact registry)
