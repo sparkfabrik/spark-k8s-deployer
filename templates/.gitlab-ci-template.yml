@@ -117,6 +117,29 @@ variables:
 
       if command -v gcloud &> /dev/null; then
         section_start "gcloud" "Gcloud authentication setup"
+        GCP_SERVICE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+
+        # if service account is empty, wait for it to be set.
+        if [ -z "${GCP_SERVICE_ACCOUNT}" ]; then
+          MAX_ATTEMPTS=3
+          i=0
+          while [ $i -lt $MAX_ATTEMPTS ]; do
+            echo "Waiting for gcloud to authenticate..."
+            sleep 5s
+            GCP_SERVICE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+            if [ -n "${GCP_SERVICE_ACCOUNT}" ]; then
+              break
+            fi
+            i=$((i+1))
+          done
+        fi
+
+        # if still empty, fail.
+        if [ -z "${GCP_SERVICE_ACCOUNT}" ]; then
+          echo "Failed to authenticate with gcloud after multiple attempts."
+          exit 1
+        fi
+
         gcloud version
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
@@ -124,7 +147,8 @@ variables:
           echo "The following docker credHelpers are configured:"
           jq '.credHelpers' ~/.docker/config.json
         fi
-        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity):" $(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+
+        printf "\n\n%-${PAD_LEN}s \e[1m%s\e[0m\n\n" "GCP Auth user (workload identity): ${GCP_SERVICE_ACCOUNT}"
         section_end "gcloud"
       fi
 
