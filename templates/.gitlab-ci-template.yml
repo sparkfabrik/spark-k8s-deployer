@@ -178,6 +178,31 @@ variables:
       curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
       mv sparkci /usr/local/bin/
 
+      # Configure gwif using sparkci.
+      ENABLE_GCP_WIF="${ENABLE_GCP_WIF:-0}"
+      if command -v section_start &> /dev/null; then
+        section_start "wif" "Workload Identity Federation"
+      fi
+      if command -v print-banner &> /dev/null; then
+        print-banner "GCP WIF CONFIGURATION"
+      fi
+      wif_print_vars
+      if [ "${ENABLE_GCP_WIF}" = 1 ]; then
+        if check_gcloud && check_wif_env; then
+          if create_wif; then
+            echo "The Workload Identity Federation authentication was successful."
+          fi
+        fi
+      else
+        echo "The Workload Identity Federation is skipped because ENABLE_GCP_WIF is not set."
+      fi
+      if command -v print-banner &> /dev/null; then
+        print-banner "END GCP WIF CONFIGURATION"
+      fi
+      if command -v section_end &> /dev/null; then
+        section_end "wif"
+      fi
+
 default:
   id_tokens:
     GITLAB_OIDC_TOKEN:
@@ -186,7 +211,6 @@ default:
 .global-setup:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
-    - !reference [.gcp-wif, before_script]
     - !reference [.default-setup, before_script]
 
 before_script:
