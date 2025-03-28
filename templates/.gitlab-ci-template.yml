@@ -176,7 +176,7 @@ variables:
       # Install sparkci (dev release just for testing).
       echo "Install sparkci"
       curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
-      sudo mv sparkci /usr/local/bin/
+      mv sparkci /usr/local/bin/
 
 default:
   id_tokens:
