@@ -184,7 +184,7 @@ variables:
       sparkci gwif print-vars
 
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
-        if sparkci gwif status; then
+        if sparkci gwif status --silent=false; then
           sparkci gwif gcloud-auth || {
             echo "Error: Failed to authenticate with gcloud using WIF."
             exit 1
