@@ -173,6 +173,11 @@ variables:
         section_end "debug-sleep"
       fi
 
+      # Install sparkci (dev release just for testing).
+      echo "Install sparkci"
+      curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
+      sudo mv sparkci /usr/local/bin/
+
 default:
   id_tokens:
     GITLAB_OIDC_TOKEN:
@@ -182,7 +187,7 @@ default:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
-    - !reference [.default-setup, before_script]
+    - !reference [.default-setup, before_script]paolo.
 
 before_script:
   - !reference [.global-setup, before_script]
