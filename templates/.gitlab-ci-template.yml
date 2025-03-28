@@ -185,16 +185,20 @@ variables:
 
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
         if sparkci gwif status; then
-          sparkci gwif gcloud-auth
+          sparkci gwif gcloud-auth || {
+            echo "Error: Failed to authenticate with gcloud using WIF."
+            exit 1
+          }
+        else
+          echo "Error: WIF status check failed."
+          exit 1
         fi
-      fi
       else
         echo "The Workload Identity Federation is skipped because ENABLE_GCP_WIF is not set."
       fi
 
       sparkci format banner --text "END GCP WIF CONFIGURATION"
       sparkci format section --title "wif" --end
-
 
 default:
   id_tokens:
