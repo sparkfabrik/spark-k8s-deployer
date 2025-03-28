@@ -179,29 +179,22 @@ variables:
       mv sparkci /usr/local/bin/
 
       # Configure gwif using sparkci.
-      ENABLE_GCP_WIF="${ENABLE_GCP_WIF:-0}"
-      if command -v section_start &> /dev/null; then
-        section_start "wif" "Workload Identity Federation"
-      fi
-      if command -v print-banner &> /dev/null; then
-        print-banner "GCP WIF CONFIGURATION"
-      fi
-      wif_print_vars
-      if [ "${ENABLE_GCP_WIF}" = 1 ]; then
-        if check_gcloud && check_wif_env; then
-          if create_wif; then
-            echo "The Workload Identity Federation authentication was successful."
-          fi
+      sparkci format section --title "wif" --description "Workload Identity Federation"
+      sparkci format banner --text "GCP WIF CONFIGURATION"
+      sparkci gwif print-vars
+
+      if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
+        if sparkci gwif status; then
+          sparkci gwif gcloud-auth
         fi
+      fi
       else
         echo "The Workload Identity Federation is skipped because ENABLE_GCP_WIF is not set."
       fi
-      if command -v print-banner &> /dev/null; then
-        print-banner "END GCP WIF CONFIGURATION"
-      fi
-      if command -v section_end &> /dev/null; then
-        section_end "wif"
-      fi
+
+      sparkci format banner --text "END GCP WIF CONFIGURATION"
+      sparkci format section --title "wif" --end
+
 
 default:
   id_tokens:
