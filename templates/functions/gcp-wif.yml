@@ -246,17 +246,3 @@
       if command -v section_end &> /dev/null; then
         section_end "wif"
       fi
-
-      # Do the same just with sparkci.
-      sparkci format section --title "wif" --description "Workload Identity Federation"
-      sparkci format banner --text "GCP WIF CONFIGURATION"
-      sparkci gwif print-vars
-
-      if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
-        if sparkci gwif status; then
-          sparkci gwif gcloud-auth
-        fi
-      fi
-
-      sparkci format banner --text "END GCP WIF CONFIGURATION"
-      sparkci format section --title "wif" --end
