@@ -193,7 +193,6 @@ variables:
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
         sparkci format section --title "wif" --description "Workload Identity Federation"
         sparkci gwif configure
-        echo "The Workload Identity Federation authentication was successful."
         sparkci format section --title "wif" --end
       fi
 
