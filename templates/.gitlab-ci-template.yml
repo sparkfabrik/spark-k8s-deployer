@@ -184,7 +184,7 @@ variables:
         cd sparkci
         git checkout -b test/${BRANCH_TO_TEST} origin/${BRANCH_TO_TEST}
         make build && chmod +x ./sparkci && mv ./sparkci /usr/local/bin/
-      else
+      #else
         #curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
         #mv sparkci /usr/local/bin/
       fi
