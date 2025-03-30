@@ -183,14 +183,15 @@ variables:
         git clone https://github.com/sparkfabrik/sparkci.git
         cd sparkci
         git checkout -b test/${BRANCH_TO_TEST} origin/${BRANCH_TO_TEST}
-        make build && chmod +x ./sparkci && mv ./sparkci /bin
+        make build && chmod +x ./sparkci && mv ./sparkci /usr/local/bin/
       else
-        curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
-        mv sparkci /usr/local/bin/
+        #curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
+        #mv sparkci /usr/local/bin/
       fi
 
       # Configure gwif using sparkci.
       sparkci --version
+      sparkci
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
         sparkci format section --title "wif" --description "Workload Identity Federation"
         sparkci gwif configure
