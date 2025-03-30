@@ -190,8 +190,6 @@ variables:
       fi
 
       # Configure gwif using sparkci.
-      sparkci --version
-      sparkci
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
         sparkci format section --title "wif" --description "Workload Identity Federation"
         sparkci gwif configure
