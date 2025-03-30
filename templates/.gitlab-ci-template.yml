@@ -175,8 +175,19 @@ variables:
 
       # Install sparkci (dev release just for testing).
       echo "Install sparkci"
-      curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
-      mv sparkci /usr/local/bin/
+      if [ -n "${BRANCH_TO_TEST}" ]; then
+        curl -L https://go.dev/dl/go1.24.1.linux-amd64.tar.gz -o /tmp/go1.24.1.linux-amd64.tar.gz
+        rm -rf /usr/local/go
+        tar -C /usr/local -xzf /tmp/go1.24.1.linux-amd64.tar.gz
+        export PATH=$PATH:/usr/local/go/bin
+        git clone https://github.com/sparkfabrik/sparkci.git
+        cd sparkci
+        git checkout -b test/${BRANCH_TO_TEST} origin/${BRANCH_TO_TEST}
+        make build && chmod +x ./sparkci && mv ./sparkci /bin
+      else
+        curl -L https://github.com/sparkfabrik/sparkci/releases/download/latest/sparkci_0.0.0-dev_linux_amd64.tar.gz | tar xz
+        mv sparkci /usr/local/bin/
+      fi
 
       # Configure gwif using sparkci.
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
