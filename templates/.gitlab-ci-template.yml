@@ -191,9 +191,9 @@ variables:
 
       # Configure gwif using sparkci.
       if [ -n "${ENABLE_GCP_WIF}" ] && [ "${ENABLE_GCP_WIF}" = "1" ]; then
-        sparkci format section --title "wif" --description "Workload Identity Federation"
+        sparkci gitlab format section --title "wif" --description "Workload Identity Federation"
         sparkci gwif configure
-        sparkci format section --title "wif" --end
+        sparkci gitlab format section --title "wif" --end
       fi
 
 default:
