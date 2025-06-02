@@ -192,34 +192,34 @@
       gcloud_wif() {
         # Attempt to obtain a new GCP access token if it's not set
         if [ -z "${GCLOUD_WIF_TOKEN}" ]; then
-          # Attempt to get the token, but continue even if it fails
           GCLOUD_WIF_TOKEN="$(google_wif_get_federated_token 2>/dev/null | xargs)"
-
-          # If token acquisition failed, log a warning but continue
           if [ -z "${GCLOUD_WIF_TOKEN}" ]; then
             echo "Warning: Failed to obtain GCP access token. Continuing without authentication." >&2
           fi
         fi
-
-        # Prepare the command array
+        
+        # Build command string
         local cmd="gcloud"
-
+        
         # Add project ID if set and not already in arguments
-        if [ -n "${GCP_WIF_PROJECT_ID}" ] && [[ ! "$*" =~ --project ]]; then
-          cmd = "${cmd} --project=\"${GCP_WIF_PROJECT_ID}\""
+        if [ -n "${GCP_WIF_PROJECT_ID}" ]; then
+          case "$@" in
+            *--project*) ;;
+            *) cmd="${cmd} --project=${GCP_WIF_PROJECT_ID}" ;;
+          esac
         fi
-
-        # Add the rest of the arguments
-        cmd = "${cmd} $@"
-
-        # Execute gcloud command with the token if available
+        
+        # Add all arguments
+        cmd="${cmd} $@"
+        
+        # Execute with or without token
         if [ -n "${GCLOUD_WIF_TOKEN}" ]; then
-          CLOUDSDK_AUTH_ACCESS_TOKEN="${GCLOUD_WIF_TOKEN} ${cmd}"
+          CLOUDSDK_AUTH_ACCESS_TOKEN="${GCLOUD_WIF_TOKEN}" eval "${cmd}"
         else
-          # Execute without the token if it's not available
-          ${cmd}
+          eval "${cmd}"
         fi
       }
+
     # Main script
     # Disable GCP WIF by default because it overwrites the standard runner permissions (i.e.: push to artifact registry)
     - |
