@@ -210,7 +210,7 @@
         fi
         
         # Add all arguments
-        cmd="${cmd} $*"
+        cmd="${cmd} $@"
         
         # Execute with or without token
         if [ -n "${GCLOUD_WIF_TOKEN}" ]; then
