@@ -199,7 +199,7 @@
         fi
         
         # Build command string
-        cmd="gcloud"
+        local cmd="gcloud"
         
         # Add project ID if set and not already in arguments
         if [ -n "${GCP_WIF_PROJECT_ID}" ]; then
