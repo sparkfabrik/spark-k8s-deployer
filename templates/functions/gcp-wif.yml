@@ -203,7 +203,7 @@
         
         # Add project ID if set and not already in arguments
         if [ -n "${GCP_WIF_PROJECT_ID}" ]; then
-          case "$*" in
+          case "$@" in
             *--project*) ;;
             *) cmd="${cmd} --project=${GCP_WIF_PROJECT_ID}" ;;
           esac
