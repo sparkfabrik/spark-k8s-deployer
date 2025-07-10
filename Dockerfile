@@ -1,26 +1,31 @@
 # Define the google cloud sdk image tag to use.
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=504.0.0-alpine
+# https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/europe/eu.gcr.io/google-cloud-cli
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=529.0.0-alpine
 
 # Build go binaries
-FROM golang:1.23.4-alpine3.20 AS gobinaries
+FROM golang:1.24-alpine AS gobinaries
 
 # https://github.com/stackrox/kube-linter
-ENV KUBELINTER_VERSION=0.6.8
+ENV KUBELINTER_VERSION=0.7.4
 RUN apk --no-cache add git \
     && go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
 
 FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
 
 # https://github.com/docker/compose/releases
-ENV COMPOSE_VERSION=v2.23.1
+ENV COMPOSE_VERSION=v2.38.2
 # https://download.docker.com/linux/static/stable/x86_64
 ENV DOCKER_VERSION=27.1.1
-ENV DOCKER_BUILDX_VERSION=0.16.2
-ENV HELM3_VERSION=3.14.3
+# https://github.com/docker/buildx/releases
+ENV DOCKER_BUILDX_VERSION=0.25.0
+# https://github.com/helm/helm/releases
+ENV HELM3_VERSION=3.18.4
 ENV AWS_CLI_VERSION=1.32.14
-ENV YQ4_VERSION=v4.14.2
+# https://github.com/mikefarah/yq/releases
+ENV YQ4_VERSION=v4.46.1
 ENV FLUX2_RELEASE_VERSION=0.26.2
-ENV STERN_RELEASE_VERSION=1.28.0
+# https://github.com/stern/stern/releases
+ENV STERN_RELEASE_VERSION=1.32.0
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
