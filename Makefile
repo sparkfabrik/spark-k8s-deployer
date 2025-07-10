@@ -3,7 +3,7 @@
 # make cli
 #
 DOCKER_VERSION=20.10.5
-GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 504.0.0-alpine
+GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 529.0.0-alpine
 
 cli: build-docker-image
 	# Run the cli.
