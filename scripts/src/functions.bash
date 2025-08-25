@@ -92,12 +92,23 @@ ping_kube() {
 }
 
 prepare-namespace() {
-  if [ -z "${KUBE_NAMESPACE}" ]; then
+  if [[ -z "${KUBE_NAMESPACE}" ]]; then
     echo "KUBE_NAMESPACE is missing."
     exit 1
   fi
   echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
-  kubectl create ns "$KUBE_NAMESPACE" || true
+  if ! kubectl get ns "$KUBE_NAMESPACE" >/dev/null 2>&1; then
+    if ! kubectl auth can-i get namespace >/dev/null 2>&1; then
+      echo "Failed to check namespace: cluster connection or permissions issue"
+      exit 1
+    fi
+    if ! kubectl create ns "$KUBE_NAMESPACE"; then
+      echo "Failed to create namespace \"${KUBE_NAMESPACE}\""
+      exit 1
+    fi
+  else
+    echo "Namespace \"$KUBE_NAMESPACE\" already exists."
+  fi
 }
 
 create-ns-and-developer-role-bindings() {
