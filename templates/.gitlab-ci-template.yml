@@ -39,6 +39,7 @@ variables:
   # Docker-in-Docker (dind) image configuration.
   # You can override these variables in your project's .gitlab-ci.yml file
   # to change the image used for dind service.
+  # Note: image registry is empty to use the default Docker Hub registry if you set a custom one you must add the trailing slash
   DOCKER_DIND_IMAGE_REGISTRY:
   DOCKER_DIND_IMAGE_REPOSITORY: docker
   DOCKER_DIND_IMAGE_TAG: 26.1.0-dind-alpine3.19
