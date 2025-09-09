@@ -10,6 +10,7 @@ services:
         "--listen=0.0.0.0:5000",
       ]
   - name: ${DOCKER_DIND_IMAGE_REPOSITORY}:${DOCKER_DIND_IMAGE_TAG}
+    alias: docker-dind
     command:
       [
         "--registry-mirror",
