@@ -4,7 +4,10 @@ image: ${DEFAULT_IMAGE_REGISTRY}/${DEFAULT_IMAGE_REPOSITORY}:${DEFAULT_IMAGE_TAG
 services:
   - name: ${DOCKER_PROXY_IMAGE_REGISTRY}/${DOCKER_PROXY_IMAGE_REPOSITORY}:${DOCKER_PROXY_IMAGE_TAG}
     alias: docker-proxy
-    command: ["--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror", "--listen=0.0.0.0:5000"]
+    command: [
+      "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror", 
+      "--listen=0.0.0.0:5000"
+    ]
   - name: ${DOCKER_DIND_IMAGE_REGISTRY}/${DOCKER_DIND_IMAGE_REPOSITORY}:${DOCKER_DIND_IMAGE_TAG}
     alias: docker
     command:
