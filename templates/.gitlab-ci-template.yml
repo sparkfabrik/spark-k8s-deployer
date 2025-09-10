@@ -9,7 +9,8 @@ services:
         "--registry=https://europe-west1-docker.pkg.dev/spark-int-cloud-services/docker-hub-mirror",
         "--listen=0.0.0.0:5000",
       ]
-  - name: docker:26.1.0-dind-alpine3.19
+  - name: ${DOCKER_DIND_IMAGE_REGISTRY}/${DOCKER_DIND_IMAGE_REPOSITORY}:${DOCKER_DIND_IMAGE_TAG}
+    alias: docker
     command:
       [
         "--registry-mirror",
@@ -22,6 +23,7 @@ services:
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
       ]
+
 variables:
   # Default image configuration.
   # You can override these variables in your project's .gitlab-ci.yml file
@@ -35,6 +37,12 @@ variables:
   DOCKER_PROXY_IMAGE_REGISTRY: ghcr.io
   DOCKER_PROXY_IMAGE_REPOSITORY: sparkfabrik/gcp-artifact-registry-docker-proxy
   DOCKER_PROXY_IMAGE_TAG: latest
+  # Docker-in-Docker (dind) image configuration.
+  # You can override these variables in your project's .gitlab-ci.yml file
+  # to change the image used for dind service.
+  DOCKER_DIND_IMAGE_REGISTRY: docker.io
+  DOCKER_DIND_IMAGE_REPOSITORY: library/docker
+  DOCKER_DIND_IMAGE_TAG: 26.1.0-dind-alpine3.19
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
   # with a network connection instead of the default
