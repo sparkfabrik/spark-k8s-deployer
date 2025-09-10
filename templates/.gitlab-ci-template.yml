@@ -10,7 +10,6 @@ services:
         "--listen=0.0.0.0:5000",
       ]
   - name: ${DOCKER_DIND_IMAGE_REGISTRY}/${DOCKER_DIND_IMAGE_REPOSITORY}:${DOCKER_DIND_IMAGE_TAG}
-    alias: docker-dind
     command:
       [
         "--registry-mirror",
@@ -23,6 +22,7 @@ services:
         "--network-control-plane-mtu=1460",
         "--default-network-opt=bridge=com.docker.network.driver.mtu=1460",
       ]
+
 variables:
   # Default image configuration.
   # You can override these variables in your project's .gitlab-ci.yml file
