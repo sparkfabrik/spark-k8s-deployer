@@ -3,7 +3,7 @@
 ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=529.0.0-alpine
 
 # Build go binaries
-FROM golang:1.24-alpine AS gobinaries
+FROM golang:1.25-alpine AS gobinaries
 
 # https://github.com/stackrox/kube-linter
 ENV KUBELINTER_VERSION=0.7.4
