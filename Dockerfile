@@ -1,6 +1,6 @@
 # Define the google cloud sdk image tag to use.
 # https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/europe/eu.gcr.io/google-cloud-cli
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=529.0.0-alpine
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=543.0.0-alpine
 
 # Build go binaries
 FROM golang:1.24-alpine AS gobinaries
