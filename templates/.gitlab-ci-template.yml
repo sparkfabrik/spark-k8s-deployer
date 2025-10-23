@@ -69,6 +69,8 @@ variables:
   #
   # Variable added to fix Docker in Docker https://github.com/docker-library/docker/issues/463
   DOCKER_IPTABLES_LEGACY: 1
+  # Additional Docker registry to authenticate with gcloud. Needed, for example,
+  # if your GCP project artifact registry is in a region different from europe-west1.
   ADDITIONAL_DOCKER_REGISTRY: ""
   # Variables for defining dev team access to the deployment namespace.
   # Currently, only development/review branches in GCP are supported; groups
