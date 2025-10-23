@@ -69,6 +69,9 @@ variables:
   #
   # Variable added to fix Docker in Docker https://github.com/docker-library/docker/issues/463
   DOCKER_IPTABLES_LEGACY: 1
+  # Additional Docker registry to authenticate with gcloud. Needed, for example,
+  # if your GCP project artifact registry is in a region different from europe-west1.
+  ADDITIONAL_DOCKER_REGISTRY: ""
   # Variables for defining dev team access to the deployment namespace.
   # Currently, only development/review branches in GCP are supported; groups
   # are supported as long as "Google Groups for RBAC" are enabled on the target
@@ -128,6 +131,9 @@ variables:
         gcloud version
         gcloud auth configure-docker --quiet
         gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+        if [ -n "${ADDITIONAL_DOCKER_REGISTRY}" ]; then
+          gcloud auth configure-docker "${ADDITIONAL_DOCKER_REGISTRY}" --quiet
+        fi
         if command -v jq &> /dev/null; then
           echo "The following docker credHelpers are configured:"
           jq '.credHelpers' ~/.docker/config.json
