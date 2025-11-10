@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/master'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -52,7 +52,7 @@ jobs:
     if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
