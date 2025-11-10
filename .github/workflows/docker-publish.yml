@@ -56,7 +56,7 @@ jobs:
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
-        uses: docker/login-action@1f36f5b7a2d2f7bfd524795fc966e6d88c37baa9
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
