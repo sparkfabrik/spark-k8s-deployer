@@ -6,6 +6,13 @@
       -e COMPOSER_AUTH
       -v /builds:/usr/src/app
       europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:init newproject testprojectname testvendorname -n
+    - |
+      if [ -f "${CI_PROJECT_DIR}/additional-fs-pkg-config.yml" ]; then
+        echo "Merging additional-fs-pkg-config.yml into fs-pkg-config.yml"
+        cat "${CI_PROJECT_DIR}/additional-fs-pkg-config.yml" >> /builds/newproject/fs-pkg-config.yml
+        echo "Final fs-pkg-config.yml:"
+        cat /builds/newproject/fs-pkg-config.yml
+      fi
     # Avoid type=path that skips symlinks.
     - >
       docker run --rm -t
