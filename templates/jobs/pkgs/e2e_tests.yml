@@ -5,7 +5,7 @@
       -e PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF
       -e COMPOSER_AUTH
       -v /builds:/usr/src/app
-      europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:init newproject testprojectname testvendorname -n
+      europe-west1-docker.pkg.dev/spark-int-cloud-services/firestarter/cli:latest pkg:init newproject testprojectname testvendorname
     - |
       if [ -f "${CI_PROJECT_DIR}/additional-fs-pkg-config.yml" ]; then
         echo "Merging additional-fs-pkg-config.yml into fs-pkg-config.yml"
