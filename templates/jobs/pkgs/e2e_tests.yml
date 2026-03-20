@@ -1,3 +1,13 @@
+.sparkfabrik-pkg-e2e-test-set-ci-as-gitlab:
+  script:
+    # the project in the test is not a git repo
+    - |
+      cat > additional-fs-pkg-config.yml <<'YAML'
+      sparkfabrik/pkg_composer_plugin:
+        ENABLED_CI_HANDLERS:
+          - gitlab
+      YAML
+
 .sparkfabrik-pkg-e2e-test-prepare:
   script:
     - docker run --rm -t
@@ -45,6 +55,7 @@
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF: ${CI_COMMIT_SHA}
   script:
+    - !reference [.sparkfabrik-pkg-e2e-test-set-ci-as-gitlab]
     - !reference [.sparkfabrik-pkg-e2e-test-prepare, script]
     - !reference [.sparkfabrik-pkg-e2e-test-require, script]
   after_script:
