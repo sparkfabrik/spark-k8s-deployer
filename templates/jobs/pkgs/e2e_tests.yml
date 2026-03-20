@@ -55,7 +55,7 @@
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_REF: ${CI_COMMIT_SHA}
   script:
-    - !reference [.sparkfabrik-pkg-e2e-test-set-ci-as-gitlab]
+    - !reference [.sparkfabrik-pkg-e2e-test-set-ci-as-gitlab, script]
     - !reference [.sparkfabrik-pkg-e2e-test-prepare, script]
     - !reference [.sparkfabrik-pkg-e2e-test-require, script]
   after_script:
