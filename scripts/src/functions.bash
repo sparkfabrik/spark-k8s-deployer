@@ -34,50 +34,96 @@ print_debug_sleep_help() {
 
 create_kubeconfig() {
   print-banner "CREATING KUBECONFIG"
-  KUBECONFIG="$(pwd)/kubeconfig"
-  export KUBECONFIG
-  export KUBE_CLUSTER_OPTIONS=
-  if [[ -n "$KUBE_CA_PEM" ]]; then
-    echo "Using KUBE_CA_PEM..."
-    echo "$KUBE_CA_PEM" >"$(pwd)/kube.ca.pem"
-    KUBE_CLUSTER_OPTIONS=--certificate-authority="$(pwd)/kube.ca.pem"
-    export KUBE_CLUSTER_OPTIONS
+
+  if [[ "${ENABLE_GCP_WIF:-0}" == "1" ]] && [[ -n "${K8S_CLUSTER_NAME:-}" ]]; then
+    # WIF+GKE path: gcloud is already authenticated by gcp-wif.yml earlier in
+    # the before_script chain. Use gcloud to fetch cluster credentials and scope
+    # the context to the project namespace.
+    local gcloud_cmd=(
+      gcloud container clusters get-credentials "${K8S_CLUSTER_NAME}"
+      --location "${K8S_LOCATION}"
+      --project "${GCP_PROJECT_ID}"
+    )
+
+    if [[ "${K8S_USE_DNS_ENDPOINT:-0}" == "1" ]]; then
+      gcloud_cmd+=(--dns-endpoint)
+    fi
+
+    "${gcloud_cmd[@]}"
+
+    kubectl config set-context --current --namespace="${KUBE_NAMESPACE}"
+  else
+    # Legacy token-based path.
+    KUBECONFIG="$(pwd)/kubeconfig"
+    export KUBECONFIG
+    export KUBE_CLUSTER_OPTIONS=
+    if [[ -n "$KUBE_CA_PEM" ]]; then
+      echo "Using KUBE_CA_PEM..."
+      echo "$KUBE_CA_PEM" >"$(pwd)/kube.ca.pem"
+      KUBE_CLUSTER_OPTIONS=--certificate-authority="$(pwd)/kube.ca.pem"
+      export KUBE_CLUSTER_OPTIONS
+    fi
+    kubectl config set-cluster gitlab-deploy --server="$KUBE_URL" \
+      "$KUBE_CLUSTER_OPTIONS"
+    kubectl config set-credentials gitlab-deploy --token="$KUBE_TOKEN" \
+      "$KUBE_CLUSTER_OPTIONS"
+    kubectl config set-context gitlab-deploy \
+      --cluster=gitlab-deploy --user=gitlab-deploy \
+      --namespace="$KUBE_NAMESPACE"
+    kubectl config use-context gitlab-deploy
   fi
-  kubectl config set-cluster gitlab-deploy --server="$KUBE_URL" \
-    "$KUBE_CLUSTER_OPTIONS"
-  kubectl config set-credentials gitlab-deploy --token="$KUBE_TOKEN" \
-    "$KUBE_CLUSTER_OPTIONS"
-  kubectl config set-context gitlab-deploy \
-    --cluster=gitlab-deploy --user=gitlab-deploy \
-    --namespace="$KUBE_NAMESPACE"
-  kubectl config use-context gitlab-deploy
+
   print-banner "END CREATING KUBECONFIG"
 }
 
 ensure_deploy_variables() {
-  if [[ -z "$KUBE_URL" ]]; then
-    echo "Missing KUBE_URL."
-    exit 1
-  fi
+  if [[ "${ENABLE_GCP_WIF:-0}" == "1" ]] && [[ -n "${K8S_CLUSTER_NAME:-}" ]]; then
+    # WIF+GKE path: validate GKE-specific variables.
+    if [[ -z "${K8S_CLUSTER_NAME:-}" ]]; then
+      echo "Missing K8S_CLUSTER_NAME."
+      exit 1
+    fi
 
-  if [[ -z "$KUBE_TOKEN" ]]; then
-    echo "Missing KUBE_TOKEN."
-    exit 1
-  fi
+    if [[ -z "${K8S_LOCATION:-}" ]]; then
+      echo "Missing K8S_LOCATION."
+      exit 1
+    fi
 
-  if [[ -z "$KUBE_NAMESPACE" ]]; then
-    echo "Missing KUBE_NAMESPACE."
-    exit 1
-  fi
+    if [[ -z "${GCP_PROJECT_ID:-}" ]]; then
+      echo "Missing GCP_PROJECT_ID."
+      exit 1
+    fi
 
-  if [[ -z "$CI_ENVIRONMENT_SLUG" ]]; then
-    echo "Missing CI_ENVIRONMENT_SLUG."
-    exit 1
-  fi
+    if [[ -z "${KUBE_NAMESPACE:-}" ]]; then
+      echo "Missing KUBE_NAMESPACE."
+      exit 1
+    fi
+  else
+    # Legacy token-based path: validate static credential variables.
+    if [[ -z "$KUBE_URL" ]]; then
+      echo "Missing KUBE_URL."
+      exit 1
+    fi
 
-  if [[ -z "$CI_ENVIRONMENT_URL" ]]; then
-    echo "Missing CI_ENVIRONMENT_URL."
-    exit 1
+    if [[ -z "$KUBE_TOKEN" ]]; then
+      echo "Missing KUBE_TOKEN."
+      exit 1
+    fi
+
+    if [[ -z "$KUBE_NAMESPACE" ]]; then
+      echo "Missing KUBE_NAMESPACE."
+      exit 1
+    fi
+
+    if [[ -z "$CI_ENVIRONMENT_SLUG" ]]; then
+      echo "Missing CI_ENVIRONMENT_SLUG."
+      exit 1
+    fi
+
+    if [[ -z "$CI_ENVIRONMENT_URL" ]]; then
+      echo "Missing CI_ENVIRONMENT_URL."
+      exit 1
+    fi
   fi
 }
 

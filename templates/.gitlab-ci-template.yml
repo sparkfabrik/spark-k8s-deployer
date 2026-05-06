@@ -169,6 +169,15 @@ variables:
         setup-gitlab-agent
         section_end "gitlab-agent"
 
+        # Generate a namespace-scoped kubeconfig for WIF+GKE pipelines.
+        # Runs after setup-gitlab-agent so the gcloud-based context becomes
+        # the final active context when both paths are configured.
+        if [ "${ENABLE_GCP_WIF:-0}" = "1" ] && [ -n "${K8S_CLUSTER_NAME:-}" ]; then
+          section_start "kubeconfig" "Generate kubeconfig"
+          create_kubeconfig
+          section_end "kubeconfig"
+        fi
+
         # Print some useful job info.
         section_start "job-info" "Print useful job information"
         print_job_info
