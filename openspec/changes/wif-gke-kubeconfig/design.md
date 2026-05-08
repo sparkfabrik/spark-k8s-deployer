@@ -2,88 +2,92 @@
 
 The `spark-k8s-deployer` ops-base image is used in GitLab CI/CD pipelines to deploy applications to Kubernetes. It currently provides two methods for cluster access:
 
-1. **Token-based** (`create_kubeconfig`): uses `KUBE_URL` + `KUBE_TOKEN` + `KUBE_CA_PEM` to build a kubeconfig from static credentials.
-2. **GitLab Agent** (`setup-gitlab-agent`): uses `kubectl config use-context` to switch to an agent-managed context.
+1. **Token-based** (`create_kubeconfig`): uses `KUBE_URL` + `KUBE_TOKEN` + `KUBE_CA_PEM` to build a kubeconfig from static credentials. Lives in `scripts/src/functions.bash` (baked into the Docker image).
+2. **GitLab Agent** (`setup-gitlab-agent`): uses `kubectl config use-context` to switch to an agent-managed context. Also lives in `scripts/src/functions.bash`.
 
-WIF authentication to GCP is already handled by `templates/functions/gcp-wif.yml` (`create_wif()`), which runs early in the `before_script` chain and leaves `gcloud` fully authenticated. What is missing is the step that converts that gcloud authentication into a namespace-scoped kubeconfig for a GKE cluster.
+WIF authentication to GCP is handled by `templates/functions/gcp-wif.yml` (`create_wif()`), which runs early in the `before_script` chain and leaves `gcloud` fully authenticated. This template is **self-contained and remotely includable** — it has no dependency on the Docker image.
 
-The platform generator (board#4348) injects the following variables into GitLab CI/CD when a project declares a `wif` block: `ENABLE_GCP_WIF`, `K8S_CLUSTER_NAME`, `K8S_LOCATION`, `GCP_PROJECT_ID`, `K8S_USE_DNS_ENDPOINT`, `KUBE_NAMESPACE`, `DISABLE_GITLAB_AGENT`, and the `WIF_*` set.
+The existing template portability pattern is:
+- `templates/functions/*.yml` → functions defined inline in YAML `before_script`, includable via `include: remote:` independently of the image.
+- `scripts/src/functions.bash` → functions baked into the image, only available when running inside the deployer container.
+
+The initial implementation of this change broke this pattern by adding WIF+GKE logic to `functions.bash`. This design corrects that by introducing a new portable template following the same convention as `gcp-wif.yml`.
 
 The `before_script` execution chain (defined in `templates/.gitlab-ci-template.yml`) runs in this order:
 ```
 1. .gitlab-helper-functions   (section_start/end helpers)
 2. .gcp-wif                   (WIF auth → gcloud authenticated)
 3. .default-setup             (sources functions.bash → setup-gitlab-agent → job info)
+4. .gke-kubeconfig            (GKE kubeconfig generation — NEW, runs last)
 ```
 
-By the time `.default-setup` runs, gcloud is already authenticated. No new auth step is needed.
+Running `.gke-kubeconfig` last — after `setup-gitlab-agent` — ensures the gcloud-based kubeconfig always overrides the agent context, providing a safety net for users who forget to set `DISABLE_GITLAB_AGENT=1`.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Add a GKE kubeconfig generation path to `create_kubeconfig()` that activates when `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set.
-- Scope the resulting kubeconfig to `$KUBE_NAMESPACE` (deny cross-namespace access).
-- Support private clusters that use DNS endpoint access (`K8S_USE_DNS_ENDPOINT=1` → `--dns-endpoint`).
-- Preserve full backward compatibility — pipelines without `ENABLE_GCP_WIF` or `K8S_CLUSTER_NAME` must be unaffected.
-- Allow both GitLab Agent and WIF+GKE to coexist: agent runs first, gcloud-based kubeconfig overrides if the WIF+GKE condition is met.
+- Introduce a portable, remotely-includable `gke-kubeconfig.yml` template that generates a GKE kubeconfig using WIF-authenticated gcloud — no image dependency.
+- Run kubeconfig generation **after** `setup-gitlab-agent` so gcloud context always wins.
+- Support `K8S_USE_DNS_ENDPOINT=1` for private clusters.
+- Scope the kubeconfig to `$KUBE_NAMESPACE`.
+- Emit a CI log banner section for visibility.
+- Revert `functions.bash` to its pre-change state — no WIF awareness in image scripts.
+- Preserve full backward compatibility.
 
 **Non-Goals:**
-- Changes to `gcp-wif.yml` — GCP auth is already working.
-- Changes to `setup-gitlab-agent()` — already handles `DISABLE_GITLAB_AGENT` correctly.
-- Supporting non-GKE clusters via WIF (e.g., EKS, AKS).
+- Changes to `gcp-wif.yml` (handles GCP auth, stays as-is).
+- Changes to `setup-gitlab-agent()` (works correctly, stays as-is).
+- Supporting non-GKE clusters via WIF.
 - Generator-side changes (handled in board#4348).
 
 ## Decisions
 
-### 1. Extend `create_kubeconfig()` rather than creating a new function
+### 1. Separate template (`gke-kubeconfig.yml`) rather than extending `gcp-wif.yml`
 
-**Decision:** Add a WIF+GKE branch inside the existing `create_kubeconfig()` function.
+**Decision:** New file `templates/functions/gke-kubeconfig.yml` with anchor `.gke-kubeconfig`.
 
-**Rationale:** All callers (`scripts/kubectl`, `scripts/destroy`, `templates/.gitlab-ci-template.yml`) already invoke `create_kubeconfig()`. Keeping a single entry point means no call-site changes. The function name remains semantically accurate — it creates a kubeconfig, regardless of method.
+**Rationale:** Separation of concerns. `gcp-wif.yml` handles GCP authentication; `gke-kubeconfig.yml` handles cluster access. They can be used independently — a project might use WIF for Artifact Registry access only, without needing GKE access. A separate template makes each file's responsibility explicit and mirrors the existing split between `gcp-wif.yml` and `gitlab-helper-functions.yml`.
 
-**Alternative considered:** A new `generate_kubeconfig_wif()` function called separately. Rejected because it would require updating all callers and introduces parallel naming confusion.
+**Alternative considered:** Extending `gcp-wif.yml` with the kubeconfig logic. Rejected because it couples two distinct concerns (auth vs. cluster access) in one file, making the template harder to reason about and reuse independently.
 
-### 2. Branch condition: `ENABLE_GCP_WIF=1 && K8S_CLUSTER_NAME` is set
+### 2. `.gke-kubeconfig` runs last in the `before_script` chain
 
-**Decision:** Gate the new path on both `ENABLE_GCP_WIF=1` (explicit opt-in) and `K8S_CLUSTER_NAME` being non-empty (cluster is actually configured).
+**Decision:** `!reference [.gke-kubeconfig, before_script]` is added as the final step in `.global-setup`, after `.default-setup` (which contains `setup-gitlab-agent`).
 
-**Rationale:** `ENABLE_GCP_WIF=1` alone is insufficient — a project might use WIF for GCR access only, without needing GKE access. Requiring `K8S_CLUSTER_NAME` avoids accidentally triggering cluster auth when no cluster is configured. Together they unambiguously signal "WIF + GKE deployment."
+**Rationale:** When a user forgets to set `DISABLE_GITLAB_AGENT=1`, the agent may configure its own kubeconfig context. Running `.gke-kubeconfig` after ensures the gcloud-based context always overrides, making WIF+GKE the authoritative path when configured. This is a deliberate safety net.
 
-**Alternative considered:** Checking `K8S_CLUSTER_NAME` alone (duck-typing). Rejected because it could silently activate in non-WIF pipelines if `K8S_CLUSTER_NAME` is set for other reasons.
+**Alternative considered:** Running before `setup-gitlab-agent` (inside `.gcp-wif` or between steps 2 and 3). Rejected because agent setup could then override the gcloud context, producing the opposite of the desired behavior.
 
-### 3. Execution order: GitLab Agent first, WIF+GKE second
+### 3. No WIF awareness in `functions.bash`
 
-**Decision:** `setup-gitlab-agent()` runs before `create_kubeconfig()`. If both produce a context, the gcloud-based kubeconfig is the final active context.
+**Decision:** Revert `create_kubeconfig()` and `ensure_deploy_variables()` to their pre-change state. No WIF branch, no GKE variables checked.
 
-**Rationale:** The generator injects `DISABLE_GITLAB_AGENT=1` for WIF-enabled projects (board#4348), so in practice both will not be active simultaneously for generator-managed projects. But for manual configurations or migration scenarios, having gcloud win ensures the WIF path is authoritative when explicitly configured.
+**Rationale:** The image scripts are called by `scripts/kubectl` and `scripts/destroy` for token-based pipelines only. Adding WIF awareness there breaks the portability pattern — the logic should live in a template, not baked into the image. The template approach covers all use cases without image changes.
 
-### 4. `K8S_USE_DNS_ENDPOINT` as a boolean flag
+### 4. Branch condition: `ENABLE_GCP_WIF=1 && K8S_CLUSTER_NAME` is set
+
+**Decision:** Gate `generate_gke_kubeconfig` on both `ENABLE_GCP_WIF=1` (explicit opt-in) and `K8S_CLUSTER_NAME` being non-empty.
+
+**Rationale:** Same reasoning as before — `ENABLE_GCP_WIF=1` alone is insufficient since a project might use WIF for GCR/Artifact Registry without needing GKE access. `K8S_CLUSTER_NAME` unambiguously signals cluster intent.
+
+### 5. `K8S_USE_DNS_ENDPOINT` as a boolean flag
 
 **Decision:** When `K8S_USE_DNS_ENDPOINT=1`, append `--dns-endpoint` to the `gcloud container clusters get-credentials` command.
 
-**Rationale:** The platform generator sets this as `"1"`/`"0"` (board#4348). The `--dns-endpoint` flag instructs gcloud to use the cluster's DNS-based endpoint (Private Service Connect), required for private GKE clusters that do not expose a public IP. Making it a boolean avoids passing a URL — gcloud resolves the DNS endpoint automatically from cluster metadata.
-
-### 5. `ensure_deploy_variables()` gets a parallel WIF branch
-
-**Decision:** Extend `ensure_deploy_variables()` to validate GKE-specific variables when the WIF+GKE branch is active, instead of checking `KUBE_URL`/`KUBE_TOKEN`.
-
-**Rationale:** `ensure_deploy_variables()` is called before `create_kubeconfig()` in scripts. Without updating it, WIF+GKE pipelines would fail with misleading "Missing KUBE_URL" errors. The branch condition mirrors `create_kubeconfig()`: `ENABLE_GCP_WIF=1 && K8S_CLUSTER_NAME` is set.
+**Rationale:** The platform generator sets this as `"1"`/`"0"` (board#4348). The `--dns-endpoint` flag instructs gcloud to use the cluster's DNS-based endpoint (Private Service Connect), required for private GKE clusters.
 
 ## Risks / Trade-offs
 
-- **gcloud version dependency** → `--dns-endpoint` flag requires a sufficiently recent gcloud version. The Dockerfile pins `google-cloud-cli` at `550.0.0` which supports it. Risk is low but worth noting in release notes.
-- **Namespace scoping is advisory, not enforced by RBAC** → `kubectl config set-context --current --namespace` scopes the default namespace for commands, but does not prevent cross-namespace access if the service account has cluster-wide permissions. True enforcement requires RBAC configuration on the GCP side, which is out of scope here. Mitigation: document this clearly.
-- **`eval` in `create_kubeconfig()`** → Building the gcloud command as a string and running it via `eval` is used to handle the optional `--dns-endpoint` flag cleanly. Alternative: use an array and `"${cmd[@]}"`. Prefer array approach to avoid word-splitting risks.
+- **`gcloud` must be authenticated before `.gke-kubeconfig` runs** → guaranteed by `.gcp-wif` running earlier in the chain. If `ENABLE_GCP_WIF=0` but `K8S_CLUSTER_NAME` is set, the template skips silently (gate condition not met). No risk.
+- **Execution order dependency** → `.gke-kubeconfig` must always be the last `!reference` in `.global-setup`. If a future template is added after it, it could inadvertently switch the active context. Mitigation: document the ordering constraint clearly.
+- **Namespace scoping is advisory, not enforced by RBAC** → `kubectl config set-context --current --namespace` sets the default namespace for commands but does not prevent cross-namespace access if the service account has cluster-wide permissions. True enforcement requires RBAC on the GCP side.
 
 ## Migration Plan
 
-No migration required. The change is purely additive:
-- Existing pipelines continue using the legacy path unchanged.
-- New WIF-enabled pipelines activate the new path automatically via generator-injected variables.
-- No config changes required at the application project level beyond what board#4348 already produces.
+No migration required. The change is purely additive for new WIF-enabled pipelines. The revert of `functions.bash` removes the previously merged WIF branches, restoring the original behavior for all existing pipelines.
 
-**Rollback:** Revert the changes to `functions.bash` and `.gitlab-ci-template.yml`. No state is persisted between runs.
+**Rollback:** Remove `gke-kubeconfig.yml` and its `include:` + `!reference` entries from `.gitlab-ci-template.yml`. No state is persisted between runs.
 
 ## Open Questions
 
-- Should `create_kubeconfig()` in the WIF+GKE path export `KUBECONFIG` to a file (as the legacy path does) or rely on the default `~/.kube/config` written by `gcloud container clusters get-credentials`? The default gcloud behavior writes to `~/.kube/config`, which is fine for CI. The legacy path writes to `$(pwd)/kubeconfig` and sets `$KUBECONFIG`. For consistency, we could set `KUBECONFIG` explicitly after gcloud runs too — to be confirmed during implementation.
+None — all design decisions from the previous iteration are resolved.
