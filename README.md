@@ -32,12 +32,16 @@ Set the following CI/CD variables to use static token credentials:
 
 ### WIF + GKE (Workload Identity Federation)
 
-When `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set, the deployer authenticates
-to GCP via Workload Identity Federation (no static credentials) and generates a
-namespace-scoped kubeconfig using `gcloud container clusters get-credentials`.
+When `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set, the `.gke-kubeconfig` template
+generates a namespace-scoped kubeconfig using WIF-authenticated gcloud credentials.
+No static credentials are required.
 
 This path is automatically activated when using the platform generator with a `wif` block
 (see board#4348), which injects all required variables.
+
+The `.gke-kubeconfig` template is self-contained and remotely includable independently
+of the deployer image. It requires `.gcp-wif` to have run first (gcloud must be
+authenticated before kubeconfig generation).
 
 | Variable | Description |
 |---|---|
@@ -46,16 +50,15 @@ This path is automatically activated when using the platform generator with a `w
 | `K8S_LOCATION` | GKE cluster location (region or zone) |
 | `GCP_PROJECT_ID` | GCP project ID |
 | `KUBE_NAMESPACE` | Target namespace (kubeconfig is scoped to this namespace) |
-| `K8S_USE_DNS_ENDPOINT` | Set to `"1"` to use `--dns-endpoint` (for private clusters with DNS endpoint access) |
+| `K8S_USE_DNS_ENDPOINT` | Set to `"1"` to pass `--dns-endpoint` (for private clusters with DNS endpoint access) |
 | `WIF_*` | WIF pool/provider/SA variables injected by the generator |
 
-> **Note:** The WIF path requires gcloud to be authenticated before `create_kubeconfig` is
-> called. This is handled automatically by the `gcp-wif.yml` template, which runs earlier
-> in the `before_script` chain. The resulting kubeconfig is namespace-scoped: `kubectl get pods`
-> defaults to `$KUBE_NAMESPACE`, not cluster-wide access.
+> **Note:** The resulting kubeconfig is namespace-scoped: `kubectl get pods` defaults to
+> `$KUBE_NAMESPACE`. The `.gke-kubeconfig` step runs after `setup-gitlab-agent`, so the
+> gcloud context always overrides the agent context when both are configured.
 
 ### GitLab Agent
 
-The GitLab Agent path (`setup-gitlab-agent`) is also supported and runs before the WIF+GKE
-kubeconfig step. When both are configured, the WIF+GKE kubeconfig becomes the final active
-context. Set `DISABLE_GITLAB_AGENT=1` to skip the agent setup entirely.
+The GitLab Agent path (`setup-gitlab-agent`) is also supported. Set `DISABLE_GITLAB_AGENT=1`
+to skip agent setup. When WIF+GKE is configured, `.gke-kubeconfig` runs after the agent
+setup and its context takes precedence.

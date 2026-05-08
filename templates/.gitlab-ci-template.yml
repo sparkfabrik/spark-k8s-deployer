@@ -169,15 +169,6 @@ variables:
         setup-gitlab-agent
         section_end "gitlab-agent"
 
-        # Generate a namespace-scoped kubeconfig for WIF+GKE pipelines.
-        # Runs after setup-gitlab-agent so the gcloud-based context becomes
-        # the final active context when both paths are configured.
-        if [ "${ENABLE_GCP_WIF:-0}" = "1" ] && [ -n "${K8S_CLUSTER_NAME:-}" ]; then
-          section_start "kubeconfig" "Generate kubeconfig"
-          create_kubeconfig
-          section_end "kubeconfig"
-        fi
-
         # Print some useful job info.
         section_start "job-info" "Print useful job information"
         print_job_info
@@ -206,6 +197,7 @@ default:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
     - !reference [.default-setup, before_script]
+    - !reference [.gke-kubeconfig, before_script]
 
 before_script:
   - !reference [.global-setup, before_script]
@@ -213,6 +205,7 @@ before_script:
 include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gke-kubeconfig.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml"

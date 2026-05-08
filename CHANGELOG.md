@@ -10,9 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- [2026.05.04] - WIF+GKE kubeconfig generation: `create_kubeconfig()` now supports a Workload Identity Federation path activated when `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set. Uses `gcloud container clusters get-credentials` to generate a namespace-scoped kubeconfig with no static credentials. Supports `K8S_USE_DNS_ENDPOINT=1` for private GKE clusters using DNS endpoint access.
+- [2026.05.08] - New portable GitLab CI template `templates/functions/gke-kubeconfig.yml` (`.gke-kubeconfig`) that generates a namespace-scoped GKE kubeconfig using WIF-authenticated gcloud credentials. Activated when `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set. Supports `K8S_USE_DNS_ENDPOINT=1` for private clusters. Runs after `setup-gitlab-agent` so the gcloud context always takes precedence. Remotely includable, no Docker image dependency.
 
 ### Changed
 
-- [2026.05.04] - `ensure_deploy_variables()` now validates GKE-specific variables (`K8S_CLUSTER_NAME`, `K8S_LOCATION`, `GCP_PROJECT_ID`, `KUBE_NAMESPACE`) when running in WIF+GKE mode, instead of `KUBE_URL`/`KUBE_TOKEN`.
 - [2025.10.23] - add support for additional docker registry via `ADDITIONAL_DOCKER_REGISTRY` variable.
