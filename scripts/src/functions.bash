@@ -43,40 +43,12 @@ create_kubeconfig() {
     KUBE_CLUSTER_OPTIONS=--certificate-authority="$(pwd)/kube.ca.pem"
     export KUBE_CLUSTER_OPTIONS
   fi
-  kubectl config set-cluster gitlab-deploy --server="${KUBE_URL}" \
-    "${KUBE_CLUSTER_OPTIONS}"
-  kubectl config set-credentials gitlab-deploy --token="${KUBE_TOKEN}" \
-    "${KUBE_CLUSTER_OPTIONS}"
-  kubectl config set-context gitlab-deploy \
-    --cluster=gitlab-deploy --user=gitlab-deploy \
-    --namespace="${KUBE_NAMESPACE}"
-  kubectl config use-context gitlab-deploy
   print-banner "END CREATING KUBECONFIG"
 }
 
 ensure_deploy_variables() {
-  if [[ -z "${KUBE_URL}" ]]; then
-    echo "Missing KUBE_URL."
-    exit 1
-  fi
-
-  if [[ -z "${KUBE_TOKEN}" ]]; then
-    echo "Missing KUBE_TOKEN."
-    exit 1
-  fi
-
   if [[ -z "${KUBE_NAMESPACE}" ]]; then
     echo "Missing KUBE_NAMESPACE."
-    exit 1
-  fi
-
-  if [[ -z "${CI_ENVIRONMENT_SLUG}" ]]; then
-    echo "Missing CI_ENVIRONMENT_SLUG."
-    exit 1
-  fi
-
-  if [[ -z "${CI_ENVIRONMENT_URL}" ]]; then
-    echo "Missing CI_ENVIRONMENT_URL."
     exit 1
   fi
 }
