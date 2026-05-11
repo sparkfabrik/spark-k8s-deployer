@@ -43,6 +43,14 @@ create_kubeconfig() {
     KUBE_CLUSTER_OPTIONS=--certificate-authority="$(pwd)/kube.ca.pem"
     export KUBE_CLUSTER_OPTIONS
   fi
+  kubectl config set-cluster gitlab-deploy --server="${KUBE_URL}" \
+    ${KUBE_CLUSTER_OPTIONS}
+  kubectl config set-credentials gitlab-deploy --token="${KUBE_TOKEN}" \
+    ${KUBE_CLUSTER_OPTIONS}
+  kubectl config set-context gitlab-deploy \
+    --cluster=gitlab-deploy --user=gitlab-deploy \
+    --namespace="${KUBE_NAMESPACE}"
+  kubectl config use-context gitlab-deploy
   print-banner "END CREATING KUBECONFIG"
 }
 
@@ -50,6 +58,16 @@ ensure_deploy_variables() {
   if [[ -z "${KUBE_NAMESPACE}" ]]; then
     echo "Missing KUBE_NAMESPACE."
     exit 1
+  fi
+  if [[ -n "${KUBE_URL}" || -n "${KUBE_TOKEN}" || -n "${CI_ENVIRONMENT_SLUG}" || -n "${CI_ENVIRONMENT_URL}" ]]; then
+    local LEGACY_DEPLOY_VARIABLES VAR_NAME
+    LEGACY_DEPLOY_VARIABLES=("KUBE_URL" "KUBE_TOKEN" "CI_ENVIRONMENT_SLUG" "CI_ENVIRONMENT_URL")
+    for VAR_NAME in "${LEGACY_DEPLOY_VARIABLES[@]}"; do
+      if [[ -z "${!VAR_NAME}" ]]; then
+        echo "Missing ${VAR_NAME}."
+        exit 1
+      fi
+    done
   fi
 }
 
