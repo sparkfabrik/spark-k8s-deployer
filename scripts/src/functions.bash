@@ -56,16 +56,14 @@ create_kubeconfig() {
 }
 
 ensure_deploy_variables() {
-  if [[ -n "${KUBE_NAMESPACE}" || -n "${KUBE_URL}" || -n "${KUBE_TOKEN}" || -n "${CI_ENVIRONMENT_SLUG}" || -n "${CI_ENVIRONMENT_URL}" ]]; then
-    local LEGACY_DEPLOY_VARIABLES VAR_NAME
-    LEGACY_DEPLOY_VARIABLES=("KUBE_NAMESPACE" "KUBE_URL" "KUBE_TOKEN" "CI_ENVIRONMENT_SLUG" "CI_ENVIRONMENT_URL")
-    for VAR_NAME in "${LEGACY_DEPLOY_VARIABLES[@]}"; do
-      if [[ -z "${!VAR_NAME}" ]]; then
-        echo "Missing ${VAR_NAME}."
-        exit 1
-      fi
-    done
-  fi
+  local LEGACY_DEPLOY_VARIABLES VAR_NAME
+  LEGACY_DEPLOY_VARIABLES=("KUBE_NAMESPACE" "KUBE_URL" "KUBE_TOKEN" "CI_ENVIRONMENT_SLUG" "CI_ENVIRONMENT_URL")
+  for VAR_NAME in "${LEGACY_DEPLOY_VARIABLES[@]}"; do
+    if [[ -z "${!VAR_NAME}" ]]; then
+      echo "Missing ${VAR_NAME}."
+      exit 1
+    fi
+  done
 }
 
 ping_kube() {
