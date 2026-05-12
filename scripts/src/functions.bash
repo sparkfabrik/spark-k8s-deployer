@@ -34,50 +34,37 @@ print_debug_sleep_help() {
 
 create_kubeconfig() {
   print-banner "CREATING KUBECONFIG"
+  local KUBE_CONTEXT_NAME="${CI_ENVIRONMENT_SLUG}"
   KUBECONFIG="$(pwd)/kubeconfig"
   export KUBECONFIG
   export KUBE_CLUSTER_OPTIONS=
-  if [[ -n "$KUBE_CA_PEM" ]]; then
+  if [[ -n "${KUBE_CA_PEM}" ]]; then
     echo "Using KUBE_CA_PEM..."
-    echo "$KUBE_CA_PEM" >"$(pwd)/kube.ca.pem"
-    KUBE_CLUSTER_OPTIONS=--certificate-authority="$(pwd)/kube.ca.pem"
+    echo "${KUBE_CA_PEM}" >"$(pwd)/kube.ca.pem"
+    KUBE_CLUSTER_OPTIONS="--certificate-authority=$(pwd)/kube.ca.pem"
     export KUBE_CLUSTER_OPTIONS
   fi
-  kubectl config set-cluster gitlab-deploy --server="$KUBE_URL" \
-    "$KUBE_CLUSTER_OPTIONS"
-  kubectl config set-credentials gitlab-deploy --token="$KUBE_TOKEN" \
-    "$KUBE_CLUSTER_OPTIONS"
-  kubectl config set-context gitlab-deploy \
-    --cluster=gitlab-deploy --user=gitlab-deploy \
-    --namespace="$KUBE_NAMESPACE"
-  kubectl config use-context gitlab-deploy
+  kubectl config set-cluster "${KUBE_CONTEXT_NAME}" --server="${KUBE_URL}" \
+    "${KUBE_CLUSTER_OPTIONS}"
+  kubectl config set-credentials "${KUBE_CONTEXT_NAME}" --token="${KUBE_TOKEN}" \
+    "${KUBE_CLUSTER_OPTIONS}"
+  kubectl config set-context "${KUBE_CONTEXT_NAME}" \
+    --cluster="${KUBE_CONTEXT_NAME}" --user="${KUBE_CONTEXT_NAME}" \
+    --namespace="${KUBE_NAMESPACE}"
+  kubectl config use-context "${KUBE_CONTEXT_NAME}"
   print-banner "END CREATING KUBECONFIG"
 }
 
 ensure_deploy_variables() {
-  if [[ -z "$KUBE_URL" ]]; then
-    echo "Missing KUBE_URL."
-    exit 1
-  fi
-
-  if [[ -z "$KUBE_TOKEN" ]]; then
-    echo "Missing KUBE_TOKEN."
-    exit 1
-  fi
-
-  if [[ -z "$KUBE_NAMESPACE" ]]; then
-    echo "Missing KUBE_NAMESPACE."
-    exit 1
-  fi
-
-  if [[ -z "$CI_ENVIRONMENT_SLUG" ]]; then
-    echo "Missing CI_ENVIRONMENT_SLUG."
-    exit 1
-  fi
-
-  if [[ -z "$CI_ENVIRONMENT_URL" ]]; then
-    echo "Missing CI_ENVIRONMENT_URL."
-    exit 1
+  if [[ -n "${KUBE_NAMESPACE}" || -n "${KUBE_URL}" || -n "${KUBE_TOKEN}" || -n "${CI_ENVIRONMENT_SLUG}" || -n "${CI_ENVIRONMENT_URL}" ]]; then
+    local LEGACY_DEPLOY_VARIABLES VAR_NAME
+    LEGACY_DEPLOY_VARIABLES=("KUBE_NAMESPACE" "KUBE_URL" "KUBE_TOKEN" "CI_ENVIRONMENT_SLUG" "CI_ENVIRONMENT_URL")
+    for VAR_NAME in "${LEGACY_DEPLOY_VARIABLES[@]}"; do
+      if [[ -z "${!VAR_NAME}" ]]; then
+        echo "Missing ${VAR_NAME}."
+        exit 1
+      fi
+    done
   fi
 }
 

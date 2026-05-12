@@ -197,6 +197,7 @@ default:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
     - !reference [.default-setup, before_script]
+    - !reference [.gke-kubeconfig, before_script]
 
 before_script:
   - !reference [.global-setup, before_script]
@@ -204,6 +205,7 @@ before_script:
 include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gke-kubeconfig.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/enable-buildx.yml"
