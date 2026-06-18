@@ -14,7 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- [2026.06.18] - `.gke-kubeconfig` now skips gracefully (without failing the job) when `gcloud` is not available in the job image or is not authenticated, instead of exiting non-zero. This prevents build and test jobs that inherit the global `before_script` but do not need cluster access from failing when `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` are set as global CI/CD variables. Generation is gated on `ENABLE_GCP_WIF=1` as documented, and still fails fast when `gcloud` is authenticated but a required variable is missing or `get-credentials` fails.
+- [2026.06.18] - `.gke-kubeconfig` now skips gracefully (without failing the job) when `gcloud` is not available in the job image or is not authenticated, instead of exiting non-zero. This prevents build and test jobs that inherit the global `before_script` but do not need cluster access from failing when `K8S_CLUSTER_NAME` is set as a global CI/CD variable. Generation is gated on `K8S_CLUSTER_NAME` alone and is no longer coupled to `ENABLE_GCP_WIF`, so any gcloud authentication method (WIF, runner service account, service account key) is supported. It still fails fast when `gcloud` is authenticated but a required variable is missing or `get-credentials` fails.
 
 ### Changed
 

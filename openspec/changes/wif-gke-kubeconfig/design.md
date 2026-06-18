@@ -64,11 +64,13 @@ Running `.gke-kubeconfig` last — after `setup-gitlab-agent` — ensures the gc
 
 **Rationale:** The image scripts are called by `scripts/kubectl` and `scripts/destroy` for token-based pipelines only. Adding WIF awareness there breaks the portability pattern — the logic should live in a template, not baked into the image. The template approach covers all use cases without image changes.
 
-### 4. Branch condition: `ENABLE_GCP_WIF=1 && K8S_CLUSTER_NAME` is set
+### 4. Branch condition: `K8S_CLUSTER_NAME` is set, gated by gcloud capability
 
-**Decision:** Gate `generate_gke_kubeconfig` on both `ENABLE_GCP_WIF=1` (explicit opt-in) and `K8S_CLUSTER_NAME` being non-empty.
+**Decision:** Gate `generate_gke_kubeconfig` on `K8S_CLUSTER_NAME` being non-empty alone. Do NOT couple it to `ENABLE_GCP_WIF`. When `K8S_CLUSTER_NAME` is set but `gcloud` is unavailable or unauthenticated, skip without failing the job; fail fast only when gcloud is authenticated but a required variable is missing or credential fetching fails.
 
-**Rationale:** Same reasoning as before — `ENABLE_GCP_WIF=1` alone is insufficient since a project might use WIF for GCR/Artifact Registry without needing GKE access. `K8S_CLUSTER_NAME` unambiguously signals cluster intent.
+**Rationale:** `K8S_CLUSTER_NAME` unambiguously signals cluster intent. Tying generation to `ENABLE_GCP_WIF=1` would wrongly exclude principals that are already authenticated to gcloud by other means (the runner's own service account, a service account key, etc.) and only need a kubeconfig, not federation. This is consistent with Decision 1 (WIF authentication and cluster access are separate concerns) and was raised in review of the resilience fix.
+
+**Alternative considered:** Also requiring `ENABLE_GCP_WIF=1`. Rejected because it couples cluster access to a specific authentication method and breaks non-WIF gcloud auth. Resilience for non-deploy jobs is instead provided by skipping gracefully when gcloud is absent or unauthenticated.
 
 ### 5. `K8S_USE_DNS_ENDPOINT` as a boolean flag
 
