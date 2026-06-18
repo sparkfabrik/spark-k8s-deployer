@@ -7,20 +7,28 @@ The `templates/functions/gke-kubeconfig.yml` template SHALL define all its logic
 - **WHEN** a project includes `gke-kubeconfig.yml` via `include: remote:` without using the spark-k8s-deployer image
 - **THEN** all functions (`check_gke_env`, `generate_gke_kubeconfig`) SHALL be available in `before_script` without errors
 
-### Requirement: GKE kubeconfig generation gated on ENABLE_GCP_WIF and K8S_CLUSTER_NAME
-The `.gke-kubeconfig` `before_script` SHALL generate a GKE kubeconfig only when `ENABLE_GCP_WIF=1` AND `K8S_CLUSTER_NAME` is non-empty. In all other cases it SHALL skip silently with an informational message.
+### Requirement: GKE kubeconfig generation gated on K8S_CLUSTER_NAME and gcloud capability
+The `.gke-kubeconfig` `before_script` SHALL attempt to generate a GKE kubeconfig whenever `K8S_CLUSTER_NAME` is non-empty. Generation SHALL NOT be tied to `ENABLE_GCP_WIF`: the principal running the job may already hold the permissions to fetch a kubeconfig without Workload Identity Federation, so any gcloud authentication method is supported. When `K8S_CLUSTER_NAME` is set but `gcloud` is unavailable or unauthenticated, the template SHALL skip without failing the job.
 
-#### Scenario: Kubeconfig generated when both conditions are met
-- **WHEN** `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set
+#### Scenario: Kubeconfig generated when cluster intent and gcloud capability are present
+- **WHEN** `K8S_CLUSTER_NAME` is set and `gcloud` is available and authenticated (by any method)
 - **THEN** `generate_gke_kubeconfig` SHALL be called and a valid kubeconfig SHALL be produced
 
-#### Scenario: Skipped when ENABLE_GCP_WIF is not 1
-- **WHEN** `ENABLE_GCP_WIF` is unset, empty, or `"0"`
+#### Scenario: Skipped when K8S_CLUSTER_NAME is absent
+- **WHEN** `K8S_CLUSTER_NAME` is unset or empty
 - **THEN** the template SHALL print a skip message and exit without error
 
-#### Scenario: Skipped when K8S_CLUSTER_NAME is absent
-- **WHEN** `ENABLE_GCP_WIF=1` but `K8S_CLUSTER_NAME` is unset or empty
+#### Scenario: Skipped when gcloud is not available in the job image
+- **WHEN** `K8S_CLUSTER_NAME` is set but the `gcloud` command is not on `PATH` (e.g. a build or test job using an image without the Cloud SDK)
+- **THEN** the template SHALL print a skip message and exit without error, so non-deploy jobs that inherit the global `before_script` are not failed
+
+#### Scenario: Skipped when gcloud is present but not authenticated
+- **WHEN** `K8S_CLUSTER_NAME` is set and `gcloud` is available but no account is active (e.g. no authentication step ran or it did not succeed)
 - **THEN** the template SHALL print a skip message and exit without error
+
+#### Scenario: Fails fast on a real generation error
+- **WHEN** `K8S_CLUSTER_NAME` is set, `gcloud` is available and authenticated, but a required variable is missing or `gcloud container clusters get-credentials` fails
+- **THEN** the template SHALL print a descriptive error and exit non-zero
 
 ### Requirement: GKE variable validation
 `check_gke_env()` SHALL validate that `K8S_CLUSTER_NAME`, `K8S_LOCATION`, `GCP_PROJECT_ID`, and `KUBE_NAMESPACE` are all non-empty. On any missing variable it SHALL print a descriptive error and return non-zero.

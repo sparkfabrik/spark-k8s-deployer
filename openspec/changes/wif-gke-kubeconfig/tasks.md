@@ -22,6 +22,7 @@
 - [ ] 4.3 Confirm a pipeline with `ENABLE_GCP_WIF=1` but without `K8S_CLUSTER_NAME` skips silently without errors
 - [ ] 4.4 Confirm that when both GitLab Agent and WIF+GKE are configured, the gcloud context is active after `before_script` completes
 - [ ] 4.5 Test `K8S_USE_DNS_ENDPOINT=1` on a private cluster to confirm `--dns-endpoint` is passed and connectivity succeeds
+- [x] 4.6 Confirm a job with `K8S_CLUSTER_NAME` set but no `gcloud` in the image skips without failing (simulated locally); fail-fast preserved when gcloud is authenticated but vars missing or generation fails. Generation is decoupled from `ENABLE_GCP_WIF` so any gcloud auth method works.
 
 ## 5. Documentation
 
