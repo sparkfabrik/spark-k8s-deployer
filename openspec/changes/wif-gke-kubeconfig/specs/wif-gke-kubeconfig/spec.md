@@ -22,6 +22,18 @@ The `.gke-kubeconfig` `before_script` SHALL generate a GKE kubeconfig only when 
 - **WHEN** `ENABLE_GCP_WIF=1` but `K8S_CLUSTER_NAME` is unset or empty
 - **THEN** the template SHALL print a skip message and exit without error
 
+#### Scenario: Skipped when gcloud is not available in the job image
+- **WHEN** `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set but the `gcloud` command is not on `PATH` (e.g. a build or test job using an image without the Cloud SDK)
+- **THEN** the template SHALL print a skip message and exit without error, so non-deploy jobs that inherit the global `before_script` are not failed
+
+#### Scenario: Skipped when gcloud is present but not authenticated
+- **WHEN** `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set and `gcloud` is available but no account is active (e.g. WIF authentication did not run or did not succeed)
+- **THEN** the template SHALL print a skip message and exit without error
+
+#### Scenario: Fails fast on a real generation error
+- **WHEN** `ENABLE_GCP_WIF=1`, `K8S_CLUSTER_NAME` is set, `gcloud` is available and authenticated, but a required variable is missing or `gcloud container clusters get-credentials` fails
+- **THEN** the template SHALL print a descriptive error and exit non-zero
+
 ### Requirement: GKE variable validation
 `check_gke_env()` SHALL validate that `K8S_CLUSTER_NAME`, `K8S_LOCATION`, `GCP_PROJECT_ID`, and `KUBE_NAMESPACE` are all non-empty. On any missing variable it SHALL print a descriptive error and return non-zero.
 
