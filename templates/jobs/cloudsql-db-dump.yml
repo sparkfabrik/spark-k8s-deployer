@@ -24,11 +24,28 @@
 #       "
 #
 #   - DESTINATION_FILE_NAME_SUFFIX_OVERRIDE
-#     value: you can override the suffix that will be append to the database name to use to name the 
-#     databse dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
+#     value: you can override the suffix that will be appended to the database name to use to name the
+#     database dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
 #
+# The export runs asynchronously and the job then tracks the Cloud SQL operation until it
+# completes. This is required because a synchronous `gcloud sql export sql` gives up after
+# about ten minutes and reports a failure even when the export completes correctly on the
+# Google Cloud side, which is easy to hit on large databases (the dump is always gzip
+# compressed here). Two optional variables size the tracking loop:
 #
-# Then add your job using the extends keyword (rembember to add a stage):
+#   - OPERATION_WAIT_TIMEOUT
+#     value: seconds passed to a single `gcloud sql operations wait` call. Default 300.
+#
+#   - OPERATION_WAIT_MAX_RETRIES
+#     value: maximum number of wait calls before the job gives up. Default 12, which with
+#     the default timeout gives a 60 minute ceiling.
+#
+# The job carries a `timeout: 2h` so GitLab does not stop it before the wait budget runs
+# out (OPERATION_WAIT_TIMEOUT x OPERATION_WAIT_MAX_RETRIES must stay below the job
+# timeout). A job level timeout takes precedence over the project setting, but the runner
+# maximum timeout still caps it.
+#
+# Then add your job using the extends keyword (remember to add a stage):
 #
 #   database backup:
 #     extends: .cloudsql-database-dump
@@ -38,11 +55,16 @@
 #
 # You must be authenticated within the project with gcloud.
 .cloudsql-database-dump:
+  # The job must outlive the operation wait budget, otherwise GitLab stops the job while
+  # the export is still running on the Cloud SQL side.
+  timeout: 2h
   variables:
     CLOUD_SQL_INSTANCE_NAME: CLOUD_SQL_INSTANCE_NAME
     GCLOUD_PROJECT_NAME: GCLOUD_PROJECT_NAME
     BUCKET_NAME: DESTINATION_BUCKET_NAME
     DESTINATION_FILE_NAME_SUFFIX_OVERRIDE: ""
+    OPERATION_WAIT_TIMEOUT: "300"
+    OPERATION_WAIT_MAX_RETRIES: "12"
     DB_NAMES: "\
       database_1 \
       database_2 \
@@ -51,26 +73,92 @@
   script:
     # Add tzdata to support timezones.
     - apk add --no-cache tzdata
-    # Dump the database.
-    - >
-      if [ -n "$DB_NAMES" ]; then
-        for DB_NAME in $DB_NAMES
-        do
-          echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."         
-          # Build target file name suffix
-          if [ -z "$DESTINATION_FILE_NAME_SUFFIX_OVERRIDE" ]; then
-            export DESTINATION_FILE_NAME_SUFFIX="${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz"
-          else
-            export DESTINATION_FILE_NAME_SUFFIX="${DESTINATION_FILE_NAME_SUFFIX_OVERRIDE}"
-          fi
-          gcloud sql export sql ${CLOUD_SQL_INSTANCE_NAME} \
-          gs://${BUCKET_NAME}/${DB_NAME}_${DESTINATION_FILE_NAME_SUFFIX} \
-          --database=${DB_NAME} --project=${GCLOUD_PROJECT_NAME} --verbosity=debug;
-        done
-      else
-        echo "Warning, database dump skipped. Empty DB_NAME variable."
+    # Dump the databases.
+    - |
+      if [ -z "$DB_NAMES" ]; then
+        echo "Warning, database dump skipped. Empty DB_NAMES variable."
         exit 1
       fi
+
+      # Validate the wait budget, falling back to the defaults on empty or non numeric values.
+      if ! echo "$OPERATION_WAIT_TIMEOUT" | grep -Eq '^[1-9][0-9]*$'; then
+        echo "[WARNING] Ignoring invalid OPERATION_WAIT_TIMEOUT '${OPERATION_WAIT_TIMEOUT}', falling back to 300 seconds."
+        OPERATION_WAIT_TIMEOUT="300"
+      fi
+      if ! echo "$OPERATION_WAIT_MAX_RETRIES" | grep -Eq '^[1-9][0-9]*$'; then
+        echo "[WARNING] Ignoring invalid OPERATION_WAIT_MAX_RETRIES '${OPERATION_WAIT_MAX_RETRIES}', falling back to 12 attempts."
+        OPERATION_WAIT_MAX_RETRIES="12"
+      fi
+
+      for DB_NAME in $DB_NAMES; do
+        echo "Dumping $DB_NAME production database on $BUCKET_NAME bucket..."
+
+        # Build target file name suffix.
+        if [ -z "$DESTINATION_FILE_NAME_SUFFIX_OVERRIDE" ]; then
+          DESTINATION_FILE_NAME_SUFFIX="${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz"
+        else
+          DESTINATION_FILE_NAME_SUFFIX="${DESTINATION_FILE_NAME_SUFFIX_OVERRIDE}"
+        fi
+
+        echo "  Operation wait timeout: ${OPERATION_WAIT_TIMEOUT}s per attempt, max ${OPERATION_WAIT_MAX_RETRIES} attempts"
+
+        # The export is started asynchronously: in synchronous mode gcloud stops polling
+        # after about ten minutes and exits non zero, even though the export completes on
+        # the Cloud SQL side.
+        if ! OPERATION="$(gcloud sql export sql "${CLOUD_SQL_INSTANCE_NAME}" "gs://${BUCKET_NAME}/${DB_NAME}_${DESTINATION_FILE_NAME_SUFFIX}" --database="${DB_NAME}" --project="${GCLOUD_PROJECT_NAME}" --async --format='value(name)')"; then
+          echo "[ERROR] Failed to start the export of the ${DB_NAME} database."
+          exit 1
+        fi
+
+        if [ -z "$OPERATION" ]; then
+          echo "[ERROR] The export of the ${DB_NAME} database was started but no operation name could be determined."
+          exit 1
+        fi
+
+        echo "[INFO] Export started, tracking Cloud SQL operation ${OPERATION}..."
+
+        STATUS=""
+        ATTEMPT=1
+        while [ "$ATTEMPT" -le "$OPERATION_WAIT_MAX_RETRIES" ]; do
+          # The exit code of `operations wait` conflates a failed operation with an expired
+          # wait, so the operation status is always read back from the API before deciding.
+          gcloud sql operations wait "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --timeout="${OPERATION_WAIT_TIMEOUT}" || true
+          # A failed describe (auth, network) must not look like a known non DONE status, so
+          # its exit code is checked and STATUS is left empty for this attempt on failure.
+          if STATUS="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(status)')"; then
+            echo "[INFO] Attempt ${ATTEMPT}/${OPERATION_WAIT_MAX_RETRIES}: operation ${OPERATION} is in status '${STATUS}'."
+            if [ "$STATUS" = "DONE" ]; then
+              break
+            fi
+          else
+            STATUS=""
+            echo "[WARNING] Attempt ${ATTEMPT}/${OPERATION_WAIT_MAX_RETRIES}: could not read the status of operation ${OPERATION}, will retry."
+          fi
+
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        if [ "$STATUS" != "DONE" ]; then
+          echo "[ERROR] The export of the ${DB_NAME} database did not reach DONE within ${OPERATION_WAIT_MAX_RETRIES} attempts of ${OPERATION_WAIT_TIMEOUT}s (last status: '${STATUS}')."
+          echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
+          exit 1
+        fi
+
+        # A failed describe here would yield an empty error and read as success, so its exit
+        # code is checked: an unverifiable result is treated as a failure, not a green job.
+        if ! OPERATION_ERROR="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(error.errors[].message)')"; then
+          echo "[ERROR] The export of the ${DB_NAME} database reached DONE but its result could not be verified (gcloud sql operations describe failed)."
+          echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
+          exit 1
+        fi
+        if [ -n "$OPERATION_ERROR" ]; then
+          echo "[ERROR] The export of the ${DB_NAME} database failed: ${OPERATION_ERROR}"
+          echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
+          exit 1
+        fi
+
+        echo "[INFO] Dump of the ${DB_NAME} database completed on gs://${BUCKET_NAME}/${DB_NAME}_${DESTINATION_FILE_NAME_SUFFIX}."
+      done
   only:
     refs:
       - master
