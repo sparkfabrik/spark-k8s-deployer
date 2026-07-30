@@ -24,8 +24,8 @@
 #       "
 #
 #   - DESTINATION_FILE_NAME_SUFFIX_OVERRIDE
-#     value: you can override the suffix that will be append to the database name to use to name the
-#     databse dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
+#     value: you can override the suffix that will be appended to the database name to use to name the
+#     database dump. Default suffix is ${CLOUD_SQL_INSTANCE_NAME}_$(TZ=Europe/Rome date +%Y-%m-%d_%H-%M-%S).sql.gz.
 #
 # The export runs asynchronously and the job then tracks the Cloud SQL operation until it
 # completes. This is required because a synchronous `gcloud sql export sql` gives up after
@@ -45,7 +45,7 @@
 # timeout). A job level timeout takes precedence over the project setting, but the runner
 # maximum timeout still caps it.
 #
-# Then add your job using the extends keyword (rembember to add a stage):
+# Then add your job using the extends keyword (remember to add a stage):
 #
 #   database backup:
 #     extends: .cloudsql-database-dump
@@ -76,7 +76,7 @@
     # Dump the databases.
     - |
       if [ -z "$DB_NAMES" ]; then
-        echo "Warning, database dump skipped. Empty DB_NAME variable."
+        echo "Warning, database dump skipped. Empty DB_NAMES variable."
         exit 1
       fi
 
@@ -123,23 +123,34 @@
           # The exit code of `operations wait` conflates a failed operation with an expired
           # wait, so the operation status is always read back from the API before deciding.
           gcloud sql operations wait "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --timeout="${OPERATION_WAIT_TIMEOUT}" || true
-          STATUS="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(status)')"
-          echo "[INFO] Attempt ${ATTEMPT}/${OPERATION_WAIT_MAX_RETRIES}: operation ${OPERATION} is in status '${STATUS}'."
-
-          if [ "$STATUS" = "DONE" ]; then
-            break
+          # A failed describe (auth, network) must not look like a known non DONE status, so
+          # its exit code is checked and STATUS is left empty for this attempt on failure.
+          if STATUS="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(status)')"; then
+            echo "[INFO] Attempt ${ATTEMPT}/${OPERATION_WAIT_MAX_RETRIES}: operation ${OPERATION} is in status '${STATUS}'."
+            if [ "$STATUS" = "DONE" ]; then
+              break
+            fi
+          else
+            STATUS=""
+            echo "[WARNING] Attempt ${ATTEMPT}/${OPERATION_WAIT_MAX_RETRIES}: could not read the status of operation ${OPERATION}, will retry."
           fi
 
           ATTEMPT=$((ATTEMPT + 1))
         done
 
         if [ "$STATUS" != "DONE" ]; then
-          echo "[ERROR] The export of the ${DB_NAME} database did not complete within ${OPERATION_WAIT_MAX_RETRIES} attempts of ${OPERATION_WAIT_TIMEOUT}s (last status: '${STATUS}')."
+          echo "[ERROR] The export of the ${DB_NAME} database did not reach DONE within ${OPERATION_WAIT_MAX_RETRIES} attempts of ${OPERATION_WAIT_TIMEOUT}s (last status: '${STATUS}')."
           echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
           exit 1
         fi
 
-        OPERATION_ERROR="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(error.errors[].message)')"
+        # A failed describe here would yield an empty error and read as success, so its exit
+        # code is checked: an unverifiable result is treated as a failure, not a green job.
+        if ! OPERATION_ERROR="$(gcloud sql operations describe "${OPERATION}" --project="${GCLOUD_PROJECT_NAME}" --format='value(error.errors[].message)')"; then
+          echo "[ERROR] The export of the ${DB_NAME} database reached DONE but its result could not be verified (gcloud sql operations describe failed)."
+          echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
+          exit 1
+        fi
         if [ -n "$OPERATION_ERROR" ]; then
           echo "[ERROR] The export of the ${DB_NAME} database failed: ${OPERATION_ERROR}"
           echo "[ERROR] Inspect it with: gcloud sql operations describe ${OPERATION} --project=${GCLOUD_PROJECT_NAME}"
