@@ -22,7 +22,7 @@ FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE
 # https://github.com/docker/compose/releases
 ENV COMPOSE_VERSION=v2.38.2
 # https://download.docker.com/linux/static/stable/x86_64
-ENV DOCKER_VERSION=27.1.1
+ENV DOCKER_VERSION=29.6.1
 # https://github.com/docker/buildx/releases
 ENV DOCKER_BUILDX_VERSION=0.25.0
 # https://github.com/helm/helm/releases
