@@ -37,6 +37,9 @@ ENV STERN_RELEASE_VERSION=1.33.1
 # A recent just is required: it rejects justfile forms that older versions
 # accept, which is how a broken package justfile can ship green.
 ENV JUST_VERSION=1.58.0
+# sha256 of just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz, from the
+# release SHA256SUMS. Bump together with JUST_VERSION.
+ENV JUST_SHA256=4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
@@ -85,6 +88,7 @@ RUN apk add --no-cache py-pip python3-dev curl make mysql-client mariadb-connect
     && rm -rf stern_${STERN_RELEASE_VERSION}_linux_amd64.tar.gz stern_${STERN_RELEASE_VERSION}_linux_amd64 \
     # Install just (musl static binary, matching the alpine base)
     && curl -fSL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" -o just.tar.gz \
+    && echo "${JUST_SHA256}  just.tar.gz" | sha256sum -c - \
     && tar -xzf just.tar.gz just \
     && mv just /usr/local/bin/just \
     && chmod +x /usr/local/bin/just \
