@@ -49,6 +49,17 @@
         && chmod +x /tmp/yaml_linting.sh && /tmp/yaml_linting.sh
       fi
 
+.sparkfabrik-pkg-e2e-test-validate-justfile:
+  script:
+    # test -f and grep -q pass on a justfile that just refuses to load, so a
+    # broken recipe attribute (for example a comment between an attribute and
+    # its recipe) ships green. Load the generated root justfile with just so any
+    # syntax error, in it or in an imported package fragment, fails the pipeline.
+    # The deployer image ships just; fail with a clear message if a job overrides
+    # the image with one that does not, instead of a bare "just: not found".
+    - command -v just > /dev/null 2>&1 || { echo "just is not available in the e2e image; it is required to validate the generated justfile"; exit 1; }
+    - (cd /builds/newproject && just --list > /dev/null)
+
 .sparkfabrik-pkg-e2e-test:
   variables:
     CI_TO_TEST: /builds/newproject/.gitlab-ci.yml
@@ -58,6 +69,7 @@
     - !reference [.sparkfabrik-pkg-e2e-test-set-ci-as-gitlab, script]
     - !reference [.sparkfabrik-pkg-e2e-test-prepare, script]
     - !reference [.sparkfabrik-pkg-e2e-test-require, script]
+    - !reference [.sparkfabrik-pkg-e2e-test-validate-justfile, script]
   after_script:
     - mv /builds/newproject newproject # we move the files here to gather artifacts and suppress warnings.
   artifacts:
