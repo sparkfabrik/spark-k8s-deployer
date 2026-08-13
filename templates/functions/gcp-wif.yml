@@ -60,7 +60,7 @@
             export GOOGLE_APPLICATION_CREDENTIALS="${GCP_WIF_CRED_FILE}"
           else
             echo "The Workload Identity Federation authentication failed (login)."
-            GCP_WIF_EXIT_CODE=1    
+            GCP_WIF_EXIT_CODE=1
           fi
         else
           echo "The Workload Identity Federation authentication failed (create-cred-config)."
