@@ -1,0 +1,6 @@
+version: 1
+clusters:
+  - name: only-main
+    refs: [main]
+    project_id: p-only-main
+    location: europe-west1

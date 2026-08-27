@@ -138,7 +138,7 @@ _gitlab-agent-print-vars() {
   local PAD_LEN VAR_NAME
   PAD_LEN=${PAD_LEN:-40}
   printf "\e[1mConfigured Gitlab Agent related variables in order of precedence:\e[0m\n"
-  for VAR_NAME in "KUBE_NAMESPACE" "DISABLE_GITLAB_AGENT" \
+  for VAR_NAME in "KUBE_NAMESPACE" "SPARK_K8S_CONFIG" "DISABLE_GITLAB_AGENT" \
     "GITLAB_AGENT_PROJECT" "GITLAB_AGENT_ID" \
     "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
     "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
@@ -149,10 +149,13 @@ _gitlab-agent-print-vars() {
 
 _gitlab-agent-print-workflow() {
   # Flow description:
+  # 0. SPARK_K8S_CONFIG (the cluster resolver owns the cluster choice)
   # 1. GITLAB_AGENT_PROJECT and GITLAB_AGENT_ID (no branch dependency)
   # 2. BRANCH = NON_DEVELOP_BRANCHES_REGEX ? DEVELOP_GITLAB_AGENT_PROJECT and DEVELOP_GITLAB_AGENT_ID : PRODUCTION_GITLAB_AGENT_PROJECT and PRODUCTION_GITLAB_AGENT_ID
 
-  if [ "${DISABLE_GITLAB_AGENT:-0}" = "1" ]; then
+  if [ -n "${SPARK_K8S_CONFIG:-}" ]; then
+    echo "The deployment will not use the GitLab Agent because the cluster resolver is active (SPARK_K8S_CONFIG is set)."
+  elif [ "${DISABLE_GITLAB_AGENT:-0}" = "1" ]; then
     echo "The deployment will not use the GitLab Agent because it is disabled by using the DISABLE_GITLAB_AGENT environment variable."
   elif [ -n "${GITLAB_AGENT_PROJECT:-}" ] && [ -n "${GITLAB_AGENT_ID:-}" ]; then
     echo "You have configured a specific GitLab Agent project and ID. It will be used for the deployment."
@@ -193,6 +196,15 @@ setup-gitlab-agent() {
   _gitlab-agent-print-vars
   _gitlab-agent-print-workflow
   print-banner "END SETUP GITLAB AGENT"
+
+  # If the cluster resolver is active, it owns the cluster choice and the agent
+  # must not switch the context. This guard is not redundant with the
+  # DISABLE_GITLAB_AGENT=1 exported by the resolver: `scripts/helm-init` calls
+  # this function again for jobs that override the whole before_script, where
+  # the resolver never ran.
+  if [ -n "${SPARK_K8S_CONFIG:-}" ]; then
+    return
+  fi
 
   # If the GitLab Agent is disabled, return early.
   if [ "${DISABLE_GITLAB_AGENT:-0}" = "1" ]; then

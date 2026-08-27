@@ -1,0 +1,6 @@
+version: 2
+clusters:
+  - name: future
+    default: true
+    project_id: p-future
+    location: europe-west1

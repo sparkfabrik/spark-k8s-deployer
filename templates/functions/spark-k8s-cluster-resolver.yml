@@ -1,0 +1,120 @@
+# This template resolves, at runtime, which Kubernetes cluster owns the current
+# git ref, so that a consumer project does not need to declare any cluster
+# identity in its pipeline.
+#
+# The project cluster configuration is injected as a CI/CD variable of type
+# File, $SPARK_K8S_CONFIG, listing the clusters and the refs they own:
+#
+#   version: 1
+#   clusters:
+#     - name: example-dev
+#       default: true
+#       project_id: spark-int-cloud-services
+#       location: europe-west1
+#       dns_endpoint: gke-....gke.goog
+#     - name: example-prod
+#       refs: [main]
+#       project_id: example-prod-project
+#       location: europe-west1
+#       dns_endpoint: gke-....gke.goog
+#       use_dns_endpoint: true
+#
+# The clusters list is scanned bottom-up and the first entry whose refs match
+# the current ref wins, so the last declared match wins. When nothing matches,
+# the entry flagged `default: true` is used. See the README for the full
+# matching rules.
+#
+# On a match the template exports K8S_CLUSTER_NAME, GCP_PROJECT_ID,
+# K8S_LOCATION and K8S_USE_DNS_ENDPOINT, which is exactly what the
+# `.gke-kubeconfig` template consumes, so that template runs unchanged
+# afterwards. KUBE_NAMESPACE is not part of the cluster configuration and still
+# has to be provided by the project.
+#
+# The template also exports DISABLE_GITLAB_AGENT=1, because the resolver
+# replaces the branch-based cluster choice that `setup-gitlab-agent` used to
+# make. It must therefore run BEFORE the step that calls `setup-gitlab-agent`.
+#
+# When $SPARK_K8S_CONFIG is not set nothing happens and the single-cluster
+# behavior is untouched. The template is also resilient by design: when the job
+# image does not ship the deployer scripts or yq4 it skips without failing, so
+# build and test jobs that inherit the global before_script are not broken.
+#
+# Example:
+# include:
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/spark-k8s-cluster-resolver.yml"
+#   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gke-kubeconfig.yml"
+# deploy_job:
+#   stage: deploy
+#   before_script:
+#     - !reference [.gitlab-helper-functions, before_script]
+#     - !reference [.spark-k8s-cluster-resolver, before_script]
+#     - !reference [.gke-kubeconfig, before_script]
+#   script:
+#     # Skip the deploy when no cluster owns this ref, for example on a merge
+#     # request pipeline. This must live in the job, never in a global
+#     # before_script: `exit 0` ends the whole job script.
+#     - !reference [.spark-k8s-require-cluster, script]
+#     - helm upgrade --install ...
+#
+# This template runs in every job image, including images without bash, so it
+# is written for POSIX sh. It also installs no EXIT trap: the whole
+# before_script chain shares one shell and `.gcp-wif` relies on its own trap to
+# remove the credential files it creates.
+
+.spark-k8s-cluster-resolver:
+  before_script:
+    - |
+      if command -v section_start >/dev/null 2>&1; then
+        section_start "spark-k8s-cluster-resolver" "Cluster resolution"
+      fi
+      if command -v print-banner >/dev/null 2>&1; then
+        print-banner "CLUSTER RESOLUTION"
+      fi
+      SPARK_K8S_CLUSTER_RESOLVED=0
+      export SPARK_K8S_CLUSTER_RESOLVED
+      if [ -z "${SPARK_K8S_CONFIG:-}" ]; then
+        echo "Cluster resolution skipped (SPARK_K8S_CONFIG not set)."
+      elif [ ! -x "/scripts/resolve-cluster" ]; then
+        echo "Cluster resolution skipped: /scripts/resolve-cluster is not available in this job image."
+      elif ! command -v yq4 >/dev/null 2>&1; then
+        echo "Cluster resolution skipped: yq4 is not available in this job image."
+      else
+        set +e
+        SPARK_K8S_RESOLVER_OUTPUT="$(/scripts/resolve-cluster)"
+        SPARK_K8S_RESOLVER_RC=$?
+        set -e
+        if [ "${SPARK_K8S_RESOLVER_RC}" = "0" ]; then
+          eval "${SPARK_K8S_RESOLVER_OUTPUT}"
+          SPARK_K8S_CLUSTER_RESOLVED=1
+          echo "Resolved cluster: ${K8S_CLUSTER_NAME} (project ${GCP_PROJECT_ID}, location ${K8S_LOCATION})."
+        elif [ "${SPARK_K8S_RESOLVER_RC}" = "3" ]; then
+          echo "No cluster owns the current ref, the cluster dependent steps will be skipped."
+        else
+          echo "Cluster resolution failed."
+          exit 1
+        fi
+        unset SPARK_K8S_RESOLVER_OUTPUT SPARK_K8S_RESOLVER_RC
+      fi
+      if command -v print-banner >/dev/null 2>&1; then
+        print-banner "END CLUSTER RESOLUTION"
+      fi
+      if command -v section_end >/dev/null 2>&1; then
+        section_end "spark-k8s-cluster-resolver"
+      fi
+
+# Guard for cluster dependent jobs: end the job successfully when the project
+# uses the resolver but no cluster owns the current ref, which is the case on
+# merge request pipelines.
+#
+# Reference this from the job's own `script`, as its first line. It must not go
+# into a global before_script: GitLab concatenates before_script and script
+# into a single shell script, so an `exit 0` there would end every job in the
+# pipeline successfully without running its script.
+.spark-k8s-require-cluster:
+  script:
+    - |
+      if [ -n "${SPARK_K8S_CONFIG:-}" ] && [ "${SPARK_K8S_CLUSTER_RESOLVED:-0}" != "1" ]; then
+        echo "No cluster owns the current ref, skipping this job."
+        exit 0
+      fi

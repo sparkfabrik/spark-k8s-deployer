@@ -1,0 +1,14 @@
+version: 1
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: releases
+    refs: ['/^release-\d+$/']
+    project_id: p-releases
+    location: europe-west1
+  - name: version-tags
+    refs: ['/^refs\/tags\/v\d+$/']
+    project_id: p-version-tags
+    location: europe-west1

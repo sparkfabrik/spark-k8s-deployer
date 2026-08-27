@@ -1,0 +1,18 @@
+version: 1
+clusters:
+  - name: inferred
+    default: true
+    project_id: p-inferred
+    location: europe-west1
+    dns_endpoint: gke-inferred.example.gke.goog
+  - name: explicit-off
+    refs: [off-branch]
+    project_id: p-off
+    location: europe-west1
+    dns_endpoint: gke-off.example.gke.goog
+    use_dns_endpoint: false
+  - name: explicit-on
+    refs: [on-branch]
+    project_id: p-on
+    location: europe-west1
+    use_dns_endpoint: true

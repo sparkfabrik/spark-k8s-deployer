@@ -1,0 +1,18 @@
+version: 1
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: double-star
+    refs: ["feature/**"]
+    project_id: p-double
+    location: europe-west1
+  - name: single-star
+    refs: ["feature/*"]
+    project_id: p-single
+    location: europe-west1
+  - name: tags-only
+    refs: ["refs/tags/v*"]
+    project_id: p-tags
+    location: europe-west1
