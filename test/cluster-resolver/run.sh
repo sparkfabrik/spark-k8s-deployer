@@ -214,6 +214,9 @@ assert_cluster "no default cluster is fine as long as a rule matches" \
 assert_exit "two default clusters are an error" 1 \
   "$(fixture two-defaults.yaml)" "" "main"
 
+assert_exit "a scalar refs instead of a list is an error" 1 \
+  "$(fixture scalar-refs.yaml)" "" "main"
+
 assert_exit "a selected entry missing required fields is an error" 1 \
   "$(fixture missing-fields.yaml)" "" "main"
 
@@ -271,7 +274,25 @@ assert_eval_safety() {
   rm -f "${PWNED_MARKER}" /tmp/spark-k8s-resolver-eval.log
 }
 
+# An inline configuration is written to a temporary file, which the resolver has
+# to remove before exiting.
+assert_no_temporary_file_leak() {
+  local description="an inline configuration leaves no temporary file behind"
+  local before after
+
+  before="$(find /tmp -maxdepth 1 -name 'spark_k8s_config.*' 2>/dev/null | wc -l)"
+  run_resolver "$(cat "$(fixture basic.yaml)")" "" "main" >/dev/null
+  after="$(find /tmp -maxdepth 1 -name 'spark_k8s_config.*' 2>/dev/null | wc -l)"
+
+  if [ "${before}" != "${after}" ]; then
+    report_fail "${description}" "temporary files went from ${before} to ${after}"
+  else
+    report_pass "${description}"
+  fi
+}
+
 assert_eval_safety
+assert_no_temporary_file_leak
 
 printf '\n%s passed, %s failed\n' "${PASSED}" "${FAILED}"
 

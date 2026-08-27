@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
-# This file contains only functions.
-# Nothing should be executed nor defined here.
-# Including this file in a script will make all functions available
-# but will not change the environment.
+# This file contains functions and the few variables they use to return values
+# to their caller. Nothing is executed here: sourcing this file makes all
+# functions available without touching the environment.
 #
 # These functions implement the runtime ref-to-cluster resolver. They read the
 # project cluster configuration pointed to by SPARK_K8S_CONFIG and pick the
@@ -14,6 +13,9 @@
 
 # Supported cluster configuration schema version.
 RESOLVER_SUPPORTED_SCHEMA_VERSION=1
+
+# Set by resolver_config_file to the configuration file to read.
+RESOLVER_CONFIG_FILE=""
 
 # Set by resolver_config_file when the configuration was materialized into a
 # temporary file, so the caller can remove it.
@@ -202,17 +204,24 @@ resolver_pattern_matches() {
   printf '%s' "${target}" | grep -Eq -- "${ere}"
 }
 
-# Print the path of a readable cluster configuration file.
+# Set RESOLVER_CONFIG_FILE to the configuration file to read.
 #
 # A GitLab File type variable holds a path, not the content. When the value is
 # not a readable file it is treated as inline YAML and materialized into a
 # temporary file, which keeps the resolver easy to drive from tests.
+#
+# The result is returned through a global rather than printed: a command
+# substitution would run this in a subshell, and the temporary file path
+# recorded in RESOLVER_TMP_CONFIG_FILE would be lost together with it, leaving
+# the file behind.
 resolver_config_file() {
   local value="${1}"
   local tmp
 
+  RESOLVER_CONFIG_FILE=""
+
   if [ -f "${value}" ] && [ -r "${value}" ]; then
-    printf '%s' "${value}"
+    RESOLVER_CONFIG_FILE="${value}"
     return 0
   fi
 
@@ -220,19 +229,24 @@ resolver_config_file() {
     _resolver_log "Cannot create a temporary file for the inline cluster configuration."
     return 1
   fi
-  chmod 600 "${tmp}"
   # Consumed by the caller, which removes the file on exit.
   # shellcheck disable=SC2034
   RESOLVER_TMP_CONFIG_FILE="${tmp}"
-  printf '%s\n' "${value}" >"${tmp}"
-  printf '%s' "${tmp}"
+
+  if ! chmod 600 "${tmp}" || ! printf '%s\n' "${value}" >"${tmp}"; then
+    _resolver_log "Cannot write the inline cluster configuration to ${tmp}."
+    return 1
+  fi
+
+  RESOLVER_CONFIG_FILE="${tmp}"
 }
 
 # Validate the configuration file: parseable YAML, a supported schema version,
-# a non empty `clusters` sequence and at most one default cluster.
+# a non empty `clusters` sequence, at most one default cluster and a list in
+# every declared `refs`.
 resolver_check_config() {
   local file="${1}"
-  local version kind length default_count
+  local version kind length default_count scalar_refs_count
 
   if ! version="$(yq4 e '.version // 1' "${file}" 2>/dev/null)"; then
     _resolver_log "The cluster configuration is not valid YAML."
@@ -258,6 +272,14 @@ resolver_check_config() {
   default_count="$(yq4 e '[.clusters[] | select(.default == true)] | length' "${file}" 2>/dev/null)"
   if [ "${default_count}" -gt 1 ]; then
     _resolver_log "The cluster configuration declares ${default_count} default clusters, only one is allowed."
+    return 1
+  fi
+
+  # `refs: main` instead of `refs: [main]` yields no patterns at all, so the
+  # entry would be skipped in silence and the default cluster chosen instead.
+  scalar_refs_count="$(yq4 e '[.clusters[] | select(has("refs") and (.refs | tag) != "!!seq")] | length' "${file}" 2>/dev/null)"
+  if [ "${scalar_refs_count}" != "0" ]; then
+    _resolver_log "The cluster configuration declares ${scalar_refs_count} clusters whose 'refs' is not a list."
     return 1
   fi
 
@@ -391,9 +413,10 @@ resolve_cluster() {
     return 1
   fi
 
-  if ! file="$(resolver_config_file "${SPARK_K8S_CONFIG}")"; then
+  if ! resolver_config_file "${SPARK_K8S_CONFIG}"; then
     return 1
   fi
+  file="${RESOLVER_CONFIG_FILE}"
 
   if ! resolver_check_config "${file}"; then
     return 1

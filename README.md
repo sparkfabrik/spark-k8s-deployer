@@ -179,9 +179,15 @@ and are ignored.
 
 A configuration error, on the other hand, fails the job: invalid YAML, an
 unsupported `version`, an empty or missing `clusters` list, more than one
-default, a selected entry without `name`, `project_id` or `location`, an
-unsupported regex construct, or a ref that matches nothing when no default is
-declared.
+default, a `refs` that is not a list (`refs: main` instead of `refs: [main]`), a
+selected entry without `name`, `project_id` or `location`, an unsupported regex
+construct, or a ref that matches nothing when no default is declared.
+
+While `$SPARK_K8S_CONFIG` is set the resolver owns `K8S_CLUSTER_NAME`,
+`GCP_PROJECT_ID`, `K8S_LOCATION` and `K8S_USE_DNS_ENDPOINT`: it clears them
+before resolving, so a ref that owns no cluster cannot inherit them from plain
+CI/CD variables and reach the wrong cluster. Projects that do not use the
+resolver keep whatever they set.
 
 #### Tests
 
