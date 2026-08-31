@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkfabrik.com/sparkplatform/cluster-config/tolerance.schema.json",
+  "title": "Permissive cluster configuration schema, for tests only",
+  "description": "The generator schema is stricter than the resolver: it validates what the generator emits. Several fixtures are deliberately looser than that, because they exercise what the resolver does with a document nobody should emit: no default cluster, an entry reachable by neither refs nor default, a cluster name carrying shell metacharacters. Those fixtures are validated against this schema so their exit code comes from the resolver's own checks, which is what they are testing. Production never uses this file.",
+  "type": "object",
+  "required": ["clusters"],
+  "properties": {
+    "clusters": {
+      "type": "array"
+    }
+  }
+}

@@ -61,6 +61,13 @@ jobs:
           sudo chmod +x /usr/local/bin/yq4
           yq4 --version
 
+      - name: Install the jv version pinned by the image
+        run: |
+          JV_VERSION="$(sed -n 's/^ENV JV_VERSION=//p' Dockerfile)"
+          echo "Installing jv ${JV_VERSION}"
+          go install "github.com/santhosh-tekuri/jsonschema/cmd/jv@${JV_VERSION}"
+          echo "${HOME}/go/bin" >> "$GITHUB_PATH"
+
       - name: Lint the cluster resolver scripts
         run: |
           shellcheck -x \
@@ -68,6 +75,9 @@ jobs:
             scripts/src/cluster-resolver.bash \
             test/cluster-resolver/run.sh
 
+      # The suite runs the schema gate itself: every fixture is checked against
+      # schemas/cluster-config.schema.json in both directions, so a breaking
+      # schema sync fails here instead of failing a deploy later.
       - name: Run the cluster resolver test suite
         run: bash test/cluster-resolver/run.sh
 

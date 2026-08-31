@@ -1,18 +1,21 @@
-version: 1
 clusters:
   - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
     default: true
-    project_id: p-fallback
-    location: europe-west1
+    refs: []
   - name: first-match
-    refs: [main]
-    project_id: p-first
+    project_id: spark-first-project
     location: europe-west1
+    default: false
+    refs: [main]
   - name: catch-all
+    project_id: spark-catch-all-project
+    location: europe-west1
+    default: false
     refs: ["*"]
-    project_id: p-catch-all
-    location: europe-west1
   - name: last-match
-    refs: [main]
-    project_id: p-last
+    project_id: spark-last-project
     location: europe-west1
+    default: false
+    refs: [main]

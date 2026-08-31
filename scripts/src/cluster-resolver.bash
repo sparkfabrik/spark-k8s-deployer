@@ -17,9 +17,9 @@ RESOLVER_SUPPORTED_SCHEMA_VERSION=1
 # Set by resolver_config_file to the configuration file to read.
 RESOLVER_CONFIG_FILE=""
 
-# Set by resolver_config_file when the configuration was materialized into a
-# temporary file, so the caller can remove it.
-RESOLVER_TMP_CONFIG_FILE=""
+# Set by resolver_config_file when a temporary directory was created to hold
+# the configuration, so the caller can remove it.
+RESOLVER_TMP_CONFIG_DIR=""
 
 # Set by resolve_cluster to the index of the selected cluster.
 RESOLVER_SELECTED=""
@@ -207,38 +207,114 @@ resolver_pattern_matches() {
 # Set RESOLVER_CONFIG_FILE to the configuration file to read.
 #
 # A GitLab File type variable holds a path, not the content. When the value is
-# not a readable file it is treated as inline YAML and materialized into a
-# temporary file, which keeps the resolver easy to drive from tests.
+# not a readable file it is treated as inline YAML and materialized, which also
+# keeps the resolver easy to drive from tests.
+#
+# Either way the configuration is reached through a path whose name ends in
+# .yaml, because jv picks its parser from the file extension and a File type
+# variable lands on an extensionless path, where it would be read as JSON. An
+# already suffixed path is used as is; anything else is linked or written into
+# a temporary directory.
 #
 # The result is returned through a global rather than printed: a command
-# substitution would run this in a subshell, and the temporary file path
-# recorded in RESOLVER_TMP_CONFIG_FILE would be lost together with it, leaving
-# the file behind.
+# substitution would run this in a subshell, and the temporary directory
+# recorded in RESOLVER_TMP_CONFIG_DIR would be lost together with it, leaving
+# the directory behind.
 resolver_config_file() {
   local value="${1}"
-  local tmp
+  local dir target
 
   RESOLVER_CONFIG_FILE=""
 
+  case "${value}" in
+  *.yaml | *.yml)
+    if [ -f "${value}" ] && [ -r "${value}" ]; then
+      RESOLVER_CONFIG_FILE="${value}"
+      return 0
+    fi
+    ;;
+  esac
+
+  if ! dir="$(mktemp -d -t spark_k8s_config.XXXXXX)"; then
+    _resolver_log "Cannot create a temporary directory for the cluster configuration."
+    return 1
+  fi
+  # Consumed by the caller, which removes the directory on exit.
+  # shellcheck disable=SC2034
+  RESOLVER_TMP_CONFIG_DIR="${dir}"
+  target="${dir}/cluster-config.yaml"
+
   if [ -f "${value}" ] && [ -r "${value}" ]; then
-    RESOLVER_CONFIG_FILE="${value}"
+    if ! ln -s "${value}" "${target}"; then
+      _resolver_log "Cannot link the cluster configuration into ${dir}."
+      return 1
+    fi
+  elif ! (
+    umask 077
+    printf '%s\n' "${value}" >"${target}"
+  ); then
+    _resolver_log "Cannot write the inline cluster configuration to ${target}."
+    return 1
+  fi
+
+  RESOLVER_CONFIG_FILE="${target}"
+}
+
+# Print the path of the cluster configuration schema, if one is available.
+#
+# SPARK_K8S_CONFIG_SCHEMA overrides the location. The test suite uses it to
+# point the resolver at a deliberately permissive schema for the fixtures that
+# exercise the resolver's own tolerance. There is no variable to turn
+# validation off: an opt-out would be set by the first project that wants a
+# deploy out despite a broken configuration, which is exactly the case this is
+# here to stop.
+resolver_schema_file() {
+  local candidate
+
+  if [ -n "${SPARK_K8S_CONFIG_SCHEMA:-}" ]; then
+    printf '%s' "${SPARK_K8S_CONFIG_SCHEMA}"
     return 0
   fi
 
-  if ! tmp="$(mktemp -t spark_k8s_config.XXXXXX)"; then
-    _resolver_log "Cannot create a temporary file for the inline cluster configuration."
-    return 1
-  fi
-  # Consumed by the caller, which removes the file on exit.
-  # shellcheck disable=SC2034
-  RESOLVER_TMP_CONFIG_FILE="${tmp}"
+  for candidate in "/schemas/cluster-config.schema.json" \
+    "${DEPLOY_ROOT_DIR:-}/../schemas/cluster-config.schema.json"; do
+    if [ -f "${candidate}" ] && [ -r "${candidate}" ]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+}
 
-  if ! chmod 600 "${tmp}" || ! printf '%s\n' "${value}" >"${tmp}"; then
-    _resolver_log "Cannot write the inline cluster configuration to ${tmp}."
-    return 1
+# Validate the configuration against the schema owned by the platform
+# generator, and fail on any violation.
+#
+# A missing validator or a missing schema copy is a warning, not a failure:
+# this mirrors the contract of the CI template, which degrades to the previous
+# behavior when the job image lacks tooling. The structural checks below still
+# cover what makes a wrong resolution dangerous, and the generator validates
+# every document it emits at the source.
+resolver_validate_schema() {
+  local file="${1}"
+  local schema output
+
+  schema="$(resolver_schema_file)"
+  if [ -z "${schema}" ]; then
+    _resolver_log "Schema validation skipped: no cluster configuration schema available."
+    return 0
   fi
 
-  RESOLVER_CONFIG_FILE="${tmp}"
+  if ! command -v jv >/dev/null 2>&1; then
+    _resolver_log "Schema validation skipped: the jv command is not available."
+    return 0
+  fi
+
+  if output="$(jv "${schema}" "${file}" 2>&1)"; then
+    return 0
+  fi
+
+  _resolver_log "The cluster configuration does not match ${schema}:"
+  _resolver_log "${output}"
+  return 1
 }
 
 # Validate the configuration file: parseable YAML, a supported schema version,
@@ -417,6 +493,14 @@ resolve_cluster() {
     return 1
   fi
   file="${RESOLVER_CONFIG_FILE}"
+
+  # The schema speaks before the structural checks, so an operator sees the
+  # exact JSON Pointer into their document rather than the coarser message
+  # below. It runs after resolver_config_file so an inline configuration is
+  # validated too, not only a File type variable.
+  if ! resolver_validate_schema "${file}"; then
+    return 1
+  fi
 
   if ! resolver_check_config "${file}"; then
     return 1

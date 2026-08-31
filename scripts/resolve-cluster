@@ -21,9 +21,9 @@ export DEPLOY_ROOT_DIR
 # shellcheck disable=SC1091
 source "$DEPLOY_ROOT_DIR/src/cluster-resolver.bash"
 
-# The configuration may have been materialized into a temporary file. This runs
-# in its own process, so the trap cannot interfere with the ones installed by
-# the CI before_script chain.
-trap 'rm -f "${RESOLVER_TMP_CONFIG_FILE:-}"' EXIT
+# The configuration may have been materialized into a temporary directory. This
+# runs in its own process, so the trap cannot interfere with the ones installed
+# by the CI before_script chain.
+trap '[ -n "${RESOLVER_TMP_CONFIG_DIR:-}" ] && rm -rf "${RESOLVER_TMP_CONFIG_DIR}"' EXIT
 
 resolve_cluster

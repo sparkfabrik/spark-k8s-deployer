@@ -2,10 +2,18 @@
 
 # Table driven tests for scripts/resolve-cluster.
 #
-# The resolver parses YAML with yq4, so this suite must run where yq4 is
-# available. The deployer image ships it:
+# The resolver parses YAML with yq4 and validates it with jv, so this suite must
+# run where both are available. The deployer image ships them:
 #
 #   make test-cluster-resolver
+#
+# Two things are tested here. The resolver cases check what the resolver does
+# with a given configuration and ref. The schema gate checks every fixture
+# against schemas/cluster-config.schema.json, the copy of the schema the
+# platform generator owns, in both directions: a fixture that should validate
+# must validate, and a fixture that should be rejected must be rejected. That
+# second direction is what turns a breaking schema sync into a red pipeline
+# here instead of a failed deploy later.
 #
 # Exits non zero when any case fails.
 
@@ -16,6 +24,25 @@ ROOT_DIR="$(cd -P "${TEST_DIR}/../.." && pwd)"
 RESOLVER="${ROOT_DIR}/scripts/resolve-cluster"
 FIXTURES_DIR="${TEST_DIR}/fixtures"
 PWNED_MARKER="/tmp/spark-k8s-resolver-pwned"
+
+# The generator owned schema, synced into this repository. SPARK_K8S_SCHEMA_COPY
+# exists so the gate can be pointed at a copy that has not been merged yet.
+SCHEMA_COPY="${SPARK_K8S_SCHEMA_COPY:-${ROOT_DIR}/schemas/cluster-config.schema.json}"
+
+# The permissive schema used by the fixtures that exercise resolver tolerance.
+TOLERANCE_SCHEMA="${TEST_DIR}/schemas/tolerance.schema.json"
+
+# Fixtures that must validate against the generator schema. They carry `name`,
+# `project_id`, `location`, `default` and `refs` on every entry and exactly one
+# default cluster, which is what the generator emits.
+SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml"
+
+# Fixtures the generator schema must reject. Most exercise what the resolver
+# does with a document nobody should emit; the rest are invalid on purpose.
+# Note that bad-regex.yaml is deliberately NOT here: an unsupported regex
+# construct is a valid string as far as the schema is concerned, so that
+# fixture proves the resolver still guards what the schema cannot express.
+SCHEMA_NON_CONFORMING_FIXTURES="no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml"
 
 PASSED=0
 FAILED=0
@@ -49,6 +76,32 @@ fixture() {
   printf '%s/%s' "${FIXTURES_DIR}" "${1}"
 }
 
+# Print the schema a given configuration must be validated against.
+#
+# A fixture classified as non-conforming gets the permissive schema, so its exit
+# code comes from the resolver's own checks rather than from validation, which
+# is what those cases are testing. Everything else gets the real copy, or
+# nothing at all when the copy has not been synced yet, in which case the
+# resolver skips validation exactly as it does in a job image without it.
+schema_for_config() {
+  local config="${1}"
+  local name
+
+  if [ -f "${config}" ]; then
+    name="$(basename "${config}")"
+    case " ${SCHEMA_NON_CONFORMING_FIXTURES} " in
+    *" ${name} "*)
+      printf '%s' "${TOLERANCE_SCHEMA}"
+      return 0
+      ;;
+    esac
+  fi
+
+  if [ -f "${SCHEMA_COPY}" ]; then
+    printf '%s' "${SCHEMA_COPY}"
+  fi
+}
+
 # run_resolver <config> <tag> <branch>
 #
 # The GitLab Agent variables are cleared so the conflict warning does not
@@ -57,6 +110,7 @@ run_resolver() {
   CI_COMMIT_TAG="${2}" \
     CI_COMMIT_BRANCH="${3}" \
     SPARK_K8S_CONFIG="${1}" \
+    SPARK_K8S_CONFIG_SCHEMA="$(schema_for_config "${1}")" \
     GITLAB_AGENT_ID="" \
     GITLAB_AGENT_PROJECT="" \
     DEVELOP_GITLAB_AGENT_ID="" \
@@ -124,7 +178,83 @@ assert_exit() {
   report_pass "${description}"
 }
 
+# Every fixture has to be classified, otherwise a fixture added later slips
+# past the gate without anyone deciding which side of the contract it is on.
+assert_every_fixture_classified() {
+  local description="every fixture is classified for the schema gate"
+  local path name unclassified=""
+
+  for path in "${FIXTURES_DIR}"/*.yaml; do
+    name="$(basename "${path}")"
+    case " ${SCHEMA_CONFORMING_FIXTURES} ${SCHEMA_NON_CONFORMING_FIXTURES} " in
+    *" ${name} "*) ;;
+    *) unclassified="${unclassified} ${name}" ;;
+    esac
+  done
+
+  if [ -n "${unclassified}" ]; then
+    report_fail "${description}" "not in either list:${unclassified}"
+  else
+    report_pass "${description}"
+  fi
+}
+
+# assert_schema_verdict <fixture> <valid|invalid>
+assert_schema_verdict() {
+  local name="${1}"
+  local expectation="${2}"
+  local description="schema ${expectation}: ${name}"
+  local output
+
+  if output="$(jv "${SCHEMA_COPY}" "$(fixture "${name}")" 2>&1)"; then
+    if [ "${expectation}" = "valid" ]; then
+      report_pass "${description}"
+    else
+      report_fail "${description}" "the schema accepted a document it must reject"
+    fi
+    return
+  fi
+
+  if [ "${expectation}" = "invalid" ]; then
+    report_pass "${description}"
+  else
+    report_fail "${description}" "the schema rejected a document it must accept:" "${output}"
+  fi
+}
+
+run_schema_gate() {
+  local name
+
+  if [ ! -f "${SCHEMA_COPY}" ]; then
+    printf '\n  skip  schema gate: %s has not been synced yet\n\n' "${SCHEMA_COPY}"
+    return 0
+  fi
+  if ! command -v jv >/dev/null 2>&1; then
+    printf '\n  skip  schema gate: the jv command is not available\n\n'
+    return 0
+  fi
+
+  printf '\nSchema gate against %s\n' "${SCHEMA_COPY}"
+
+  if output="$(jv "${SCHEMA_COPY}" 2>&1)"; then
+    report_pass "the schema itself compiles against draft 2020-12"
+  else
+    report_fail "the schema itself compiles against draft 2020-12" "${output}"
+  fi
+
+  for name in ${SCHEMA_CONFORMING_FIXTURES}; do
+    assert_schema_verdict "${name}" "valid"
+  done
+  for name in ${SCHEMA_NON_CONFORMING_FIXTURES}; do
+    assert_schema_verdict "${name}" "invalid"
+  done
+  printf '\n'
+}
+
 printf 'Cluster resolver test suite\n'
+
+assert_every_fixture_classified
+run_schema_gate
 
 # Ref normalization: a tag never matches a branch rule.
 assert_cluster "branch main matches the main rule" \
@@ -146,41 +276,41 @@ assert_exit "a pipeline without branch or tag resolves nothing" 3 \
 # Bottom up scan: the last declared match wins.
 assert_cluster "the last declared matching cluster wins" \
   "$(fixture ordering.yaml)" "" "main" \
-  "last-match" "p-last" "europe-west1" "0" ""
+  "last-match" "spark-last-project" "europe-west1" "0" ""
 
 assert_cluster "a lower catch-all wins over a higher exact match" \
   "$(fixture ordering.yaml)" "" "develop" \
-  "catch-all" "p-catch-all" "europe-west1" "0" ""
+  "catch-all" "spark-catch-all-project" "europe-west1" "0" ""
 
 # Glob semantics: * does not cross a slash, ** does.
 assert_cluster "a single star does not cross a slash" \
   "$(fixture globs.yaml)" "" "feature/login" \
-  "single-star" "p-single" "europe-west1" "0" ""
+  "single-star" "spark-single-project" "europe-west1" "0" ""
 
 assert_cluster "a double star crosses slashes" \
   "$(fixture globs.yaml)" "" "feature/login/sso" \
-  "double-star" "p-double" "europe-west1" "0" ""
+  "double-star" "spark-double-project" "europe-west1" "0" ""
 
 assert_cluster "a refs/tags pattern matches a tag" \
   "$(fixture globs.yaml)" "v1" "" \
-  "tags-only" "p-tags" "europe-west1" "0" ""
+  "tags-only" "spark-tags-project" "europe-west1" "0" ""
 
 assert_cluster "a refs/tags pattern does not match a branch of the same name" \
   "$(fixture globs.yaml)" "" "v1" \
-  "fallback" "p-fallback" "europe-west1" "0" ""
+  "fallback" "spark-fallback-project" "europe-west1" "0" ""
 
 # Regex form: a pattern without refs/ matches the short branch name only.
 assert_cluster "a branch regex matches the short branch name" \
   "$(fixture regex.yaml)" "" "release-12" \
-  "releases" "p-releases" "europe-west1" "0" ""
+  "releases" "spark-releases-project" "europe-west1" "0" ""
 
 assert_cluster "a branch regex does not match a tag of the same name" \
   "$(fixture regex.yaml)" "release-12" "" \
-  "fallback" "p-fallback" "europe-west1" "0" ""
+  "fallback" "spark-fallback-project" "europe-west1" "0" ""
 
 assert_cluster "a regex mentioning refs/ matches the normalized ref" \
   "$(fixture regex.yaml)" "v3" "" \
-  "version-tags" "p-version-tags" "europe-west1" "0" ""
+  "version-tags" "spark-version-tags-proj" "europe-west1" "0" ""
 
 assert_exit "an unsupported regex construct fails the resolution" 1 \
   "$(fixture bad-regex.yaml)" "" "main"
@@ -188,15 +318,15 @@ assert_exit "an unsupported regex construct fails the resolution" 1 \
 # DNS endpoint flag.
 assert_cluster "an explicit use_dns_endpoint false wins over a declared endpoint" \
   "$(fixture dns.yaml)" "" "off-branch" \
-  "explicit-off" "p-off" "europe-west1" "0" "gke-off.example.gke.goog"
+  "explicit-off" "spark-explicit-off-proj" "europe-west1" "0" "gke-off.example.gke.goog"
 
 assert_cluster "an explicit use_dns_endpoint true needs no endpoint" \
   "$(fixture dns.yaml)" "" "on-branch" \
-  "explicit-on" "p-on" "europe-west1" "1" ""
+  "explicit-on" "spark-explicit-on-proj" "europe-west1" "1" ""
 
 assert_cluster "a declared endpoint without the flag enables it" \
   "$(fixture dns.yaml)" "" "other" \
-  "inferred" "p-inferred" "europe-west1" "1" "gke-inferred.example.gke.goog"
+  "inferred" "spark-inferred-project" "europe-west1" "1" "gke-inferred.example.gke.goog"
 
 # Entries with neither refs nor default are never selected.
 assert_cluster "an entry with no refs and no default is never selected" \

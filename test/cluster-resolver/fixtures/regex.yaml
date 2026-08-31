@@ -1,14 +1,16 @@
-version: 1
 clusters:
   - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
     default: true
-    project_id: p-fallback
-    location: europe-west1
+    refs: []
   - name: releases
+    project_id: spark-releases-project
+    location: europe-west1
+    default: false
     refs: ['/^release-\d+$/']
-    project_id: p-releases
-    location: europe-west1
   - name: version-tags
-    refs: ['/^refs\/tags\/v\d+$/']
-    project_id: p-version-tags
+    project_id: spark-version-tags-proj
     location: europe-west1
+    default: false
+    refs: ['/^refs\/tags\/v\d+$/']

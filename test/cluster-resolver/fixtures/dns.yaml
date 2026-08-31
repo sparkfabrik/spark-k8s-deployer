@@ -1,18 +1,20 @@
-version: 1
 clusters:
   - name: inferred
-    default: true
-    project_id: p-inferred
+    project_id: spark-inferred-project
     location: europe-west1
+    default: true
+    refs: []
     dns_endpoint: gke-inferred.example.gke.goog
   - name: explicit-off
-    refs: [off-branch]
-    project_id: p-off
+    project_id: spark-explicit-off-proj
     location: europe-west1
+    default: false
+    refs: [off-branch]
     dns_endpoint: gke-off.example.gke.goog
     use_dns_endpoint: false
   - name: explicit-on
-    refs: [on-branch]
-    project_id: p-on
+    project_id: spark-explicit-on-proj
     location: europe-west1
+    default: false
+    refs: [on-branch]
     use_dns_endpoint: true

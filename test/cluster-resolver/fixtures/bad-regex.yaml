@@ -1,10 +1,11 @@
-version: 1
 clusters:
   - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
     default: true
-    project_id: p-fallback
-    location: europe-west1
+    refs: []
   - name: broken-regex
-    refs: ['/(?=main)/']
-    project_id: p-broken
+    project_id: spark-broken-project
     location: europe-west1
+    default: false
+    refs: ['/(?=main)/']
