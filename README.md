@@ -78,7 +78,7 @@ version: 1
 clusters:
   - name: example-dev
     default: true
-    project_id: spark-int-cloud-services
+    project_id: example-dev-project
     location: europe-west1
     dns_endpoint: gke-....gke.goog
   - name: example-prod
