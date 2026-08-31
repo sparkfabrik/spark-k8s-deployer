@@ -263,11 +263,11 @@ assert_cluster "branch main matches the main rule" \
 
 assert_cluster "a tag named main does not match the main branch rule" \
   "$(fixture basic.yaml)" "main" "" \
-  "example-dev" "spark-int-cloud-services" "europe-west1" "1" "gke-dev.example.gke.goog"
+  "example-dev" "example-dev-project" "europe-west1" "1" "gke-dev.example.gke.goog"
 
 assert_cluster "an unmatched branch falls back to the default cluster" \
   "$(fixture basic.yaml)" "" "feature/login" \
-  "example-dev" "spark-int-cloud-services" "europe-west1" "1" "gke-dev.example.gke.goog"
+  "example-dev" "example-dev-project" "europe-west1" "1" "gke-dev.example.gke.goog"
 
 # Merge request pipelines have no ref at all: no cluster, and no default.
 assert_exit "a pipeline without branch or tag resolves nothing" 3 \

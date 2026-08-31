@@ -76,7 +76,7 @@ The cluster list is injected as a CI/CD variable of type **File**,
 ```yaml
 clusters:
   - name: example-dev
-    project_id: spark-int-cloud-services
+    project_id: example-dev-project
     location: europe-west1
     default: true
     refs: []

@@ -1,7 +1,7 @@
 version: 1
 clusters:
   - name: example-dev
-    project_id: spark-int-cloud-services
+    project_id: example-dev-project
     location: europe-west1
     default: true
     refs: []
