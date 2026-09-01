@@ -42,7 +42,7 @@ SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.y
 # Note that bad-regex.yaml is deliberately NOT here: an unsupported regex
 # construct is a valid string as far as the schema is concerned, so that
 # fixture proves the resolver still guards what the schema cannot express.
-SCHEMA_NON_CONFORMING_FIXTURES="no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml"
+SCHEMA_NON_CONFORMING_FIXTURES="bad-dns-flag.yaml no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml"
 
 PASSED=0
 FAILED=0
