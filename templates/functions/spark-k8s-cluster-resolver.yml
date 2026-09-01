@@ -90,21 +90,31 @@
       elif ! command -v yq4 >/dev/null 2>&1; then
         echo "Cluster resolution skipped: yq4 is not available in this job image."
       else
+        # Restore errexit only if it was on: GitLab shells run with -e by
+        # default, but unconditionally re-enabling it here would change the
+        # behavior of every later step in the shared before_script chain on a
+        # runner where it was off.
+        case $- in *e*) SPARK_K8S_HAD_ERREXIT=1 ;; *) SPARK_K8S_HAD_ERREXIT=0 ;; esac
         set +e
         SPARK_K8S_RESOLVER_OUTPUT="$(/scripts/resolve-cluster)"
         SPARK_K8S_RESOLVER_RC=$?
-        set -e
+        if [ "${SPARK_K8S_HAD_ERREXIT}" = "1" ]; then
+          set -e
+        fi
         if [ "${SPARK_K8S_RESOLVER_RC}" = "0" ]; then
           eval "${SPARK_K8S_RESOLVER_OUTPUT}"
           SPARK_K8S_CLUSTER_RESOLVED=1
-          echo "Resolved cluster: ${K8S_CLUSTER_NAME} (project ${GCP_PROJECT_ID}, location ${K8S_LOCATION})."
+          # printf, not echo: echo in dash and busybox expands backslash
+          # escapes, so a hostile value would print mangled.
+          printf 'Resolved cluster: %s (project %s, location %s).\n' \
+            "${K8S_CLUSTER_NAME}" "${GCP_PROJECT_ID}" "${K8S_LOCATION}"
         elif [ "${SPARK_K8S_RESOLVER_RC}" = "3" ]; then
           echo "No cluster owns the current ref, the cluster dependent steps will be skipped."
         else
           echo "Cluster resolution failed."
           exit 1
         fi
-        unset SPARK_K8S_RESOLVER_OUTPUT SPARK_K8S_RESOLVER_RC
+        unset SPARK_K8S_RESOLVER_OUTPUT SPARK_K8S_RESOLVER_RC SPARK_K8S_HAD_ERREXIT
       fi
       if command -v print-banner >/dev/null 2>&1; then
         print-banner "END CLUSTER RESOLUTION"

@@ -1,4 +1,3 @@
-version: 1
 clusters:
   - name: broken
     refs: [main

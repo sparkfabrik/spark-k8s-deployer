@@ -1,4 +1,3 @@
-version: 1
 clusters:
   - name: first-default
     default: true

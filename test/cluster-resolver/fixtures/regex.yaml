@@ -14,3 +14,8 @@ clusters:
     location: europe-west1
     default: false
     refs: ['/^refs\/tags\/v\d+$/']
+  - name: prefs-regex
+    project_id: spark-prefs-project
+    location: europe-west1
+    default: false
+    refs: ['/^prefs\/x$/']

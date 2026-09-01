@@ -1,0 +1,12 @@
+clusters:
+  - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
+    default: true
+    refs: []
+  - name: bad-flag
+    project_id: spark-bad-flag-proj
+    location: europe-west1
+    default: false
+    refs: [main]
+    use_dns_endpoint: "1"

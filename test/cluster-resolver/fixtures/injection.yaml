@@ -1,4 +1,3 @@
-version: 1
 clusters:
   - name: "evil'; touch /tmp/spark-k8s-resolver-pwned; '"
     default: true
