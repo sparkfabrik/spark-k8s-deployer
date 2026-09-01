@@ -1,4 +1,3 @@
-version: 1
 clusters:
   - name: fallback
     default: true
@@ -11,4 +10,8 @@ clusters:
   - name: version-tags
     refs: ['/^refs\/tags\/v\d+$/']
     project_id: p-version-tags
+    location: europe-west1
+  - name: prefs-regex
+    refs: ['/^prefs\/x$/']
+    project_id: spark-prefs-project
     location: europe-west1

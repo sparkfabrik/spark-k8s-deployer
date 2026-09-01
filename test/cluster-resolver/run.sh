@@ -182,6 +182,10 @@ assert_cluster "a regex mentioning refs/ matches the normalized ref" \
   "$(fixture regex.yaml)" "v3" "" \
   "version-tags" "p-version-tags" "europe-west1" "0" ""
 
+assert_cluster "a regex merely containing refs/ still matches the short branch name" \
+  "$(fixture regex.yaml)" "" "prefs/x" \
+  "prefs-regex" "spark-prefs-project" "europe-west1" "0" ""
+
 assert_exit "an unsupported regex construct fails the resolution" 1 \
   "$(fixture bad-regex.yaml)" "" "main"
 
@@ -197,6 +201,9 @@ assert_cluster "an explicit use_dns_endpoint true needs no endpoint" \
 assert_cluster "a declared endpoint without the flag enables it" \
   "$(fixture dns.yaml)" "" "other" \
   "inferred" "p-inferred" "europe-west1" "1" "gke-inferred.example.gke.goog"
+
+assert_exit "an unrecognized use_dns_endpoint value is an error" 1 \
+  "$(fixture bad-dns-flag.yaml)" "" "main"
 
 # Entries with neither refs nor default are never selected.
 assert_cluster "an entry with no refs and no default is never selected" \
@@ -275,17 +282,20 @@ assert_eval_safety() {
 }
 
 # An inline configuration is written to a temporary file, which the resolver has
-# to remove before exiting.
+# to remove before exiting. The resolver is pointed at a private TMPDIR, so the
+# check cannot be flipped by an unrelated process touching the shared /tmp
+# while the suite runs directly on a CI runner.
 assert_no_temporary_file_leak() {
   local description="an inline configuration leaves no temporary file behind"
-  local before after
+  local tmpdir leftover
 
-  before="$(find /tmp -maxdepth 1 -name 'spark_k8s_config.*' 2>/dev/null | wc -l)"
-  run_resolver "$(cat "$(fixture basic.yaml)")" "" "main" >/dev/null
-  after="$(find /tmp -maxdepth 1 -name 'spark_k8s_config.*' 2>/dev/null | wc -l)"
+  tmpdir="$(mktemp -d)"
+  TMPDIR="${tmpdir}" run_resolver "$(cat "$(fixture basic.yaml)")" "" "main" >/dev/null
+  leftover="$(find "${tmpdir}" -mindepth 1 2>/dev/null | wc -l)"
+  rm -rf "${tmpdir}"
 
-  if [ "${before}" != "${after}" ]; then
-    report_fail "${description}" "temporary files went from ${before} to ${after}"
+  if [ "${leftover}" != "0" ]; then
+    report_fail "${description}" "${leftover} temporary entries left behind"
   else
     report_pass "${description}"
   fi

@@ -89,16 +89,16 @@ clusters:
     use_dns_endpoint: true
 ```
 
-| Key                | Description                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| `version`          | Configuration schema version, currently `1`. Optional, defaults to `1`                      |
-| `name`             | GKE cluster name, exported as `K8S_CLUSTER_NAME`                                            |
-| `project_id`       | GCP project ID, exported as `GCP_PROJECT_ID`                                                |
-| `location`         | Cluster region or zone, exported as `K8S_LOCATION`                                          |
-| `refs`             | List of ref patterns this cluster owns                                                      |
-| `default`          | Marks the cluster used when no pattern matches. At most one entry                           |
-| `dns_endpoint`     | DNS endpoint of the control plane, exported as `SPARK_K8S_CLUSTER_DNS_ENDPOINT`             |
-| `use_dns_endpoint` | Sets `K8S_USE_DNS_ENDPOINT`. When absent it is inferred from the presence of `dns_endpoint` |
+| Key                | Description                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `version`          | Configuration schema version, currently `1`. Optional, defaults to `1`                                                            |
+| `name`             | GKE cluster name, exported as `K8S_CLUSTER_NAME`                                                                                  |
+| `project_id`       | GCP project ID, exported as `GCP_PROJECT_ID`                                                                                      |
+| `location`         | Cluster region or zone, exported as `K8S_LOCATION`                                                                                |
+| `refs`             | List of ref patterns this cluster owns                                                                                            |
+| `default`          | Marks the cluster used when no pattern matches. At most one entry                                                                 |
+| `dns_endpoint`     | DNS endpoint of the control plane, exported as `SPARK_K8S_CLUSTER_DNS_ENDPOINT`                                                   |
+| `use_dns_endpoint` | Sets `K8S_USE_DNS_ENDPOINT`. Only `true` and `false` are accepted; when absent it is inferred from the presence of `dns_endpoint` |
 
 `KUBE_NAMESPACE` is not part of the cluster configuration and must still be
 provided by the project.
@@ -138,7 +138,9 @@ breaking unanchored patterns.
   and only on branch pipelines. `/^release-\d+$/` matches the branch
   `release-12` and never a tag named `release-12`.
 - A regex that **does** mention `refs/` matches the **normalized ref**.
-  `/^refs\/tags\/v\d+$/` matches the tag `v3`.
+  `/^refs\/tags\/v\d+$/` matches the tag `v3`. Mentioning means `refs/` at the
+  start of the pattern or after a non-word character, so `/^prefs\/x$/` still
+  matches the short branch name `prefs/x`.
 
 #### Pipelines without a ref
 

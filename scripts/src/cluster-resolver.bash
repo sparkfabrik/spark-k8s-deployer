@@ -182,17 +182,18 @@ resolver_pattern_matches() {
     if ! ere="$(resolver_regex_to_ere "${pattern:1:${#pattern}-2}")"; then
       return 2
     fi
-    case "${ere}" in
-    *refs/*)
+    # "Mentions refs/" means refs/ at the start of the expression or preceded
+    # by a non-word character, not a plain substring: with a substring test a
+    # pattern like /^prefs\/x$/ would be matched against the normalized ref
+    # and silently never match the prefs/x branch.
+    if printf '%s' "${ere}" | grep -Eq '(^|[^A-Za-z0-9_])refs/'; then
       target="${ref}"
-      ;;
-    *)
+    else
       if [ "${kind}" != "heads" ]; then
         return 1
       fi
       target="${ref#refs/heads/}"
-      ;;
-    esac
+    fi
   else
     case "${pattern}" in
     refs/*) ere="$(resolver_glob_to_ere "${pattern}")" ;;
@@ -269,7 +270,14 @@ resolver_check_config() {
     return 1
   fi
 
+  # An empty count means the yq4 invocation itself failed. Without this guard
+  # the -gt test below errors and the `if` treats that as false, so a transient
+  # parser failure would pass validation instead of failing it.
   default_count="$(yq4 e '[.clusters[] | select(.default == true)] | length' "${file}" 2>/dev/null)"
+  if [ -z "${default_count}" ]; then
+    _resolver_log "Cannot count the default clusters in the configuration."
+    return 1
+  fi
   if [ "${default_count}" -gt 1 ]; then
     _resolver_log "The cluster configuration declares ${default_count} default clusters, only one is allowed."
     return 1
@@ -278,6 +286,10 @@ resolver_check_config() {
   # `refs: main` instead of `refs: [main]` yields no patterns at all, so the
   # entry would be skipped in silence and the default cluster chosen instead.
   scalar_refs_count="$(yq4 e '[.clusters[] | select(has("refs") and (.refs | tag) != "!!seq")] | length' "${file}" 2>/dev/null)"
+  if [ -z "${scalar_refs_count}" ]; then
+    _resolver_log "Cannot check the refs lists in the configuration."
+    return 1
+  fi
   if [ "${scalar_refs_count}" != "0" ]; then
     _resolver_log "The cluster configuration declares ${scalar_refs_count} clusters whose 'refs' is not a list."
     return 1
@@ -379,12 +391,19 @@ resolver_emit_selected() {
   case "${use_dns_endpoint}" in
   true) use_dns_flag="1" ;;
   false) use_dns_flag="0" ;;
-  *)
+  '')
     # No explicit flag: infer it from the presence of a dns_endpoint, so a
     # configuration written before the flag existed keeps working.
     if [ -n "${dns_endpoint}" ]; then
       use_dns_flag="1"
     fi
+    ;;
+  *)
+    # A value like "1", yes or on reaches this branch as a string. Falling
+    # into the infer branch would silently replace what the author asked for
+    # with a guess, so it is an error instead.
+    _resolver_log "The cluster '${name}' declares an unrecognized use_dns_endpoint value '${use_dns_endpoint}', only true and false are accepted."
+    return 1
     ;;
   esac
 

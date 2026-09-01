@@ -1,4 +1,3 @@
-version: 1
 clusters:
   - name: inferred
     default: true
