@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
 
-# This file contains functions and the few variables they use to return values
-# to their caller. Nothing is executed here: sourcing this file makes all
-# functions available without touching the environment.
-#
-# These functions implement the runtime ref-to-cluster resolver. They read the
-# project cluster configuration pointed to by SPARK_K8S_CONFIG and pick the
-# cluster that owns the current git ref, then print the variables consumed by
-# the `.gke-kubeconfig` template as shell `export` lines on stdout.
-#
-# Diagnostics go to stderr, so stdout stays eval-able.
+# Runtime ref-to-cluster resolver: reads SPARK_K8S_CONFIG, picks the cluster that
+# owns the current ref and prints `export` lines on stdout, diagnostics on stderr.
 
 # Supported cluster configuration schema version.
 RESOLVER_SUPPORTED_SCHEMA_VERSION=1
@@ -28,12 +20,8 @@ _resolver_log() {
   printf '%s\n' "${*}" >&2
 }
 
-# Print the normalized ref of the current pipeline.
-#
-# Only CI_COMMIT_TAG and CI_COMMIT_BRANCH are read. CI_COMMIT_REF_NAME does not
-# distinguish a tag from a branch, so with it a tag named "main" would match a
-# branch rule. Prints nothing when the pipeline has no ref, which is the case
-# for merge request pipelines.
+# Print refs/tags/<tag> or refs/heads/<branch>, nothing on merge request pipelines.
+# CI_COMMIT_REF_NAME is never read: a tag named main must not match a branch rule.
 resolver_normalized_ref() {
   if [ -n "${CI_COMMIT_TAG:-}" ]; then
     printf 'refs/tags/%s' "${CI_COMMIT_TAG}"
@@ -62,11 +50,8 @@ _resolver_ere_escape_char() {
   esac
 }
 
-# Translate a glob pattern into an anchored POSIX ERE.
-#
-# `*` does not cross a slash, `**` does, `?` matches a single non-slash
-# character and a backslash escapes the next character. Bracket expressions are
-# not supported: their brackets are translated to literals.
+# Translate a glob into an anchored POSIX ERE: `*` does not cross a slash, `**` does,
+# `?` is one non-slash character, `\` escapes. Bracket expressions stay literal.
 resolver_glob_to_ere() {
   local pattern="${1}"
   local length=${#pattern}
@@ -107,23 +92,16 @@ resolver_glob_to_ere() {
   printf '^%s$' "${out}"
 }
 
-# Translate the inner part of a /regex/ pattern into a POSIX ERE.
-#
-# ERE has none of the PCRE shorthand classes, so the ones that appear in real
-# GitLab configuration are expanded. Any other backslash shorthand, and any
-# `(?...)` group, is rejected: silently matching nothing is worse than failing
-# with the offending pattern in the log. The result is not anchored, so `^` and
-# `$` behave as the author wrote them.
+# Translate the inner part of a /regex/ into POSIX ERE, expanding \d \D \w \W \s \S
+# and rejecting any other shorthand or `(?` group. The result is not anchored.
 resolver_regex_to_ere() {
   local pattern="${1}"
   local length=${#pattern}
   local index=0
   local out=""
   local char next
-  # Index of the `[` opening the current bracket expression, or -1. A PCRE
-  # shorthand inside a bracket expression cannot be expanded: `[\d]` would
-  # become `[[0-9]]`, a bracket expression followed by a literal `]`, which
-  # never matches and would send the ref to the default cluster in silence.
+  # Start index of the open bracket expression, or -1: a shorthand inside `[...]`
+  # would become `[[0-9]]`, which never matches.
   local bracket_start=-1
 
   while [ "${index}" -lt "${length}" ]; do
@@ -194,13 +172,8 @@ _resolver_is_regex_pattern() {
   [ "${#1}" -ge 2 ] && [ "${1:0:1}" = "/" ] && [ "${1: -1}" = "/" ]
 }
 
-# Translate every regex pattern of every cluster once, discarding the result.
-#
-# Matching stops at the first hit, so without this an unsupported pattern in an
-# entry the scan never reaches would only fail on the refs that reach it: the
-# same configuration would be valid on `main` and break every job of every
-# other pipeline. A pattern error is a configuration error and has to fail
-# identically on every ref.
+# Translate every regex pattern up front, so an unsupported pattern fails on every
+# ref instead of only on the refs that reach that entry.
 resolver_check_patterns() {
   local file="${1}"
   local count index pattern
@@ -224,15 +197,8 @@ resolver_check_patterns() {
   return 0
 }
 
-# Return 0 when the pattern owns the given ref, 1 when it does not and 2 when
-# the pattern itself is invalid.
-#
-# A glob always matches the normalized ref, prefixed with refs/heads/ when the
-# pattern does not already name a ref namespace. A /regex/ that mentions refs/
-# matches the normalized ref as well; a /regex/ that does not matches the short
-# branch name and only on branch pipelines. That asymmetry is what keeps
-# `/^release-\d+$/` from matching a tag named release-1, without rewriting a
-# user supplied pattern.
+# Return 0 when the pattern owns the ref, 1 when not, 2 when the pattern is invalid.
+# A glob matches the normalized ref; a /regex/ only if it mentions refs/, else the short name.
 resolver_pattern_matches() {
   local pattern="${1}"
   local ref="${2}"
@@ -247,10 +213,8 @@ resolver_pattern_matches() {
     if ! ere="$(resolver_regex_to_ere "${pattern:1:${#pattern}-2}")"; then
       return 2
     fi
-    # "Mentions refs/" means refs/ at the start of the expression or preceded
-    # by a non-word character, not a plain substring: with a substring test a
-    # pattern like /^prefs\/x$/ would be matched against the normalized ref
-    # and silently never match the prefs/x branch.
+    # refs/ counts only at the start or after a non-word character, so /^prefs\/x$/
+    # still matches the branch prefs/x.
     if printf '%s' "${ere}" | grep -Eq '(^|[^A-Za-z0-9_])refs/'; then
       target="${ref}"
     else
@@ -270,16 +234,8 @@ resolver_pattern_matches() {
   printf '%s' "${target}" | grep -Eq -- "${ere}"
 }
 
-# Set RESOLVER_CONFIG_FILE to the configuration file to read.
-#
-# A GitLab File type variable holds a path, not the content. When the value is
-# not a readable file it is treated as inline YAML and materialized into a
-# temporary file, which keeps the resolver easy to drive from tests.
-#
-# The result is returned through a global rather than printed: a command
-# substitution would run this in a subshell, and the temporary file path
-# recorded in RESOLVER_TMP_CONFIG_FILE would be lost together with it, leaving
-# the file behind.
+# Set RESOLVER_CONFIG_FILE to a readable .yaml path: jv picks its parser from the extension
+# and a File variable path has none. A global, since a subshell would lose RESOLVER_TMP_CONFIG_DIR.
 resolver_config_file() {
   local value="${1}"
   local tmp
@@ -307,9 +263,8 @@ resolver_config_file() {
   RESOLVER_CONFIG_FILE="${tmp}"
 }
 
-# Validate the configuration file: parseable YAML, a supported schema version,
-# a non empty `clusters` sequence, at most one default cluster and a list in
-# every declared `refs`.
+# Validate the file: parseable YAML, supported version, non-empty clusters list,
+# at most one default, every refs a list, every regex translatable.
 resolver_check_config() {
   local file="${1}"
   local version kind length default_count scalar_refs_count
@@ -335,9 +290,7 @@ resolver_check_config() {
     return 1
   fi
 
-  # An empty count means the yq4 invocation itself failed. Without this guard
-  # the -gt test below errors and the `if` treats that as false, so a transient
-  # parser failure would pass validation instead of failing it.
+  # Empty means yq4 failed; without this guard `[ "" -gt 1 ]` errors and reads as false.
   default_count="$(yq4 e '[.clusters[] | select(.default == true)] | length' "${file}" 2>/dev/null)"
   if [ -z "${default_count}" ]; then
     _resolver_log "Cannot count the default clusters in the configuration."
@@ -370,12 +323,8 @@ resolver_cluster_count() {
   yq4 e '.clusters | length' "${1}"
 }
 
-# Print a scalar field of a cluster, empty when it is not declared.
-#
-# The `//` alternative operator is not used on purpose: in yq, as in jq, it also
-# replaces `false`, which would silently turn `use_dns_endpoint: false` into the
-# default. A missing field prints `null` instead, and that is mapped to empty
-# here.
+# Print a scalar field, empty when absent. `//` is avoided on purpose: it also
+# replaces `false`, which would turn `use_dns_endpoint: false` into the default.
 resolver_cluster_field() {
   local value
 
@@ -398,12 +347,8 @@ resolver_default_index() {
   yq4 e '.clusters | to_entries | .[] | select(.value.default == true) | .key' "${1}"
 }
 
-# Warn when the GitLab Agent variables are set together with the resolver.
-#
-# The resolver wins: it exports DISABLE_GITLAB_AGENT=1 and `setup-gitlab-agent`
-# refuses to run while SPARK_K8S_CONFIG is set. Once every agent path project
-# has migrated this can become a hard failure by replacing the `return 0` below
-# with `return 1`; the caller already treats a non zero return as fatal.
+# Warn when GitLab Agent variables coexist with the resolver; the resolver wins.
+# To make this fatal after the migration, replace the final `return 0` with `return 1`.
 resolver_warn_on_agent_variables() {
   local var_name
   local found=0
@@ -430,10 +375,8 @@ _resolver_emit_export() {
   printf "export %s='%s'\n" "${1}" "${value}"
 }
 
-# Print the export lines for the cluster at the given index.
-#
-# The DNS endpoint is exported for downstream use but never logged: it
-# identifies a private control plane and a job log is not a good place for it.
+# Print the export lines for the cluster at the given index. The DNS endpoint is
+# exported but never logged.
 resolver_emit_selected() {
   local file="${1}"
   local index="${2}"
@@ -466,9 +409,7 @@ resolver_emit_selected() {
     fi
     ;;
   *)
-    # A value like "1", yes or on reaches this branch as a string. Falling
-    # into the infer branch would silently replace what the author asked for
-    # with a guess, so it is an error instead.
+    # "1", yes or on arrive as strings; guessing would mask the typo, so it is an error.
     _resolver_log "The cluster '${name}' declares an unrecognized use_dns_endpoint value '${use_dns_endpoint}', only true and false are accepted."
     return 1
     ;;
@@ -482,10 +423,8 @@ resolver_emit_selected() {
   _resolver_emit_export "DISABLE_GITLAB_AGENT" "1"
 }
 
-# Resolve the cluster that owns the current ref and print its export lines.
-#
-# Returns 0 when a cluster was selected, 3 when the pipeline has no ref to
-# resolve and 1 on any configuration error.
+# Resolve the cluster owning the current ref and print its export lines.
+# Returns 0 on selection, 3 when the pipeline has no ref, 1 on a configuration error.
 resolve_cluster() {
   local file ref kind count index pattern rc name
 
@@ -511,9 +450,8 @@ resolve_cluster() {
   ref="$(resolver_normalized_ref)"
   kind="$(resolver_ref_kind)"
 
-  # Merge request pipelines have neither CI_COMMIT_TAG nor CI_COMMIT_BRANCH.
-  # There is no ref to resolve, and falling back to the default cluster here
-  # would deploy a merge request to whatever cluster is marked default.
+  # No ref (merge request pipeline): nothing to resolve, and the default cluster
+  # must not be used for a merge request.
   if [ -z "${ref}" ]; then
     _resolver_log "The pipeline has no branch or tag ref, no cluster can be resolved."
     return 3

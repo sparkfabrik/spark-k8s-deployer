@@ -48,8 +48,7 @@ jobs:
 
   cluster-resolver:
     runs-on: ubuntu-latest
-    # This job has no branch condition on purpose: the resolver decides which
-    # cluster a deploy talks to, so its suite must also run on master pushes.
+    # No branch condition on purpose: the suite must also run on master pushes.
     steps:
       - uses: actions/checkout@v4
 

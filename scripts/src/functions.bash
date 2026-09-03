@@ -143,8 +143,7 @@ _gitlab-agent-print-vars() {
     "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
     "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
     "NON_DEVELOP_BRANCHES_REGEX"; do
-    # SPARK_K8S_CONFIG may hold the whole cluster configuration inline, DNS
-    # endpoints included, so only its presence is printed.
+    # SPARK_K8S_CONFIG may hold the whole configuration inline, so only its presence is printed.
     if [ "${VAR_NAME}" = "SPARK_K8S_CONFIG" ]; then
       if [ -z "${SPARK_K8S_CONFIG:-}" ]; then
         printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "not set"
@@ -209,11 +208,8 @@ setup-gitlab-agent() {
   _gitlab-agent-print-workflow
   print-banner "END SETUP GITLAB AGENT"
 
-  # If the cluster resolver is active, it owns the cluster choice and the agent
-  # must not switch the context. This guard is not redundant with the
-  # DISABLE_GITLAB_AGENT=1 exported by the resolver: `scripts/helm-init` calls
-  # this function again for jobs that override the whole before_script, where
-  # the resolver never ran.
+  # The resolver owns the cluster choice. Needed besides DISABLE_GITLAB_AGENT=1 because
+  # scripts/helm-init calls this again for jobs that override the whole before_script.
   if [ -n "${SPARK_K8S_CONFIG:-}" ]; then
     return
   fi

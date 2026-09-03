@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 
-# Resolve the cluster that owns the current git ref from the project cluster
-# configuration in SPARK_K8S_CONFIG, and print the resulting variables as shell
-# `export` lines on stdout, so the caller can eval them.
-#
-# Exit codes:
-#   0  a cluster was selected, its export lines are on stdout
-#   3  the pipeline has no branch or tag ref, nothing was selected
-#   1  the configuration is missing, unreadable or invalid
+# Resolve the cluster owning the current ref from SPARK_K8S_CONFIG and print `export`
+# lines on stdout. Exit 0 selected, 3 no ref to resolve, 1 invalid configuration.
 
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -21,9 +15,7 @@ export DEPLOY_ROOT_DIR
 # shellcheck disable=SC1091
 source "$DEPLOY_ROOT_DIR/src/cluster-resolver.bash"
 
-# The configuration may have been materialized into a temporary file. This runs
-# in its own process, so the trap cannot interfere with the ones installed by
-# the CI before_script chain.
+# Own process, so this trap cannot clobber the ones set by the CI before_script chain.
 trap 'rm -f "${RESOLVER_TMP_CONFIG_FILE:-}"' EXIT
 
 resolve_cluster

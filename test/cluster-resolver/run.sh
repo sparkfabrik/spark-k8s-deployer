@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 
-# Table driven tests for scripts/resolve-cluster.
-#
-# The resolver parses YAML with yq4, so this suite must run where yq4 is
-# available. The deployer image ships it:
-#
-#   make test-cluster-resolver
-#
-# Exits non zero when any case fails.
+# Table driven tests for scripts/resolve-cluster, plus the schema gate that checks every
+# fixture against schemas/cluster-config.schema.json in both directions. Needs yq4 and jv.
 
 set -uo pipefail
 
@@ -49,10 +43,8 @@ fixture() {
   printf '%s/%s' "${FIXTURES_DIR}" "${1}"
 }
 
-# run_resolver <config> <tag> <branch>
-#
-# The GitLab Agent variables are cleared so the conflict warning does not
-# depend on the environment the suite runs in.
+# run_resolver <config> <tag> <branch>. Agent variables are cleared so the
+# coexistence warning does not depend on the environment.
 run_resolver() {
   CI_COMMIT_TAG="${2}" \
     CI_COMMIT_BRANCH="${3}" \
@@ -192,8 +184,7 @@ assert_exit "an unsupported regex construct fails the resolution" 1 \
 assert_exit "a PCRE shorthand inside a bracket expression fails the resolution" 1 \
   "$(fixture bracket-shorthand.yaml)" "" "v12"
 
-# Pattern errors must not depend on which entry the scan reaches: here the
-# broken pattern sits above an entry that matches main.
+# A pattern error must not depend on the ref: here the broken pattern sits above a match.
 assert_exit "an unsupported pattern fails even when a lower entry matches" 1 \
   "$(fixture lazy-regex.yaml)" "" "main"
 
@@ -276,8 +267,7 @@ assert_cluster "inline YAML is accepted instead of a path" \
   "$(cat "$(fixture basic.yaml)")" "" "main" \
   "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog"
 
-# The output is eval'd by the CI wrapper, so it must survive a hostile cluster
-# name without executing anything.
+# The output is eval'd by the CI wrapper, so a hostile cluster name must not execute.
 assert_eval_safety() {
   local description="eval of the exports does not execute a hostile cluster name"
   local output
@@ -306,10 +296,8 @@ assert_eval_safety() {
   rm -f "${PWNED_MARKER}" /tmp/spark-k8s-resolver-eval.log
 }
 
-# An inline configuration is written to a temporary file, which the resolver has
-# to remove before exiting. The resolver is pointed at a private TMPDIR, so the
-# check cannot be flipped by an unrelated process touching the shared /tmp
-# while the suite runs directly on a CI runner.
+# The resolver must remove the temporary file it writes for an inline configuration.
+# A private TMPDIR keeps the check deterministic on a shared runner.
 assert_no_temporary_file_leak() {
   local description="an inline configuration leaves no temporary file behind"
   local tmpdir leftover
@@ -326,9 +314,7 @@ assert_no_temporary_file_leak() {
   fi
 }
 
-# The GitLab Agent and the resolver are mutually exclusive: agent variables set
-# alongside SPARK_K8S_CONFIG produce a warning, the resolution still succeeds,
-# and setup-gitlab-agent must not switch the kubectl context.
+# Agent variables alongside SPARK_K8S_CONFIG must warn, still resolve, and never switch context.
 assert_agent_coexistence() {
   local description="agent variables alongside the resolver warn and are ignored"
   local output errors rc
@@ -359,7 +345,7 @@ assert_agent_setup_skipped() {
   local output
 
   output="$(
-    # Invoked indirectly by setup-gitlab-agent, if the guard fails.
+    # Invoked by setup-gitlab-agent only if the guard fails.
     # shellcheck disable=SC2317
     kubectl() { printf 'KUBECTL CALLED: %s\n' "$*"; return 1; }
     export -f kubectl
