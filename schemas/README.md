@@ -21,6 +21,11 @@ request, so the red light for a local edit shows up over there, not here.
 To change the schema, change it in the generator and let the sync pull request
 bring the new copy in.
 
+The initial copy was taken verbatim from the generator branch of
+sf-platform-generator!178 at commit `aae04f74`, ahead of the first automatic sync,
+so that validation and the test gate are active from the start. The sync pull
+request owns every update from there on.
+
 ## What this repository does with it
 
 The cluster resolver validates `$SPARK_K8S_CONFIG` against this copy before

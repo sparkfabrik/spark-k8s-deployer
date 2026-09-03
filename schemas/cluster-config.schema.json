@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkfabrik.com/sparkplatform/cluster-config/v1.schema.json",
+  "title": "Spark K8s Cluster Config",
+  "description": "Cluster routing document injected into consumer GitLab projects as the SPARK_K8S_CONFIG File-type CI/CD variable and resolved at runtime by the spark-k8s-deployer resolver (/scripts/resolve-cluster). The format version lives in this schema's $id; a document declares `version` only when a later schema version exists. Source of truth: this file (sf-platform-generator); the copy in spark-k8s-deployer must stay identical.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clusters"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Configuration format version. Optional: the resolver treats an absent version as 1. Documents conforming to this schema either omit it or declare 1."
+    },
+    "clusters": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Clusters the project deploys to. Scanned bottom-up at resolution time: the first entry whose refs matches the normalized ref wins (last declared wins, gitignore style); no match falls back to the default entry.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "project_id", "location", "default", "refs"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$",
+            "description": "GKE cluster name, exported as K8S_CLUSTER_NAME."
+          },
+          "project_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+            "description": "GCP project ID hosting the cluster, exported as GCP_PROJECT_ID."
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cluster region or zone, exported as K8S_LOCATION."
+          },
+          "dns_endpoint": {
+            "type": "string",
+            "description": "DNS endpoint of the control plane, exported as SPARK_K8S_CLUSTER_DNS_ENDPOINT. May be empty for clusters without one."
+          },
+          "use_dns_endpoint": {
+            "type": "boolean",
+            "description": "Sets K8S_USE_DNS_ENDPOINT. When absent the resolver infers it from the presence of dns_endpoint."
+          },
+          "default": {
+            "type": "boolean",
+            "description": "Marks the fallback cluster used when no refs pattern matches. Exactly one entry carries true."
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Git ref patterns this cluster owns. Globs by default (* does not cross a slash, ** does; a pattern without a leading refs/ is matched against refs/heads/); a pattern wrapped in slashes is a regular expression. Empty on the default entry."
+          }
+        }
+      },
+      "contains": {
+        "type": "object",
+        "properties": {
+          "default": {
+            "const": true
+          }
+        },
+        "required": ["default"]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    }
+  }
+}
