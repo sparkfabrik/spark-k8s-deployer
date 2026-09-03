@@ -1,0 +1,11 @@
+clusters:
+  - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
+    default: true
+    refs: []
+  - name: multi
+    project_id: spark-multi-project
+    location: europe-west1
+    default: false
+    refs: [main, "release/*", "hotfix/**"]
