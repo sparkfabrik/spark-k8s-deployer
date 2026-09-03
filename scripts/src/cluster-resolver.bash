@@ -260,9 +260,14 @@ resolver_config_file() {
   RESOLVER_TMP_CONFIG_DIR="${dir}"
   target="${dir}/cluster-config.yaml"
 
+  # Copy rather than link: a relative path would dangle from the temporary directory,
+  # and a copy is a stable snapshot between validation and parsing.
   if [ -f "${value}" ] && [ -r "${value}" ]; then
-    if ! ln -s "${value}" "${target}"; then
-      _resolver_log "Cannot link the cluster configuration into ${dir}."
+    if ! (
+      umask 077
+      cat -- "${value}" >"${target}"
+    ); then
+      _resolver_log "Cannot copy the cluster configuration into ${dir}."
       return 1
     fi
   elif ! (
@@ -280,11 +285,6 @@ resolver_config_file() {
 # no override: a project could point it at a permissive schema.
 resolver_schema_file() {
   local candidate
-
-  if [ -n "${SPARK_K8S_CONFIG_SCHEMA:-}" ]; then
-    printf '%s' "${SPARK_K8S_CONFIG_SCHEMA}"
-    return 0
-  fi
 
   for candidate in "/schemas/cluster-config.schema.json" \
     "${DEPLOY_ROOT_DIR:-}/../schemas/cluster-config.schema.json"; do

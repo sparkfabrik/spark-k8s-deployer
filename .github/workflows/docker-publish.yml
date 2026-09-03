@@ -72,7 +72,8 @@ jobs:
           shellcheck -x \
             scripts/resolve-cluster \
             scripts/src/cluster-resolver.bash \
-            test/cluster-resolver/run.sh
+            test/cluster-resolver/run.sh \
+            test/cluster-resolver/resolve-with-schema
 
       # The suite also runs the schema gate against schemas/cluster-config.schema.json.
       - name: Run the cluster resolver test suite

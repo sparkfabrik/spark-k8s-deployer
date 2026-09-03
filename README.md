@@ -195,10 +195,10 @@ draft 2020-12, because the exactly-one-default rule is expressed with
 schema happily and ignores those keywords, which would let a two-default
 document through.
 
-There is no variable to turn validation off. `SPARK_K8S_CONFIG_SCHEMA` can
-point the resolver at a different schema file, which is how the test suite
-exercises documents nobody should emit, but the resolver always validates
-against something when a schema and `jv` are both available.
+There is no variable to turn validation off, and none to point the resolver at a
+different schema: the copy shipped with the image is the only one it reads. The
+test suite reaches the resolver through a test-only wrapper for the fixtures that
+exercise documents nobody should emit.
 
 #### Interaction with the GitLab Agent
 

@@ -8,6 +8,7 @@ set -uo pipefail
 TEST_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -P "${TEST_DIR}/../.." && pwd)"
 RESOLVER="${ROOT_DIR}/scripts/resolve-cluster"
+WRAPPER="${TEST_DIR}/resolve-with-schema"
 FIXTURES_DIR="${TEST_DIR}/fixtures"
 PWNED_MARKER="/tmp/spark-k8s-resolver-pwned"
 
@@ -77,20 +78,32 @@ schema_for_config() {
   fi
 }
 
-# run_resolver <config> <tag> <branch>. Agent variables are cleared so the
-# coexistence warning does not depend on the environment.
-run_resolver() {
+# invoke_resolver <config> <tag> <branch>: the real entrypoint for a production layout,
+# the test wrapper when the fixture needs a schema the entrypoint would not find.
+invoke_resolver() {
+  local schema binary
+  schema="$(schema_for_config "${1}")"
+  binary="${RESOLVER}"
+  if [ -n "${schema}" ] && [ "${schema}" != "${ROOT_DIR}/schemas/cluster-config.schema.json" ]; then
+    binary="${WRAPPER}"
+  fi
   CI_COMMIT_TAG="${2}" \
     CI_COMMIT_BRANCH="${3}" \
     SPARK_K8S_CONFIG="${1}" \
-    SPARK_K8S_CONFIG_SCHEMA="$(schema_for_config "${1}")" \
-    GITLAB_AGENT_ID="" \
+    RESOLVER_TEST_SCHEMA="${schema}" \
+    "${binary}"
+}
+
+# run_resolver <config> <tag> <branch>. Agent variables are cleared so the
+# coexistence warning does not depend on the environment.
+run_resolver() {
+  GITLAB_AGENT_ID="" \
     GITLAB_AGENT_PROJECT="" \
     DEVELOP_GITLAB_AGENT_ID="" \
     DEVELOP_GITLAB_AGENT_PROJECT="" \
     PRODUCTION_GITLAB_AGENT_ID="" \
     PRODUCTION_GITLAB_AGENT_PROJECT="" \
-    "${RESOLVER}" 2>/dev/null
+    invoke_resolver "${1}" "${2}" "${3}" 2>/dev/null
 }
 
 expected_exports() {
@@ -429,13 +442,10 @@ assert_agent_coexistence() {
   local description="agent variables alongside the resolver warn and are ignored"
   local output errors rc
 
-  output="$(CI_COMMIT_TAG="" CI_COMMIT_BRANCH="main" \
-    SPARK_K8S_CONFIG="$(fixture basic.yaml)" \
-    SPARK_K8S_CONFIG_SCHEMA="$(schema_for_config "$(fixture basic.yaml)")" \
-    GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
+  output="$(GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
     DEVELOP_GITLAB_AGENT_ID="" DEVELOP_GITLAB_AGENT_PROJECT="" \
     PRODUCTION_GITLAB_AGENT_ID="" PRODUCTION_GITLAB_AGENT_PROJECT="" \
-    "${RESOLVER}" 2>/tmp/spark-k8s-resolver-agent.err)"
+    invoke_resolver "$(fixture basic.yaml)" "" "main" 2>/tmp/spark-k8s-resolver-agent.err)"
   rc=$?
   errors="$(cat /tmp/spark-k8s-resolver-agent.err)"
   rm -f /tmp/spark-k8s-resolver-agent.err
