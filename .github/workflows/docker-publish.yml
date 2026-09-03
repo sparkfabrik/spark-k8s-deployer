@@ -43,8 +43,13 @@ jobs:
           context: .
           build-args: |
             GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ env.IMAGE_NAME }}:test
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Smoke test the tools installed in the image
+        run: make test-image-tools IMAGE="${{ env.IMAGE_NAME }}:test"
 
   deploy:
     runs-on: ubuntu-latest
