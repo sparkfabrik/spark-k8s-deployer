@@ -35,7 +35,7 @@ TOLERANCE_SCHEMA="${TEST_DIR}/schemas/tolerance.schema.json"
 # Fixtures that must validate against the generator schema. They carry `name`,
 # `project_id`, `location`, `default` and `refs` on every entry and exactly one
 # default cluster, which is what the generator emits.
-SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml"
+SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml"
 
 # Fixtures the generator schema must reject. Most exercise what the resolver
 # does with a document nobody should emit; the rest are invalid on purpose.
@@ -465,6 +465,7 @@ assert_agent_coexistence() {
 
   output="$(CI_COMMIT_TAG="" CI_COMMIT_BRANCH="main" \
     SPARK_K8S_CONFIG="$(fixture basic.yaml)" \
+    SPARK_K8S_CONFIG_SCHEMA="$(schema_for_config "$(fixture basic.yaml)")" \
     GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
     DEVELOP_GITLAB_AGENT_ID="" DEVELOP_GITLAB_AGENT_PROJECT="" \
     PRODUCTION_GITLAB_AGENT_ID="" PRODUCTION_GITLAB_AGENT_PROJECT="" \
