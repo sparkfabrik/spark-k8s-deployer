@@ -319,6 +319,31 @@ assert_cluster "a regex merely containing refs/ still matches the short branch n
 assert_exit "an unsupported regex construct fails the resolution" 1 \
   "$(fixture bad-regex.yaml)" "" "main"
 
+assert_exit "a PCRE shorthand inside a bracket expression fails the resolution" 1 \
+  "$(fixture bracket-shorthand.yaml)" "" "v12"
+
+# Pattern errors must not depend on which entry the scan reaches: here the
+# broken pattern sits above an entry that matches main.
+assert_exit "an unsupported pattern fails even when a lower entry matches" 1 \
+  "$(fixture lazy-regex.yaml)" "" "main"
+
+# A refs list with several patterns: every element has to be considered.
+assert_cluster "the first pattern of a multi-pattern list matches" \
+  "$(fixture multi-refs.yaml)" "" "main" \
+  "multi" "spark-multi-project" "europe-west1" "0" ""
+
+assert_cluster "the middle pattern of a multi-pattern list matches" \
+  "$(fixture multi-refs.yaml)" "" "release/1" \
+  "multi" "spark-multi-project" "europe-west1" "0" ""
+
+assert_cluster "the last pattern of a multi-pattern list matches" \
+  "$(fixture multi-refs.yaml)" "" "hotfix/a/b" \
+  "multi" "spark-multi-project" "europe-west1" "0" ""
+
+assert_cluster "a ref matching none of a multi-pattern list falls back" \
+  "$(fixture multi-refs.yaml)" "" "develop" \
+  "fallback" "spark-fallback-project" "europe-west1" "0" ""
+
 # DNS endpoint flag.
 assert_cluster "an explicit use_dns_endpoint false wins over a declared endpoint" \
   "$(fixture dns.yaml)" "" "off-branch" \
@@ -431,7 +456,60 @@ assert_no_temporary_file_leak() {
   fi
 }
 
+# The GitLab Agent and the resolver are mutually exclusive: agent variables set
+# alongside SPARK_K8S_CONFIG produce a warning, the resolution still succeeds,
+# and setup-gitlab-agent must not switch the kubectl context.
+assert_agent_coexistence() {
+  local description="agent variables alongside the resolver warn and are ignored"
+  local output errors rc
+
+  output="$(CI_COMMIT_TAG="" CI_COMMIT_BRANCH="main" \
+    SPARK_K8S_CONFIG="$(fixture basic.yaml)" \
+    GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
+    DEVELOP_GITLAB_AGENT_ID="" DEVELOP_GITLAB_AGENT_PROJECT="" \
+    PRODUCTION_GITLAB_AGENT_ID="" PRODUCTION_GITLAB_AGENT_PROJECT="" \
+    "${RESOLVER}" 2>/tmp/spark-k8s-resolver-agent.err)"
+  rc=$?
+  errors="$(cat /tmp/spark-k8s-resolver-agent.err)"
+  rm -f /tmp/spark-k8s-resolver-agent.err
+
+  if [ "${rc}" != "0" ]; then
+    report_fail "${description}" "expected exit 0, got ${rc}"
+  elif ! printf '%s' "${output}" | grep -q "^export DISABLE_GITLAB_AGENT='1'$"; then
+    report_fail "${description}" "DISABLE_GITLAB_AGENT=1 was not exported"
+  elif ! printf '%s' "${errors}" | grep -q "GITLAB_AGENT_ID is set together with SPARK_K8S_CONFIG"; then
+    report_fail "${description}" "no warning about GITLAB_AGENT_ID on stderr"
+  else
+    report_pass "${description}"
+  fi
+}
+
+assert_agent_setup_skipped() {
+  local description="setup-gitlab-agent does not switch context while the resolver is active"
+  local output
+
+  output="$(
+    # Invoked indirectly by setup-gitlab-agent, if the guard fails.
+    # shellcheck disable=SC2317
+    kubectl() { printf 'KUBECTL CALLED: %s\n' "$*"; return 1; }
+    export -f kubectl
+    SPARK_K8S_CONFIG="/nonexistent/config.yaml" GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
+      CI_COMMIT_REF_SLUG="main" KUBE_NAMESPACE="ns" \
+      bash -c 'source "'"${ROOT_DIR}"'/scripts/src/functions.bash"; setup-gitlab-agent' 2>&1
+  )"
+
+  if printf '%s' "${output}" | grep -q "KUBECTL CALLED"; then
+    report_fail "${description}" "kubectl was invoked:" "${output}"
+  elif ! printf '%s' "${output}" | grep -q "cluster resolver is active"; then
+    report_fail "${description}" "no resolver notice in the output"
+  else
+    report_pass "${description}"
+  fi
+}
+
 assert_eval_safety
+assert_agent_coexistence
+assert_agent_setup_skipped
 assert_no_temporary_file_leak
 
 printf '\n%s passed, %s failed\n' "${PASSED}" "${FAILED}"

@@ -143,6 +143,18 @@ _gitlab-agent-print-vars() {
     "DEVELOP_GITLAB_AGENT_PROJECT" "DEVELOP_GITLAB_AGENT_ID" \
     "PRODUCTION_GITLAB_AGENT_PROJECT" "PRODUCTION_GITLAB_AGENT_ID" \
     "NON_DEVELOP_BRANCHES_REGEX"; do
+    # SPARK_K8S_CONFIG may hold the whole cluster configuration inline, DNS
+    # endpoints included, so only its presence is printed.
+    if [ "${VAR_NAME}" = "SPARK_K8S_CONFIG" ]; then
+      if [ -z "${SPARK_K8S_CONFIG:-}" ]; then
+        printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "not set"
+      elif [ -f "${SPARK_K8S_CONFIG}" ]; then
+        printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "set (file)"
+      else
+        printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "set (inline)"
+      fi
+      continue
+    fi
     printf "%-${PAD_LEN}s \e[1m%s\e[0m\n" "${VAR_NAME}:" "${!VAR_NAME}"
   done
 }

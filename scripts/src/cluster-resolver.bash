@@ -120,6 +120,11 @@ resolver_regex_to_ere() {
   local index=0
   local out=""
   local char next
+  # Index of the `[` opening the current bracket expression, or -1. A PCRE
+  # shorthand inside a bracket expression cannot be expanded: `[\d]` would
+  # become `[[0-9]]`, a bracket expression followed by a literal `]`, which
+  # never matches and would send the ref to the default cluster in silence.
+  local bracket_start=-1
 
   while [ "${index}" -lt "${length}" ]; do
     char="${pattern:index:1}"
@@ -127,6 +132,14 @@ resolver_regex_to_ere() {
     "\\")
       index=$((index + 1))
       next="${pattern:index:1}"
+      case "${next}" in
+      d | D | w | W | s | S)
+        if [ "${bracket_start}" -ge 0 ]; then
+          _resolver_log "Unsupported escape sequence '\\${next}' inside a bracket expression in regex pattern '/${pattern}/'."
+          return 1
+        fi
+        ;;
+      esac
       case "${next}" in
       'd') out="${out}[0-9]" ;;
       'D') out="${out}[^0-9]" ;;
@@ -143,11 +156,28 @@ resolver_regex_to_ere() {
       esac
       ;;
     '(')
-      if [ "${pattern:index+1:1}" = "?" ]; then
+      if [ "${bracket_start}" -lt 0 ] && [ "${pattern:index+1:1}" = "?" ]; then
         _resolver_log "Unsupported group '(?' in regex pattern '/${pattern}/'."
         return 1
       fi
       out="${out}("
+      ;;
+    '[')
+      if [ "${bracket_start}" -lt 0 ]; then
+        bracket_start=${index}
+      fi
+      out="${out}["
+      ;;
+    ']')
+      # A `]` right after `[` or `[^` is a literal member, not the closing
+      # bracket, so only a later `]` ends the expression.
+      if [ "${bracket_start}" -ge 0 ]; then
+        if [ "${index}" -ne "$((bracket_start + 1))" ] &&
+          ! { [ "${index}" -eq "$((bracket_start + 2))" ] && [ "${pattern:bracket_start+1:1}" = "^" ]; }; then
+          bracket_start=-1
+        fi
+      fi
+      out="${out}]"
       ;;
     *)
       out="${out}${char}"
@@ -157,6 +187,41 @@ resolver_regex_to_ere() {
   done
 
   printf '%s' "${out}"
+}
+
+# Return 0 when the pattern uses the /regex/ form.
+_resolver_is_regex_pattern() {
+  [ "${#1}" -ge 2 ] && [ "${1:0:1}" = "/" ] && [ "${1: -1}" = "/" ]
+}
+
+# Translate every regex pattern of every cluster once, discarding the result.
+#
+# Matching stops at the first hit, so without this an unsupported pattern in an
+# entry the scan never reaches would only fail on the refs that reach it: the
+# same configuration would be valid on `main` and break every job of every
+# other pipeline. A pattern error is a configuration error and has to fail
+# identically on every ref.
+resolver_check_patterns() {
+  local file="${1}"
+  local count index pattern
+
+  count="$(resolver_cluster_count "${file}")"
+  if [ -z "${count}" ]; then
+    _resolver_log "Cannot count the clusters in the configuration."
+    return 1
+  fi
+
+  index=0
+  while [ "${index}" -lt "${count}" ]; do
+    while IFS= read -r pattern; do
+      if _resolver_is_regex_pattern "${pattern}"; then
+        resolver_regex_to_ere "${pattern:1:${#pattern}-2}" >/dev/null || return 1
+      fi
+    done < <(resolver_cluster_refs "${file}" "${index}")
+    index=$((index + 1))
+  done
+
+  return 0
 }
 
 # Return 0 when the pattern owns the given ref, 1 when it does not and 2 when
@@ -178,7 +243,7 @@ resolver_pattern_matches() {
     return 1
   fi
 
-  if [ "${#pattern}" -ge 2 ] && [ "${pattern:0:1}" = "/" ] && [ "${pattern: -1}" = "/" ]; then
+  if _resolver_is_regex_pattern "${pattern}"; then
     if ! ere="$(resolver_regex_to_ere "${pattern:1:${#pattern}-2}")"; then
       return 2
     fi
@@ -370,6 +435,8 @@ resolver_check_config() {
     _resolver_log "The cluster configuration declares ${scalar_refs_count} clusters whose 'refs' is not a list."
     return 1
   fi
+
+  resolver_check_patterns "${file}" || return 1
 
   return 0
 }

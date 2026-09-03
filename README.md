@@ -235,6 +235,16 @@ before resolving, so a ref that owns no cluster cannot inherit them from plain
 CI/CD variables and reach the wrong cluster. Projects that do not use the
 resolver keep whatever they set.
 
+#### Stop and rollback jobs
+
+`.stop-deployment-template` and `.helm-rollback-template` resolve the cluster
+too, so `helm uninstall` and `helm rollback` never run against a stale
+kubeconfig. They reference `.gitlab-helper-functions`, `.gcp-wif`,
+`.spark-k8s-cluster-resolver` and `.gke-kubeconfig`. Projects using
+`.gitlab-ci-template.yml` already include all four; a project that includes
+either job template on its own must add those four includes, or pipeline
+creation fails on an unresolved `!reference`.
+
 #### Tests
 
 The resolver has a test suite covering ref normalization, glob and regex
