@@ -48,8 +48,7 @@ jobs:
 
   cluster-resolver:
     runs-on: ubuntu-latest
-    # This job has no branch condition on purpose: the resolver decides which
-    # cluster a deploy talks to, so its suite must also run on master pushes.
+    # No branch condition on purpose: the suite must also run on master pushes.
     steps:
       - uses: actions/checkout@v4
 
@@ -75,9 +74,7 @@ jobs:
             scripts/src/cluster-resolver.bash \
             test/cluster-resolver/run.sh
 
-      # The suite runs the schema gate itself: every fixture is checked against
-      # schemas/cluster-config.schema.json in both directions, so a breaking
-      # schema sync fails here instead of failing a deploy later.
+      # The suite also runs the schema gate against schemas/cluster-config.schema.json.
       - name: Run the cluster resolver test suite
         run: bash test/cluster-resolver/run.sh
 

@@ -196,9 +196,8 @@ default:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
-    # The cluster resolver runs before `.default-setup` on purpose: it exports
-    # DISABLE_GITLAB_AGENT=1, and `.default-setup` is where
-    # `setup-gitlab-agent` would otherwise pick a cluster from the branch name.
+    # Before .default-setup on purpose: the resolver exports DISABLE_GITLAB_AGENT=1 and
+    # .default-setup is where setup-gitlab-agent would pick a cluster from the branch.
     - !reference [.spark-k8s-cluster-resolver, before_script]
     - !reference [.default-setup, before_script]
     - !reference [.gke-kubeconfig, before_script]

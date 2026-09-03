@@ -13,12 +13,8 @@ ENV KUBELINTER_VERSION=0.7.6
 RUN go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
 
 # https://github.com/santhosh-tekuri/jsonschema
-# JSON Schema validator used by the cluster resolver to check
-# $SPARK_K8S_CONFIG against schemas/cluster-config.schema.json. It has to
-# understand draft 2020-12: the schema enforces exactly one default cluster
-# with `contains` plus `minContains`/`maxContains`, and a draft-07 validator
-# would ignore those keywords instead of failing on them. Keep this version in
-# sync with the one installed by the cluster-resolver GitHub Actions job.
+# JSON Schema validator for the cluster resolver. Must support draft 2020-12
+# (minContains/maxContains). Keep in sync with the cluster-resolver CI job.
 ENV JV_VERSION=v0.7.0
 RUN go install github.com/santhosh-tekuri/jsonschema/cmd/jv@${JV_VERSION}
 
@@ -123,8 +119,7 @@ RUN chmod +x /usr/local/bin/jv
 
 COPY configs /configs
 
-# The cluster configuration schema, owned by the platform generator and synced
-# into this repository. The cluster resolver reads it from here.
+# Cluster configuration schema, owned by the platform generator and synced here.
 COPY schemas /schemas
 
 COPY docker-entrypoint.sh /usr/local/bin/

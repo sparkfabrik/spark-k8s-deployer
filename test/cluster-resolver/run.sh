@@ -1,21 +1,7 @@
 #!/usr/bin/env bash
 
-# Table driven tests for scripts/resolve-cluster.
-#
-# The resolver parses YAML with yq4 and validates it with jv, so this suite must
-# run where both are available. The deployer image ships them:
-#
-#   make test-cluster-resolver
-#
-# Two things are tested here. The resolver cases check what the resolver does
-# with a given configuration and ref. The schema gate checks every fixture
-# against schemas/cluster-config.schema.json, the copy of the schema the
-# platform generator owns, in both directions: a fixture that should validate
-# must validate, and a fixture that should be rejected must be rejected. That
-# second direction is what turns a breaking schema sync into a red pipeline
-# here instead of a failed deploy later.
-#
-# Exits non zero when any case fails.
+# Table driven tests for scripts/resolve-cluster, plus the schema gate that checks every
+# fixture against schemas/cluster-config.schema.json in both directions. Needs yq4 and jv.
 
 set -uo pipefail
 
@@ -25,23 +11,17 @@ RESOLVER="${ROOT_DIR}/scripts/resolve-cluster"
 FIXTURES_DIR="${TEST_DIR}/fixtures"
 PWNED_MARKER="/tmp/spark-k8s-resolver-pwned"
 
-# The generator owned schema, synced into this repository. SPARK_K8S_SCHEMA_COPY
-# exists so the gate can be pointed at a copy that has not been merged yet.
+# The synced generator schema; SPARK_K8S_SCHEMA_COPY points the gate at an unmerged copy.
 SCHEMA_COPY="${SPARK_K8S_SCHEMA_COPY:-${ROOT_DIR}/schemas/cluster-config.schema.json}"
 
 # The permissive schema used by the fixtures that exercise resolver tolerance.
 TOLERANCE_SCHEMA="${TEST_DIR}/schemas/tolerance.schema.json"
 
-# Fixtures that must validate against the generator schema. They carry `name`,
-# `project_id`, `location`, `default` and `refs` on every entry and exactly one
-# default cluster, which is what the generator emits.
+# Fixtures that must validate against the generator schema.
 SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml"
 
-# Fixtures the generator schema must reject. Most exercise what the resolver
-# does with a document nobody should emit; the rest are invalid on purpose.
-# Note that bad-regex.yaml is deliberately NOT here: an unsupported regex
-# construct is a valid string as far as the schema is concerned, so that
-# fixture proves the resolver still guards what the schema cannot express.
+# Fixtures the generator schema must reject. bad-regex.yaml is not here on purpose:
+# a bad regex is a valid string to the schema, so it proves the resolver still guards it.
 SCHEMA_NON_CONFORMING_FIXTURES="bad-dns-flag.yaml no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml"
 
 PASSED=0
@@ -76,13 +56,8 @@ fixture() {
   printf '%s/%s' "${FIXTURES_DIR}" "${1}"
 }
 
-# Print the schema a given configuration must be validated against.
-#
-# A fixture classified as non-conforming gets the permissive schema, so its exit
-# code comes from the resolver's own checks rather than from validation, which
-# is what those cases are testing. Everything else gets the real copy, or
-# nothing at all when the copy has not been synced yet, in which case the
-# resolver skips validation exactly as it does in a job image without it.
+# Non-conforming fixtures get the permissive schema, so their exit code comes from
+# the resolver; everything else gets the real copy, or nothing before it is synced.
 schema_for_config() {
   local config="${1}"
   local name
@@ -102,10 +77,8 @@ schema_for_config() {
   fi
 }
 
-# run_resolver <config> <tag> <branch>
-#
-# The GitLab Agent variables are cleared so the conflict warning does not
-# depend on the environment the suite runs in.
+# run_resolver <config> <tag> <branch>. Agent variables are cleared so the
+# coexistence warning does not depend on the environment.
 run_resolver() {
   CI_COMMIT_TAG="${2}" \
     CI_COMMIT_BRANCH="${3}" \
@@ -178,8 +151,7 @@ assert_exit() {
   report_pass "${description}"
 }
 
-# Every fixture has to be classified, otherwise a fixture added later slips
-# past the gate without anyone deciding which side of the contract it is on.
+# Every fixture must be classified, or a later one slips past the gate.
 assert_every_fixture_classified() {
   local description="every fixture is classified for the schema gate"
   local path name unclassified=""
@@ -322,8 +294,7 @@ assert_exit "an unsupported regex construct fails the resolution" 1 \
 assert_exit "a PCRE shorthand inside a bracket expression fails the resolution" 1 \
   "$(fixture bracket-shorthand.yaml)" "" "v12"
 
-# Pattern errors must not depend on which entry the scan reaches: here the
-# broken pattern sits above an entry that matches main.
+# A pattern error must not depend on the ref: here the broken pattern sits above a match.
 assert_exit "an unsupported pattern fails even when a lower entry matches" 1 \
   "$(fixture lazy-regex.yaml)" "" "main"
 
@@ -406,8 +377,7 @@ assert_cluster "inline YAML is accepted instead of a path" \
   "$(cat "$(fixture basic.yaml)")" "" "main" \
   "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog"
 
-# The output is eval'd by the CI wrapper, so it must survive a hostile cluster
-# name without executing anything.
+# The output is eval'd by the CI wrapper, so a hostile cluster name must not execute.
 assert_eval_safety() {
   local description="eval of the exports does not execute a hostile cluster name"
   local output
@@ -436,10 +406,8 @@ assert_eval_safety() {
   rm -f "${PWNED_MARKER}" /tmp/spark-k8s-resolver-eval.log
 }
 
-# An inline configuration is written to a temporary file, which the resolver has
-# to remove before exiting. The resolver is pointed at a private TMPDIR, so the
-# check cannot be flipped by an unrelated process touching the shared /tmp
-# while the suite runs directly on a CI runner.
+# The resolver must remove the temporary file it writes for an inline configuration.
+# A private TMPDIR keeps the check deterministic on a shared runner.
 assert_no_temporary_file_leak() {
   local description="an inline configuration leaves no temporary file behind"
   local tmpdir leftover
@@ -456,9 +424,7 @@ assert_no_temporary_file_leak() {
   fi
 }
 
-# The GitLab Agent and the resolver are mutually exclusive: agent variables set
-# alongside SPARK_K8S_CONFIG produce a warning, the resolution still succeeds,
-# and setup-gitlab-agent must not switch the kubectl context.
+# Agent variables alongside SPARK_K8S_CONFIG must warn, still resolve, and never switch context.
 assert_agent_coexistence() {
   local description="agent variables alongside the resolver warn and are ignored"
   local output errors rc
@@ -490,7 +456,7 @@ assert_agent_setup_skipped() {
   local output
 
   output="$(
-    # Invoked indirectly by setup-gitlab-agent, if the guard fails.
+    # Invoked by setup-gitlab-agent only if the guard fails.
     # shellcheck disable=SC2317
     kubectl() { printf 'KUBECTL CALLED: %s\n' "$*"; return 1; }
     export -f kubectl
