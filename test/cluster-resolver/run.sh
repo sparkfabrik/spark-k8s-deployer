@@ -528,7 +528,7 @@ assert_before_script() {
     report_fail "${description}" "expected exit 0, got ${rc}:" "${output}"
   elif [ "${variables}" != "${6}" ]; then
     report_fail "${description}" "unexpected variables: ${variables}" "expected: ${6}"
-  elif ! printf '%s' "${output}" | grep -q -- "${7}"; then
+  elif ! printf '%s' "${output}" | grep -qF -- "${7}"; then
     report_fail "${description}" "log does not contain '${7}':" "${output}"
   else
     report_pass "${description}"
