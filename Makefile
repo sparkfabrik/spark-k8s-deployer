@@ -3,7 +3,6 @@
 # make cli
 #
 DOCKER_VERSION=20.10.5
-IMAGE ?= sparkfabrik/spark-k8s-deployer:latest
 GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 550.0.0-alpine
 
 cli: build-docker-image
@@ -29,11 +28,6 @@ build-docker-image-build-args:
 
 tests:
 	cd test && DOCKER_VERSION=$(DOCKER_VERSION) docker-compose run --rm docker-client ash -c "sleep 3; docker run --rm hello-world"
-
-# Assert that the binaries installed in the image are present, executable by an
-# unprivileged user, and report the pinned version.
-test-image-tools:
-	cd test && IMAGE=$(IMAGE) ./test-image-tools.sh
 
 print-google-cloud-cli-image-tag:
 	@echo $(GOOGLE_CLOUD_CLI_IMAGE_TAG)

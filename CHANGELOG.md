@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- [2026.09.03] - The deployer image ships `kubeconform`, pinned to v0.8.0 and verified against the release checksum before install. A new `make test-image-tools` smoke test runs the binary in the built image as an unprivileged user and asserts the pinned version, and the build workflow runs it on every pull request.
+- [2026.09.03] - The deployer image ships `kubeconform`, pinned to v0.8.0 and verified against the release checksum before install.
 - [2026.08.13] - The deployer image ships `just`, pinned to 1.58.0 and verified against the release SHA256 before install. A recent version is required because it rejects justfile forms that older versions silently accept.
 - [2026.08.13] - The package e2e (`.sparkfabrik-pkg-e2e-test`) now loads the generated root justfile with `just --list` after the project is generated, through the new `.sparkfabrik-pkg-e2e-test-validate-justfile` step. `test -f` and `grep -q` pass on a justfile that `just` refuses to load, so a broken recipe attribute in a package fragment (a comment between an attribute and its recipe) shipped green; this fails the pipeline instead, and covers the whole class of justfile syntax errors, in the project file or an imported package fragment.
 - [2026.05.08] - New portable GitLab CI template `templates/functions/gke-kubeconfig.yml` (`.gke-kubeconfig`) that generates a namespace-scoped GKE kubeconfig using WIF-authenticated gcloud credentials. Activated when `ENABLE_GCP_WIF=1` and `K8S_CLUSTER_NAME` is set. Supports `K8S_USE_DNS_ENDPOINT=1` for private clusters. Runs after `setup-gitlab-agent` so the gcloud context always takes precedence. Remotely includable, no Docker image dependency.
