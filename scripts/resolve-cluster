@@ -16,6 +16,6 @@ export DEPLOY_ROOT_DIR
 source "$DEPLOY_ROOT_DIR/src/cluster-resolver.bash"
 
 # Own process, so this trap cannot clobber the ones set by the CI before_script chain.
-trap 'rm -f "${RESOLVER_TMP_CONFIG_FILE:-}"' EXIT
+trap '[ -n "${RESOLVER_TMP_CONFIG_DIR:-}" ] && rm -rf "${RESOLVER_TMP_CONFIG_DIR}"' EXIT
 
 resolve_cluster

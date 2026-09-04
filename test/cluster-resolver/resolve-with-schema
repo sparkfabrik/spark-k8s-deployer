@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Test harness only: run the resolver with resolver_schema_file pinned to RESOLVER_TEST_SCHEMA,
+# so tolerance fixtures reach the resolver without a production override existing.
+
+TEST_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_ROOT_DIR="$(cd -P "${TEST_DIR}/../../scripts" && pwd)"
+export DEPLOY_ROOT_DIR
+
+# shellcheck disable=SC1091
+source "${DEPLOY_ROOT_DIR}/src/cluster-resolver.bash"
+
+resolver_schema_file() {
+  printf '%s' "${RESOLVER_TEST_SCHEMA:-}"
+}
+
+trap '[ -n "${RESOLVER_TMP_CONFIG_DIR:-}" ] && rm -rf "${RESOLVER_TMP_CONFIG_DIR}"' EXIT
+
+resolve_cluster

@@ -12,6 +12,12 @@ RUN apk --no-cache add git
 ENV KUBELINTER_VERSION=0.7.6
 RUN go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
 
+# https://github.com/santhosh-tekuri/jsonschema
+# JSON Schema validator for the cluster resolver. Must support draft 2020-12
+# (minContains/maxContains). Keep in sync with the cluster-resolver CI job.
+ENV JV_VERSION=v0.7.0
+RUN go install github.com/santhosh-tekuri/jsonschema/cmd/jv@${JV_VERSION}
+
 # https://github.com/FiloSottile/mkcert
 ENV MKCERT_VERSION=v1.4.4
 RUN git clone https://github.com/FiloSottile/mkcert && cd mkcert \
@@ -120,7 +126,14 @@ RUN chmod +x /usr/local/bin/kube-linter
 COPY --from=gobinaries /go/bin/mkcert /usr/local/bin/mkcert
 RUN chmod +x /usr/local/bin/mkcert
 
+# Install jv copying the binary from the gobinaries stage
+COPY --from=gobinaries /go/bin/jv /usr/local/bin/jv
+RUN chmod +x /usr/local/bin/jv
+
 COPY configs /configs
+
+# Cluster configuration schema, owned by the platform generator and synced here.
+COPY schemas /schemas
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

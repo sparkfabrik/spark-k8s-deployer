@@ -9,9 +9,9 @@ RESOLVER_SUPPORTED_SCHEMA_VERSION=1
 # Set by resolver_config_file to the configuration file to read.
 RESOLVER_CONFIG_FILE=""
 
-# Set by resolver_config_file when the configuration was materialized into a
-# temporary file, so the caller can remove it.
-RESOLVER_TMP_CONFIG_FILE=""
+# Set by resolver_config_file when a temporary directory was created to hold
+# the configuration, so the caller can remove it.
+RESOLVER_TMP_CONFIG_DIR=""
 
 # Set by resolve_cluster to the index of the selected cluster.
 RESOLVER_SELECTED=""
@@ -238,29 +238,87 @@ resolver_pattern_matches() {
 # and a File variable path has none. A global, since a subshell would lose RESOLVER_TMP_CONFIG_DIR.
 resolver_config_file() {
   local value="${1}"
-  local tmp
+  local dir target
 
   RESOLVER_CONFIG_FILE=""
 
+  case "${value}" in
+  *.yaml | *.yml)
+    if [ -f "${value}" ] && [ -r "${value}" ]; then
+      RESOLVER_CONFIG_FILE="${value}"
+      return 0
+    fi
+    ;;
+  esac
+
+  if ! dir="$(mktemp -d -t spark_k8s_config.XXXXXX)"; then
+    _resolver_log "Cannot create a temporary directory for the cluster configuration."
+    return 1
+  fi
+  # Consumed by the caller, which removes the directory on exit.
+  # shellcheck disable=SC2034
+  RESOLVER_TMP_CONFIG_DIR="${dir}"
+  target="${dir}/cluster-config.yaml"
+
+  # Copy rather than link: a relative path would dangle from the temporary directory,
+  # and a copy is a stable snapshot between validation and parsing.
   if [ -f "${value}" ] && [ -r "${value}" ]; then
-    RESOLVER_CONFIG_FILE="${value}"
+    if ! (
+      umask 077
+      cat -- "${value}" >"${target}"
+    ); then
+      _resolver_log "Cannot copy the cluster configuration into ${dir}."
+      return 1
+    fi
+  elif ! (
+    umask 077
+    printf '%s\n' "${value}" >"${target}"
+  ); then
+    _resolver_log "Cannot write the inline cluster configuration to ${target}."
+    return 1
+  fi
+
+  RESOLVER_CONFIG_FILE="${target}"
+}
+
+# Print the path of the shipped schema copy, empty when none is available. There is
+# no override: a project could point it at a permissive schema.
+resolver_schema_file() {
+  local candidate
+
+  for candidate in "/schemas/cluster-config.schema.json" \
+    "${DEPLOY_ROOT_DIR:-}/../schemas/cluster-config.schema.json"; do
+    if [ -f "${candidate}" ] && [ -r "${candidate}" ]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+}
+
+# Validate against the generator schema and fail on violation. A missing jv or schema
+# copy only warns: the structural checks still cover the dangerous cases.
+resolver_validate_schema() {
+  local file="${1}"
+  local schema output
+
+  schema="$(resolver_schema_file)"
+  if [ -z "${schema}" ]; then
+    _resolver_log "Schema validation skipped: no cluster configuration schema available."
     return 0
   fi
 
-  if ! tmp="$(mktemp -t spark_k8s_config.XXXXXX)"; then
-    _resolver_log "Cannot create a temporary file for the inline cluster configuration."
-    return 1
-  fi
-  # Consumed by the caller, which removes the file on exit.
-  # shellcheck disable=SC2034
-  RESOLVER_TMP_CONFIG_FILE="${tmp}"
-
-  if ! chmod 600 "${tmp}" || ! printf '%s\n' "${value}" >"${tmp}"; then
-    _resolver_log "Cannot write the inline cluster configuration to ${tmp}."
-    return 1
+  if ! command -v jv >/dev/null 2>&1; then
+    _resolver_log "Schema validation skipped: the jv command is not available."
+    return 0
   fi
 
-  RESOLVER_CONFIG_FILE="${tmp}"
+  if output="$(jv "${schema}" "${file}" 2>&1)"; then
+    return 0
+  fi
+
+  _resolver_log "The cluster configuration does not match ${schema}:"
+  _resolver_log "${output}"
+  return 1
 }
 
 # Validate the file: parseable YAML, supported version, non-empty clusters list,
@@ -442,6 +500,11 @@ resolve_cluster() {
     return 1
   fi
   file="${RESOLVER_CONFIG_FILE}"
+
+  # Schema first, so the operator sees a JSON Pointer rather than the coarser message below.
+  if ! resolver_validate_schema "${file}"; then
+    return 1
+  fi
 
   if ! resolver_check_config "${file}"; then
     return 1

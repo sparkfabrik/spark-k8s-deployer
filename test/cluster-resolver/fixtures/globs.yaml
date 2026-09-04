@@ -1,17 +1,21 @@
 clusters:
   - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
     default: true
-    project_id: p-fallback
-    location: europe-west1
+    refs: []
   - name: double-star
+    project_id: spark-double-project
+    location: europe-west1
+    default: false
     refs: ["feature/**"]
-    project_id: p-double
-    location: europe-west1
   - name: single-star
+    project_id: spark-single-project
+    location: europe-west1
+    default: false
     refs: ["feature/*"]
-    project_id: p-single
-    location: europe-west1
   - name: tags-only
-    refs: ["refs/tags/v*"]
-    project_id: p-tags
+    project_id: spark-tags-project
     location: europe-west1
+    default: false
+    refs: ["refs/tags/v*"]

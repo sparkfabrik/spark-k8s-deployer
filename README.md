@@ -75,31 +75,40 @@ The cluster list is injected as a CI/CD variable of type **File**,
 `$SPARK_K8S_CONFIG`:
 
 ```yaml
-version: 1
 clusters:
   - name: example-dev
-    default: true
     project_id: example-dev-project
     location: europe-west1
+    default: true
+    refs: []
     dns_endpoint: gke-....gke.goog
   - name: example-prod
-    refs: [main]
     project_id: example-prod-project
     location: europe-west1
+    default: false
+    refs: [main]
     dns_endpoint: gke-....gke.goog
     use_dns_endpoint: true
 ```
 
-| Key                | Description                                                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `version`          | Configuration schema version, currently `1`. Optional, defaults to `1`                                                            |
-| `name`             | GKE cluster name, exported as `K8S_CLUSTER_NAME`                                                                                  |
-| `project_id`       | GCP project ID, exported as `GCP_PROJECT_ID`                                                                                      |
-| `location`         | Cluster region or zone, exported as `K8S_LOCATION`                                                                                |
-| `refs`             | List of ref patterns this cluster owns                                                                                            |
-| `default`          | Marks the cluster used when no pattern matches. At most one entry                                                                 |
-| `dns_endpoint`     | DNS endpoint of the control plane, exported as `SPARK_K8S_CLUSTER_DNS_ENDPOINT`                                                   |
-| `use_dns_endpoint` | Sets `K8S_USE_DNS_ENDPOINT`. Only `true` and `false` are accepted; when absent it is inferred from the presence of `dns_endpoint` |
+| Key                | Required | Description                                                                                                                       |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | yes      | GKE cluster name, exported as `K8S_CLUSTER_NAME`                                                                                  |
+| `project_id`       | yes      | GCP project ID, exported as `GCP_PROJECT_ID`                                                                                      |
+| `location`         | yes      | Cluster region or zone, exported as `K8S_LOCATION`                                                                                |
+| `default`          | yes      | Marks the cluster used when no pattern matches. Exactly one entry carries `true`                                                  |
+| `refs`             | yes      | List of ref patterns this cluster owns, empty when it owns none                                                                   |
+| `dns_endpoint`     | no       | DNS endpoint of the control plane, exported as `SPARK_K8S_CLUSTER_DNS_ENDPOINT`                                                   |
+| `use_dns_endpoint` | no       | Sets `K8S_USE_DNS_ENDPOINT`. Only `true` and `false` are accepted; when absent it is inferred from the presence of `dns_endpoint` |
+
+Every key above is required on **every** entry unless the table says otherwise,
+and unknown keys are rejected. `name` and `project_id` are pattern-constrained,
+to a DNS label and to a GCP project id respectively.
+
+A top level `version` key is accepted and must be `1` when present, but the
+generator no longer emits it: the format version lives in the schema `$id`, and
+a document declares a version only once a second one exists. A document
+declaring any other version is rejected.
 
 `KUBE_NAMESPACE` is not part of the cluster configuration and must still be
 provided by the project.
@@ -163,6 +172,35 @@ concatenates `before_script` and `script` into one shell script, so an `exit 0`
 in the global chain would end every job in the pipeline successfully without
 running its script.
 
+#### Schema validation
+
+The cluster configuration is validated against
+`schemas/cluster-config.schema.json` before it is parsed, and any violation
+fails the job with the exact location of the problem:
+
+```
+The cluster configuration does not match /schemas/cluster-config.schema.json:
+- at '/clusters/1': missing property 'refs'
+- at '/clusters': max 1 items required to match contains schema, but matched 2 items at 0 1
+```
+
+That schema is owned by the platform generator and synced into this repository
+by an automatic pull request. It describes what the generator emits, so it is
+stricter than the resolver: every entry requires `name`, `project_id`,
+`location`, `default` and `refs`, unknown keys are rejected, and exactly one
+entry must carry `default: true`. See `schemas/README.md`.
+
+Validation uses `jv`, which the deployer image ships. It has to understand
+draft 2020-12, because the exactly-one-default rule is expressed with
+`contains` plus `minContains`/`maxContains`: a draft-07 validator parses that
+schema happily and ignores those keywords, which would let a two-default
+document through.
+
+There is no variable to turn validation off, and none to point the resolver at a
+different schema: the copy shipped with the image is the only one it reads. The
+test suite reaches the resolver through a test-only wrapper for the fixtures that
+exercise documents nobody should emit.
+
 #### Interaction with the GitLab Agent
 
 While `$SPARK_K8S_CONFIG` is set the resolver owns the cluster choice and
@@ -176,15 +214,21 @@ and are ignored.
 
 - `$SPARK_K8S_CONFIG` unset: nothing happens, single-cluster behavior is
   untouched and existing projects see no change.
-- Job image without the deployer scripts or without `yq4`, for example a Kaniko
-  image inheriting the global `before_script`: the resolver skips without
-  failing, exactly like `.gke-kubeconfig` does when `gcloud` is missing.
+- Job image without the deployer scripts, without `bash` or without `yq4`, for
+  example a Kaniko image inheriting the global `before_script`: the resolver
+  skips without failing, exactly like `.gke-kubeconfig` does when `gcloud` is
+  missing.
+- Job image without `jv`, or a checkout without the synced schema copy: the
+  resolver skips schema validation with a warning and falls back to its own
+  structural checks. The generator validates every document it emits at the
+  source, so this degrades rather than opens a hole.
 
-A configuration error, on the other hand, fails the job: invalid YAML, an
-unsupported `version`, an empty or missing `clusters` list, more than one
-default, a `refs` that is not a list (`refs: main` instead of `refs: [main]`), a
-selected entry without `name`, `project_id` or `location`, an unsupported regex
-construct, or a ref that matches nothing when no default is declared.
+A configuration error, on the other hand, fails the job: a schema violation,
+invalid YAML, an unsupported `version`, an empty or missing `clusters` list,
+more than one default, a `refs` that is not a list (`refs: main` instead of
+`refs: [main]`), a selected entry without `name`, `project_id` or `location`, an
+unsupported regex construct, or a ref that matches nothing when no default is
+declared.
 
 While `$SPARK_K8S_CONFIG` is set the resolver owns `K8S_CLUSTER_NAME`,
 `GCP_PROJECT_ID`, `K8S_LOCATION` and `K8S_USE_DNS_ENDPOINT`: it clears them
@@ -206,8 +250,25 @@ creation fails on an unresolved `!reference`.
 
 The resolver has a test suite covering ref normalization, glob and regex
 semantics, ordering, the default fallback and the configuration errors. It needs
-`yq4`, so it runs inside the deployer image:
+`yq4` and `jv`, so it runs inside the deployer image:
 
 ```
 make test-cluster-resolver
 ```
+
+The same suite carries the schema gate. Every fixture is checked against the
+synced schema copy in both directions: a fixture that must validate has to
+validate, and a fixture that must be rejected has to be rejected. A fixture in
+neither list fails the suite, so one added later cannot slip past unclassified.
+That is what makes a breaking schema change surface as a red pipeline on the
+sync pull request instead of as a failed deploy afterwards, and it means a sync
+pull request is not a blind merge: whoever lands a breaking change updates the
+fixtures in the same pull request.
+
+Fixtures that are deliberately looser than the schema, because they test what
+the resolver does with a document nobody should emit, are validated against
+`test/cluster-resolver/schemas/tolerance.schema.json` instead. The eval-safety
+fixture is one of them: `name` is pattern-constrained in the real schema, so a
+cluster name carrying shell metacharacters is rejected by validation long before
+it reaches the resolver in production, which is the correct outcome and the
+reason that test needs the permissive schema to reach the code it covers.
