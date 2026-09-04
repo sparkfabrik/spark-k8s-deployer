@@ -1,0 +1,9 @@
+clusters:
+  - name: first-default
+    default: true
+    project_id: p-first
+    location: europe-west1
+  - name: second-default
+    default: true
+    project_id: p-second
+    location: europe-west1

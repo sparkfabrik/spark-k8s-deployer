@@ -1,0 +1,4 @@
+clusters:
+  - name: incomplete
+    refs: [main]
+    location: europe-west1

@@ -29,5 +29,13 @@ build-docker-image-build-args:
 tests:
 	cd test && DOCKER_VERSION=$(DOCKER_VERSION) docker-compose run --rm docker-client ash -c "sleep 3; docker run --rm hello-world"
 
+# Run the cluster resolver test suite inside the deployer image, which ships the
+# yq4 the resolver needs to parse the cluster configuration.
+test-cluster-resolver: build-docker-image
+	docker run --rm -v ${PWD}:/mnt -w /mnt \
+		--entrypoint "" \
+		sparkfabrik/spark-k8s-deployer:latest \
+		bash test/cluster-resolver/run.sh
+
 print-google-cloud-cli-image-tag:
 	@echo $(GOOGLE_CLOUD_CLI_IMAGE_TAG)

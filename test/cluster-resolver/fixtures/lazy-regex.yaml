@@ -1,0 +1,16 @@
+clusters:
+  - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
+    default: true
+    refs: []
+  - name: broken
+    project_id: spark-broken-project
+    location: europe-west1
+    default: false
+    refs: ['/(?=x)/']
+  - name: main-cluster
+    project_id: spark-main-project
+    location: europe-west1
+    default: false
+    refs: [main]

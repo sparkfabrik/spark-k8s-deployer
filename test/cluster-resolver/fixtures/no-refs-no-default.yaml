@@ -1,0 +1,8 @@
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: unreachable
+    project_id: p-unreachable
+    location: europe-west1

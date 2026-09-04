@@ -1,0 +1,11 @@
+clusters:
+  - name: fallback
+    project_id: spark-fallback-project
+    location: europe-west1
+    default: true
+    refs: []
+  - name: bracket
+    project_id: spark-bracket-project
+    location: europe-west1
+    default: false
+    refs: ['/^v[\d]+$/']

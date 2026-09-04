@@ -1,0 +1,9 @@
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: broken-regex
+    refs: ['/(?=main)/']
+    project_id: p-broken
+    location: europe-west1

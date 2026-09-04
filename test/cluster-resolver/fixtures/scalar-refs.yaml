@@ -1,0 +1,9 @@
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: scalar-refs
+    refs: main
+    project_id: p-scalar
+    location: europe-west1

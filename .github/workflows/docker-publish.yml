@@ -46,6 +46,30 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+  cluster-resolver:
+    runs-on: ubuntu-latest
+    # No branch condition on purpose: the suite must also run on master pushes.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the yq4 version pinned by the image
+        run: |
+          YQ4_VERSION="$(sed -n 's/^ENV YQ4_VERSION=//p' Dockerfile)"
+          echo "Installing yq ${YQ4_VERSION}"
+          sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4
+          sudo chmod +x /usr/local/bin/yq4
+          yq4 --version
+
+      - name: Lint the cluster resolver scripts
+        run: |
+          shellcheck -x \
+            scripts/resolve-cluster \
+            scripts/src/cluster-resolver.bash \
+            test/cluster-resolver/run.sh
+
+      - name: Run the cluster resolver test suite
+        run: bash test/cluster-resolver/run.sh
+
   deploy:
     runs-on: ubuntu-latest
     # Only deploy on the main/master branch

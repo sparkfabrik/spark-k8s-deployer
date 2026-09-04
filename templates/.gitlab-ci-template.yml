@@ -196,6 +196,9 @@ default:
   before_script:
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
+    # Before .default-setup on purpose: the resolver exports DISABLE_GITLAB_AGENT=1 and
+    # .default-setup is where setup-gitlab-agent would pick a cluster from the branch.
+    - !reference [.spark-k8s-cluster-resolver, before_script]
     - !reference [.default-setup, before_script]
     - !reference [.gke-kubeconfig, before_script]
 
@@ -205,6 +208,7 @@ before_script:
 include:
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gitlab-helper-functions.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gcp-wif.yml"
+  - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/spark-k8s-cluster-resolver.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/functions/gke-kubeconfig.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/cloudsql-db-dump.yml"
   - remote: "https://raw.githubusercontent.com/sparkfabrik/spark-k8s-deployer/master/templates/jobs/drupal-phpqa.yml"

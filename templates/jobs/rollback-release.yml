@@ -5,12 +5,21 @@
 # these variables:
 #   - ROLLBACK_RELEASE_NAME: the helm release name which you want to rollback
 #   - KUBE_NAMESPACE: in which namespace the release was installed
+#
+# References .gitlab-helper-functions, .gcp-wif, .spark-k8s-cluster-resolver and
+# .gke-kubeconfig: all included by .gitlab-ci-template.yml, add them when including this alone.
 .helm-rollback-template:
   # We use the deploy stage https://docs.gitlab.com/ee/ci/yaml/#stages
   stage: deploy
-  # We override the default before script, since we do not need it here.
-  before_script: []
+  # No Docker setup here, but the kubeconfig must point at the cluster owning this ref,
+  # or helm rollback runs against a stale context.
+  before_script:
+    - !reference [.gitlab-helper-functions, before_script]
+    - !reference [.gcp-wif, before_script]
+    - !reference [.spark-k8s-cluster-resolver, before_script]
+    - !reference [.gke-kubeconfig, before_script]
   script:
+    - !reference [.spark-k8s-require-cluster, script]
     - |
       if [ -z "${ROLLBACK_RELEASE_NAME}" ]; then
         echo "You have to define the ROLLBACK_RELEASE_NAME variable in order to define which helm release you want to rollback."

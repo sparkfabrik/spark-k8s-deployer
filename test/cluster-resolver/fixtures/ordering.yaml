@@ -1,0 +1,17 @@
+clusters:
+  - name: fallback
+    default: true
+    project_id: p-fallback
+    location: europe-west1
+  - name: first-match
+    refs: [main]
+    project_id: p-first
+    location: europe-west1
+  - name: catch-all
+    refs: ["*"]
+    project_id: p-catch-all
+    location: europe-west1
+  - name: last-match
+    refs: [main]
+    project_id: p-last
+    location: europe-west1
