@@ -40,6 +40,11 @@ ENV JUST_VERSION=1.58.0
 # sha256 of just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz, from the
 # release SHA256SUMS. Bump together with JUST_VERSION.
 ENV JUST_SHA256=4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d
+# https://github.com/yannh/kubeconform/releases
+ENV KUBECONFORM_VERSION=v0.8.0
+# sha256 of kubeconform-linux-amd64.tar.gz, from the release CHECKSUMS file.
+# Bump together with KUBECONFORM_VERSION.
+ENV KUBECONFORM_SHA256=9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
 
 # Use the gke-auth-plugin to authenticate to the GKE cluster.
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
@@ -93,7 +98,15 @@ RUN apk add --no-cache py-pip python3-dev curl make mysql-client mariadb-connect
     && mv just /usr/local/bin/just \
     && chmod +x /usr/local/bin/just \
     && rm just.tar.gz \
-    && just --version
+    && just --version \
+    # Install kubeconform
+    && curl -fSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" -o kubeconform.tar.gz \
+    && echo "${KUBECONFORM_SHA256}  kubeconform.tar.gz" | sha256sum -c - \
+    && tar -xzf kubeconform.tar.gz kubeconform \
+    && mv kubeconform /usr/local/bin/kubeconform \
+    && chmod 755 /usr/local/bin/kubeconform \
+    && rm kubeconform.tar.gz \
+    && kubeconform -v
 
 RUN pip install --no-cache-dir awscli==${AWS_CLI_VERSION} --break-system-packages
 
