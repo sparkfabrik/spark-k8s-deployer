@@ -217,7 +217,9 @@ and are ignored.
 - Job image without the deployer scripts, without `bash` or without `yq4`, for
   example a Kaniko image inheriting the global `before_script`: the resolver
   skips without failing, exactly like `.gke-kubeconfig` does when `gcloud` is
-  missing.
+  missing. The single-value `K8S_CLUSTER_NAME`, `GCP_PROJECT_ID`,
+  `K8S_LOCATION` and `K8S_USE_DNS_ENDPOINT` variables are left untouched, so
+  such a job keeps deploying to the cluster they describe.
 - Job image without `jv`, or a checkout without the synced schema copy: the
   resolver skips schema validation with a warning and falls back to its own
   structural checks. The generator validates every document it emits at the

@@ -484,6 +484,77 @@ assert_agent_setup_skipped() {
   fi
 }
 
+# The CI wrapper around the resolver: the before_script of .spark-k8s-cluster-resolver,
+# extracted from the template and run under sh, the shell a job image without bash has.
+TEMPLATE="${ROOT_DIR}/templates/functions/spark-k8s-cluster-resolver.yml"
+SH_BIN="$(command -v sh)"
+
+# run_before_script <resolver path> <path> <tag> <branch>: runs the wrapper with the
+# single-value variables preset, /scripts/resolve-cluster rewritten to <resolver path>
+# and PATH set to <path>, then prints the resulting variables, pipe separated.
+run_before_script() {
+  local body
+  body="$(yq4 '.[".spark-k8s-cluster-resolver"].before_script[0]' "${TEMPLATE}" |
+    sed "s|/scripts/resolve-cluster|${1}|g")"
+  # The trailing printf is appended verbatim: the child shell expands it.
+  # shellcheck disable=SC2016
+  PATH="${2}" \
+    K8S_CLUSTER_NAME="legacy-cluster" \
+    GCP_PROJECT_ID="legacy-project" \
+    K8S_LOCATION="europe-west1" \
+    K8S_USE_DNS_ENDPOINT="0" \
+    SPARK_K8S_CONFIG="$(fixture basic.yaml)" \
+    CI_COMMIT_TAG="${3}" \
+    CI_COMMIT_BRANCH="${4}" \
+    GITLAB_AGENT_ID="" \
+    GITLAB_AGENT_PROJECT="" \
+    "${SH_BIN}" -c "${body}"'
+printf "%s|%s|%s|%s|%s|%s\n" "${K8S_CLUSTER_NAME:-}" "${GCP_PROJECT_ID:-}" \
+  "${K8S_LOCATION:-}" "${K8S_USE_DNS_ENDPOINT:-}" "${DISABLE_GITLAB_AGENT:-}" \
+  "${SPARK_K8S_CLUSTER_RESOLVED:-}"' 2>/dev/null
+}
+
+# assert_before_script <description> <resolver path> <path> <tag> <branch> \
+#                      <expected variables> <expected log fragment>
+assert_before_script() {
+  local description="${1}"
+  local output rc variables
+
+  output="$(run_before_script "${2}" "${3}" "${4}" "${5}")"
+  rc=$?
+  variables="$(printf '%s\n' "${output}" | tail -n 1)"
+
+  if [ "${rc}" != "0" ]; then
+    report_fail "${description}" "expected exit 0, got ${rc}:" "${output}"
+  elif [ "${variables}" != "${6}" ]; then
+    report_fail "${description}" "unexpected variables: ${variables}" "expected: ${6}"
+  elif ! printf '%s' "${output}" | grep -qF -- "${7}"; then
+    report_fail "${description}" "log does not contain '${7}':" "${output}"
+  else
+    report_pass "${description}"
+  fi
+}
+
+# A skip must not touch the single-value variables: a job image without the resolver
+# keeps deploying to the cluster they describe (spark-data-hub, 2026-09-04).
+PRESERVED="legacy-cluster|legacy-project|europe-west1|0||0"
+
+assert_before_script "a job image without the resolver keeps the single-value variables" \
+  "${TEST_DIR}/no-such-resolve-cluster" "${PATH}" "" "main" \
+  "${PRESERVED}" "not available in this job image"
+
+assert_before_script "a job image without bash keeps the single-value variables" \
+  "${RESOLVER}" "" "" "main" \
+  "${PRESERVED}" "bash is not available"
+
+assert_before_script "a resolved ref replaces the single-value variables" \
+  "${RESOLVER}" "${PATH}" "" "main" \
+  "example-prod|example-prod-project|europe-west1|1|1|1" "Resolved cluster: example-prod"
+
+assert_before_script "a ref that owns no cluster clears the single-value variables" \
+  "${RESOLVER}" "${PATH}" "" "" \
+  "|||||0" "No cluster owns the current ref"
+
 assert_eval_safety
 assert_agent_coexistence
 assert_agent_setup_skipped

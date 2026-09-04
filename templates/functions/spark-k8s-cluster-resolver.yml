@@ -21,7 +21,8 @@
 # entry. On a match K8S_CLUSTER_NAME, GCP_PROJECT_ID, K8S_LOCATION and
 # K8S_USE_DNS_ENDPOINT are exported for .gke-kubeconfig, plus DISABLE_GITLAB_AGENT=1,
 # so this must run BEFORE setup-gitlab-agent. KUBE_NAMESPACE stays a project variable.
-# Unset $SPARK_K8S_CONFIG or a job image without the deployer scripts: skipped, no failure.
+# Unset $SPARK_K8S_CONFIG or a job image without the deployer scripts: skipped, no failure,
+# and the single-value K8S_* variables injected by the project are left untouched.
 # Written for POSIX sh and without an EXIT trap (.gcp-wif relies on its own).
 #
 # Example:
@@ -51,12 +52,9 @@
       fi
       SPARK_K8S_CLUSTER_RESOLVED=0
       export SPARK_K8S_CLUSTER_RESOLVED
-      if [ -n "${SPARK_K8S_CONFIG:-}" ]; then
-        # The resolver owns these from now on: a ref that resolves to no cluster must not
-        # leave stale values for .gke-kubeconfig.
-        unset K8S_CLUSTER_NAME GCP_PROJECT_ID K8S_LOCATION \
-          K8S_USE_DNS_ENDPOINT SPARK_K8S_CLUSTER_DNS_ENDPOINT
-      fi
+      # Every skip path leaves K8S_CLUSTER_NAME, GCP_PROJECT_ID, K8S_LOCATION and
+      # K8S_USE_DNS_ENDPOINT untouched: a job that cannot resolve keeps deploying to the
+      # single-value cluster those variables describe.
       if [ -z "${SPARK_K8S_CONFIG:-}" ]; then
         echo "Cluster resolution skipped (SPARK_K8S_CONFIG not set)."
       elif [ ! -x "/scripts/resolve-cluster" ]; then
@@ -66,6 +64,10 @@
       elif ! command -v yq4 >/dev/null 2>&1; then
         echo "Cluster resolution skipped: yq4 is not available in this job image."
       else
+        # The resolver owns these from now on: a ref that resolves to no cluster must not
+        # leave stale values for .gke-kubeconfig.
+        unset K8S_CLUSTER_NAME GCP_PROJECT_ID K8S_LOCATION \
+          K8S_USE_DNS_ENDPOINT SPARK_K8S_CLUSTER_DNS_ENDPOINT
         # Restore errexit only if it was on, so the rest of the shared chain is unaffected.
         case $- in *e*) SPARK_K8S_HAD_ERREXIT=1 ;; *) SPARK_K8S_HAD_ERREXIT=0 ;; esac
         set +e
