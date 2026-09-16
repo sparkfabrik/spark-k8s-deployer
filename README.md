@@ -5,7 +5,7 @@ within gitlab-ci.
 
 This image includes:
 
-- Docker client 20.10.7
+- Docker client 29.6.1
 - Docker-compose v2.23.1
 - Google cloud sdk 422.0.0
 - Helm 3.11.2 (helm3 binary)

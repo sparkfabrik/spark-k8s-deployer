@@ -42,7 +42,7 @@ variables:
   # to change the image used for dind service.
   DOCKER_DIND_IMAGE_REGISTRY: docker.io
   DOCKER_DIND_IMAGE_REPOSITORY: library/docker
-  DOCKER_DIND_IMAGE_TAG: 26.1.0-dind-alpine3.19
+  DOCKER_DIND_IMAGE_TAG: 29.6.1-dind-alpine3.24
   # When using dind service, we need to instruct docker to talk with
   # the daemon started inside of the service. The daemon is available
   # with a network connection instead of the default
