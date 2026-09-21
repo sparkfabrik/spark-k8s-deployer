@@ -1,0 +1,13 @@
+clusters:
+  - name: example-dev
+    project_id: example-dev-project
+    location: europe-west1
+    default: true
+    refs: []
+envs:
+  - env: prod
+    namespace: example-prod
+    name: example-prod
+    project_id: example-prod-project
+    location: europe-west1
+    refs: [main]

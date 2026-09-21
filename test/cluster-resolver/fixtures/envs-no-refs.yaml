@@ -1,0 +1,6 @@
+envs:
+  - env: prod
+    namespace: example-prod
+    name: example-prod
+    project_id: example-prod-project
+    location: europe-west1

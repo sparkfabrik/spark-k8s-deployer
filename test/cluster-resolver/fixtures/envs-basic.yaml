@@ -1,0 +1,31 @@
+envs:
+  - env: prod
+    namespace: example-prod
+    name: example-prod
+    project_id: example-prod-project
+    location: europe-west1
+    refs: [main, "refs/tags/v*"]
+    dns_endpoint: gke-prod.example.gke.goog
+    use_dns_endpoint: true
+  - env: stage
+    namespace: example-stage
+    name: example-prod
+    project_id: example-prod-project
+    location: europe-west1
+    refs: ["release/*"]
+    dns_endpoint: gke-prod.example.gke.goog
+    use_dns_endpoint: true
+  - env: dev
+    namespace: example-dev
+    name: example-dev
+    project_id: example-dev-project
+    location: europe-west1
+    refs: ["**"]
+    dns_endpoint: gke-dev.example.gke.goog
+  - env: sandbox
+    namespace: example-sandbox
+    name: example-dev
+    project_id: example-dev-project
+    location: europe-west1
+    refs: []
+    dns_endpoint: gke-dev.example.gke.goog
