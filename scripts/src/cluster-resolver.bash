@@ -13,8 +13,17 @@ RESOLVER_CONFIG_FILE=""
 # the configuration, so the caller can remove it.
 RESOLVER_TMP_CONFIG_DIR=""
 
-# Set by resolve_cluster to the index of the selected cluster.
+# Set by resolve_cluster to the index of the selected entry.
 RESOLVER_SELECTED=""
+
+# Set by resolver_check_config to the shape of the document: "clusters" for the
+# cluster shape with a default entry, "envs" for the environment shape resolved by
+# specificity. A document carries exactly one of the two keys.
+RESOLVER_SHAPE=""
+
+# Set by resolver_check_config to the top level key holding the entries, so the
+# accessors read both shapes.
+RESOLVER_ENTRIES_KEY=""
 
 _resolver_log() {
   printf '%s\n' "${*}" >&2
@@ -178,9 +187,9 @@ resolver_check_patterns() {
   local file="${1}"
   local count index pattern
 
-  count="$(resolver_cluster_count "${file}")"
+  count="$(resolver_entry_count "${file}")"
   if [ -z "${count}" ]; then
-    _resolver_log "Cannot count the clusters in the configuration."
+    _resolver_log "Cannot count the entries in the configuration."
     return 1
   fi
 
@@ -190,7 +199,7 @@ resolver_check_patterns() {
       if _resolver_is_regex_pattern "${pattern}"; then
         resolver_regex_to_ere "${pattern:1:${#pattern}-2}" >/dev/null || return 1
       fi
-    done < <(resolver_cluster_refs "${file}" "${index}")
+    done < <(resolver_entry_refs "${file}" "${index}")
     index=$((index + 1))
   done
 
@@ -232,6 +241,104 @@ resolver_pattern_matches() {
   fi
 
   printf '%s' "${target}" | grep -Eq -- "${ere}"
+}
+
+# Print the specificity rank of a pattern as "kind literals double_stars single_stars".
+# The kind is 2 for a literal, 1 for a glob and 0 for a regex: a literal names one
+# ref, a glob a family, a regex anything at all. Literal characters are counted as
+# written, the refs/ prefix included, so refs/tags/v* counts 11 and v* counts 1; an
+# escape and the character it escapes count as one.
+resolver_pattern_rank() {
+  local pattern="${1}"
+  local length=${#pattern}
+  local index=0
+  local kind=2
+  local literals=0
+  local doubles=0
+  local singles=0
+  local char
+
+  if _resolver_is_regex_pattern "${pattern}"; then
+    printf '0 0 0 0'
+    return 0
+  fi
+
+  while [ "${index}" -lt "${length}" ]; do
+    char="${pattern:index:1}"
+    case "${char}" in
+    "\\")
+      index=$((index + 1))
+      literals=$((literals + 1))
+      ;;
+    '*')
+      kind=1
+      if [ "${pattern:index+1:1}" = "*" ]; then
+        doubles=$((doubles + 1))
+        index=$((index + 1))
+      else
+        singles=$((singles + 1))
+      fi
+      ;;
+    '?')
+      kind=1
+      ;;
+    *)
+      literals=$((literals + 1))
+      ;;
+    esac
+    index=$((index + 1))
+  done
+
+  printf '%s %s %s %s' "${kind}" "${literals}" "${doubles}" "${singles}"
+}
+
+# Print 1 when the first rank is more specific than the second, -1 when it is less,
+# 0 when the two rank equal. The kind decides first; between globs more literal
+# characters win, then fewer ** and then fewer *. Two literals and two regexes always
+# rank equal, which is why a regex may live in one environment only.
+resolver_rank_compare() {
+  local -a left right
+  local index
+
+  read -r -a left <<<"${1}"
+  read -r -a right <<<"${2}"
+
+  if [ "${left[0]}" -ne "${right[0]}" ]; then
+    if [ "${left[0]}" -gt "${right[0]}" ]; then
+      printf '1'
+    else
+      printf '-1'
+    fi
+    return 0
+  fi
+
+  if [ "${left[0]}" != "1" ]; then
+    printf '0'
+    return 0
+  fi
+
+  if [ "${left[1]}" -ne "${right[1]}" ]; then
+    if [ "${left[1]}" -gt "${right[1]}" ]; then
+      printf '1'
+    else
+      printf '-1'
+    fi
+    return 0
+  fi
+
+  # Fewer wildcards win, so the comparison is inverted for the star counts.
+  for index in 2 3; do
+    if [ "${left[index]}" -ne "${right[index]}" ]; then
+      if [ "${left[index]}" -lt "${right[index]}" ]; then
+        printf '1'
+      else
+        printf '-1'
+      fi
+      return 0
+    fi
+  done
+
+  printf '0'
 }
 
 # Set RESOLVER_CONFIG_FILE to a readable .yaml path: jv picks its parser from the extension
@@ -321,11 +428,37 @@ resolver_validate_schema() {
   return 1
 }
 
-# Validate the file: parseable YAML, supported version, non-empty clusters list,
-# at most one default, every refs a list, every regex translatable.
+# Print the shape of the document, "clusters" or "envs". The schema allows exactly
+# one of the two keys; this repeats the rule for the job image that has no jv.
+resolver_document_shape() {
+  local file="${1}"
+  local has_clusters has_envs
+
+  has_clusters="$(yq4 e 'has("clusters")' "${file}" 2>/dev/null)"
+  has_envs="$(yq4 e 'has("envs")' "${file}" 2>/dev/null)"
+
+  if [ "${has_clusters}" = "true" ] && [ "${has_envs}" = "true" ]; then
+    _resolver_log "The cluster configuration declares both a 'clusters' list and an 'envs' list, a document carries one shape only."
+    return 1
+  fi
+  if [ "${has_clusters}" = "true" ]; then
+    printf 'clusters'
+    return 0
+  fi
+  if [ "${has_envs}" = "true" ]; then
+    printf 'envs'
+    return 0
+  fi
+
+  _resolver_log "The cluster configuration declares neither a 'clusters' list nor an 'envs' list."
+  return 1
+}
+
+# Validate the file: parseable YAML, supported version, one known shape and the
+# checks that shape needs, then every regex translatable.
 resolver_check_config() {
   local file="${1}"
-  local version kind length default_count scalar_refs_count
+  local version
 
   if ! version="$(yq4 e '.version // 1' "${file}" 2>/dev/null)"; then
     _resolver_log "The cluster configuration is not valid YAML."
@@ -335,6 +468,24 @@ resolver_check_config() {
     _resolver_log "Unsupported cluster configuration version '${version}', this resolver supports version ${RESOLVER_SUPPORTED_SCHEMA_VERSION}."
     return 1
   fi
+
+  RESOLVER_SHAPE="$(resolver_document_shape "${file}")" || return 1
+  RESOLVER_ENTRIES_KEY="${RESOLVER_SHAPE}"
+
+  case "${RESOLVER_SHAPE}" in
+  clusters) resolver_check_clusters "${file}" || return 1 ;;
+  envs) resolver_check_envs "${file}" || return 1 ;;
+  esac
+
+  resolver_check_patterns "${file}" || return 1
+
+  return 0
+}
+
+# Validate the cluster shape: a non-empty list, at most one default, every refs a list.
+resolver_check_clusters() {
+  local file="${1}"
+  local kind length default_count scalar_refs_count
 
   kind="$(yq4 e '.clusters | tag' "${file}" 2>/dev/null)"
   if [ "${kind}" != "!!seq" ]; then
@@ -371,22 +522,53 @@ resolver_check_config() {
     return 1
   fi
 
-  resolver_check_patterns "${file}" || return 1
+  return 0
+}
+
+# Validate the environment shape: a non-empty list and a refs list on every entry.
+# `refs` is required here, unlike the cluster shape: an entry without it would claim
+# nothing and there is no default entry to fall back to, so the deploy would skip in
+# silence.
+resolver_check_envs() {
+  local file="${1}"
+  local kind length bad_refs_count
+
+  kind="$(yq4 e '.envs | tag' "${file}" 2>/dev/null)"
+  if [ "${kind}" != "!!seq" ]; then
+    _resolver_log "The cluster configuration has no 'envs' list."
+    return 1
+  fi
+
+  length="$(yq4 e '.envs | length' "${file}" 2>/dev/null)"
+  if [ "${length}" = "0" ]; then
+    _resolver_log "The cluster configuration declares an empty 'envs' list."
+    return 1
+  fi
+
+  bad_refs_count="$(yq4 e '[.envs[] | select((has("refs") | not) or (.refs | tag) != "!!seq")] | length' "${file}" 2>/dev/null)"
+  if [ -z "${bad_refs_count}" ]; then
+    _resolver_log "Cannot check the refs lists in the configuration."
+    return 1
+  fi
+  if [ "${bad_refs_count}" != "0" ]; then
+    _resolver_log "The cluster configuration declares ${bad_refs_count} environments whose 'refs' is missing or not a list."
+    return 1
+  fi
 
   return 0
 }
 
-# Print the number of declared clusters.
-resolver_cluster_count() {
-  yq4 e '.clusters | length' "${1}"
+# Print the number of declared entries, clusters or environments.
+resolver_entry_count() {
+  yq4 e ".${RESOLVER_ENTRIES_KEY} | length" "${1}"
 }
 
 # Print a scalar field, empty when absent. `//` is avoided on purpose: it also
 # replaces `false`, which would turn `use_dns_endpoint: false` into the default.
-resolver_cluster_field() {
+resolver_entry_field() {
   local value
 
-  value="$(yq4 e ".clusters[${2}].${3}" "${1}")" || return 1
+  value="$(yq4 e ".${RESOLVER_ENTRIES_KEY}[${2}].${3}" "${1}")" || return 1
   if [ "${value}" = "null" ]; then
     printf ''
     return 0
@@ -394,10 +576,10 @@ resolver_cluster_field() {
   printf '%s' "${value}"
 }
 
-# Print the ref patterns of a cluster, one per line. A git ref name cannot
+# Print the ref patterns of an entry, one per line. A git ref name cannot
 # contain a newline, so the list round trips safely.
-resolver_cluster_refs() {
-  yq4 e "(.clusters[${2}].refs // [])[]" "${1}"
+resolver_entry_refs() {
+  yq4 e "(.${RESOLVER_ENTRIES_KEY}[${2}].refs // [])[]" "${1}"
 }
 
 # Print the index of the cluster flagged as default, if any.
@@ -433,24 +615,33 @@ _resolver_emit_export() {
   printf "export %s='%s'\n" "${1}" "${value}"
 }
 
-# Print the export lines for the cluster at the given index. The DNS endpoint is
-# exported but never logged.
+# Print the export lines for the entry at the given index. The DNS endpoint is
+# exported but never logged. KUBE_NAMESPACE is exported on the environment shape
+# only: on the cluster shape the namespace stays a project variable.
 resolver_emit_selected() {
   local file="${1}"
   local index="${2}"
-  local name project_id location dns_endpoint use_dns_endpoint
+  local name project_id location dns_endpoint use_dns_endpoint env namespace
   local use_dns_flag="0"
   local missing=""
 
-  name="$(resolver_cluster_field "${file}" "${index}" "name")"
-  project_id="$(resolver_cluster_field "${file}" "${index}" "project_id")"
-  location="$(resolver_cluster_field "${file}" "${index}" "location")"
-  dns_endpoint="$(resolver_cluster_field "${file}" "${index}" "dns_endpoint")"
-  use_dns_endpoint="$(resolver_cluster_field "${file}" "${index}" "use_dns_endpoint")"
+  name="$(resolver_entry_field "${file}" "${index}" "name")"
+  project_id="$(resolver_entry_field "${file}" "${index}" "project_id")"
+  location="$(resolver_entry_field "${file}" "${index}" "location")"
+  dns_endpoint="$(resolver_entry_field "${file}" "${index}" "dns_endpoint")"
+  use_dns_endpoint="$(resolver_entry_field "${file}" "${index}" "use_dns_endpoint")"
 
   [ -n "${name}" ] || missing="${missing} name"
   [ -n "${project_id}" ] || missing="${missing} project_id"
   [ -n "${location}" ] || missing="${missing} location"
+
+  if [ "${RESOLVER_SHAPE}" = "envs" ]; then
+    env="$(resolver_entry_field "${file}" "${index}" "env")"
+    namespace="$(resolver_entry_field "${file}" "${index}" "namespace")"
+    [ -n "${env}" ] || missing="${missing} env"
+    [ -n "${namespace}" ] || missing="${missing} namespace"
+  fi
+
   if [ -n "${missing}" ]; then
     _resolver_log "The selected cluster entry is missing required fields:${missing}."
     return 1
@@ -479,12 +670,135 @@ resolver_emit_selected() {
   _resolver_emit_export "K8S_USE_DNS_ENDPOINT" "${use_dns_flag}"
   _resolver_emit_export "SPARK_K8S_CLUSTER_DNS_ENDPOINT" "${dns_endpoint}"
   _resolver_emit_export "DISABLE_GITLAB_AGENT" "1"
+
+  if [ "${RESOLVER_SHAPE}" = "envs" ]; then
+    _resolver_emit_export "KUBE_NAMESPACE" "${namespace}"
+    # The environment name is not exported, so the template cannot print it: the
+    # resolver logs the resolved environment itself.
+    _resolver_log "Resolved environment: ${env} (namespace ${namespace}, cluster ${name}, project ${project_id}, location ${location})"
+  fi
+}
+
+# Select the cluster owning the ref on the cluster shape, setting RESOLVER_SELECTED.
+# The list is scanned bottom up, so the last declared match wins, and a ref that
+# matches nothing falls back to the default entry. Returns 1 on a configuration error.
+resolver_select_cluster() {
+  local file="${1}"
+  local ref="${2}"
+  local kind="${3}"
+  local count index pattern rc name
+
+  count="$(resolver_entry_count "${file}")"
+  RESOLVER_SELECTED=""
+
+  # Scan bottom up, so the first match is the last declared one.
+  index=$((count - 1))
+  while [ "${index}" -ge 0 ]; do
+    while IFS= read -r pattern; do
+      [ -n "${pattern}" ] || continue
+      resolver_pattern_matches "${pattern}" "${ref}" "${kind}"
+      rc=$?
+      if [ "${rc}" = "2" ]; then
+        return 1
+      fi
+      if [ "${rc}" = "0" ]; then
+        RESOLVER_SELECTED="${index}"
+        name="$(resolver_entry_field "${file}" "${index}" "name")"
+        _resolver_log "The ref '${ref}' matches the pattern '${pattern}' of cluster '${name}'."
+        break
+      fi
+    done < <(resolver_entry_refs "${file}" "${index}")
+
+    [ -z "${RESOLVER_SELECTED}" ] || break
+    index=$((index - 1))
+  done
+
+  if [ -z "${RESOLVER_SELECTED}" ]; then
+    RESOLVER_SELECTED="$(resolver_default_index "${file}")"
+    if [ -z "${RESOLVER_SELECTED}" ]; then
+      _resolver_log "The ref '${ref}' matches no cluster and the configuration declares no default cluster."
+      return 1
+    fi
+    _resolver_log "The ref '${ref}' matches no cluster, using the default one."
+  fi
+
+  return 0
+}
+
+# Select the environment claiming the ref on the environment shape, setting
+# RESOLVER_SELECTED. Every pattern of every environment is tried and the most
+# specific match wins, so the order of the list never changes the outcome. Returns 3
+# when nothing claims the ref, 1 on an invalid pattern or a tie of equal rank.
+resolver_select_env() {
+  local file="${1}"
+  local ref="${2}"
+  local kind="${3}"
+  local count index pattern rc rank order env
+  local best_rank="" best_env="" best_pattern=""
+  local tie_env="" tie_pattern=""
+
+  count="$(resolver_entry_count "${file}")"
+  RESOLVER_SELECTED=""
+
+  index=0
+  while [ "${index}" -lt "${count}" ]; do
+    env="$(resolver_entry_field "${file}" "${index}" "env")"
+    while IFS= read -r pattern; do
+      [ -n "${pattern}" ] || continue
+      resolver_pattern_matches "${pattern}" "${ref}" "${kind}"
+      rc=$?
+      if [ "${rc}" = "2" ]; then
+        return 1
+      fi
+      [ "${rc}" = "0" ] || continue
+
+      rank="$(resolver_pattern_rank "${pattern}")"
+      if [ -z "${best_rank}" ]; then
+        best_rank="${rank}"
+        best_env="${env}"
+        best_pattern="${pattern}"
+        RESOLVER_SELECTED="${index}"
+        continue
+      fi
+
+      order="$(resolver_rank_compare "${rank}" "${best_rank}")"
+      if [ "${order}" = "1" ]; then
+        best_rank="${rank}"
+        best_env="${env}"
+        best_pattern="${pattern}"
+        RESOLVER_SELECTED="${index}"
+        # A more specific match settles what the previous tie could not.
+        tie_env=""
+        tie_pattern=""
+      elif [ "${order}" = "0" ] && [ "${env}" != "${best_env}" ]; then
+        # Two environments claiming the ref with the same force: the generator
+        # rejects such a project, so this can only be a hand written document.
+        tie_env="${env}"
+        tie_pattern="${pattern}"
+      fi
+    done < <(resolver_entry_refs "${file}" "${index}")
+    index=$((index + 1))
+  done
+
+  if [ -z "${RESOLVER_SELECTED}" ]; then
+    _resolver_log "The ref '${ref}' is claimed by no environment, there is nothing to deploy."
+    return 3
+  fi
+
+  if [ -n "${tie_env}" ]; then
+    _resolver_log "The ref '${ref}' matches the pattern '${best_pattern}' of environment '${best_env}' and the pattern '${tie_pattern}' of environment '${tie_env}' at equal rank."
+    return 1
+  fi
+
+  _resolver_log "The ref '${ref}' matches the pattern '${best_pattern}' of environment '${best_env}'."
+
+  return 0
 }
 
 # Resolve the cluster owning the current ref and print its export lines.
 # Returns 0 on selection, 3 when the pipeline has no ref, 1 on a configuration error.
 resolve_cluster() {
-  local file ref kind count index pattern rc name
+  local file ref kind
 
   if [ -z "${SPARK_K8S_CONFIG:-}" ]; then
     _resolver_log "SPARK_K8S_CONFIG is not set, there is nothing to resolve."
@@ -520,39 +834,10 @@ resolve_cluster() {
     return 3
   fi
 
-  count="$(resolver_cluster_count "${file}")"
-  RESOLVER_SELECTED=""
-
-  # Scan bottom up, so the first match is the last declared one.
-  index=$((count - 1))
-  while [ "${index}" -ge 0 ]; do
-    while IFS= read -r pattern; do
-      [ -n "${pattern}" ] || continue
-      resolver_pattern_matches "${pattern}" "${ref}" "${kind}"
-      rc=$?
-      if [ "${rc}" = "2" ]; then
-        return 1
-      fi
-      if [ "${rc}" = "0" ]; then
-        RESOLVER_SELECTED="${index}"
-        name="$(resolver_cluster_field "${file}" "${index}" "name")"
-        _resolver_log "The ref '${ref}' matches the pattern '${pattern}' of cluster '${name}'."
-        break
-      fi
-    done < <(resolver_cluster_refs "${file}" "${index}")
-
-    [ -z "${RESOLVER_SELECTED}" ] || break
-    index=$((index - 1))
-  done
-
-  if [ -z "${RESOLVER_SELECTED}" ]; then
-    RESOLVER_SELECTED="$(resolver_default_index "${file}")"
-    if [ -z "${RESOLVER_SELECTED}" ]; then
-      _resolver_log "The ref '${ref}' matches no cluster and the configuration declares no default cluster."
-      return 1
-    fi
-    _resolver_log "The ref '${ref}' matches no cluster, using the default one."
-  fi
+  case "${RESOLVER_SHAPE}" in
+  envs) resolver_select_env "${file}" "${ref}" "${kind}" || return $? ;;
+  *) resolver_select_cluster "${file}" "${ref}" "${kind}" || return $? ;;
+  esac
 
   resolver_warn_on_agent_variables || return 1
   resolver_emit_selected "${file}" "${RESOLVER_SELECTED}"
