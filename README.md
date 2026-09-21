@@ -67,12 +67,88 @@ setup and its context takes precedence.
 ### Multi-cluster: runtime ref-to-cluster resolution
 
 A project can deploy to more than one cluster without naming any of them in its
-pipeline. The cluster is picked at runtime from the git ref by
+pipeline. The target is picked at runtime from the git ref by
 `.spark-k8s-cluster-resolver`, which then exports the variables
 `.gke-kubeconfig` already consumes, so the kubeconfig step runs unchanged.
 
-The cluster list is injected as a CI/CD variable of type **File**,
-`$SPARK_K8S_CONFIG`:
+The routing document is injected as a CI/CD variable of type **File**,
+`$SPARK_K8S_CONFIG`, and carries exactly one of two shapes: `envs`, one entry
+per environment, resolved by how specific a pattern is, or `clusters`, one entry
+per cluster with a default, resolved by list order. The environment shape is
+what the platform generator emits for a project that declares environments; the
+cluster shape is what every other project still receives, and it behaves exactly
+as it always has.
+
+#### The environment shape
+
+```yaml
+envs:
+  - env: prod
+    namespace: example-prod
+    name: example-prod
+    project_id: example-prod-project
+    location: europe-west1
+    refs: [main, "refs/tags/v*"]
+    dns_endpoint: gke-....gke.goog
+    use_dns_endpoint: true
+  - env: dev
+    namespace: example-dev
+    name: example-dev
+    project_id: example-dev-project
+    location: europe-west1
+    refs: ["**"]
+  - env: sandbox
+    namespace: example-sandbox
+    name: example-dev
+    project_id: example-dev-project
+    location: europe-west1
+    refs: []
+```
+
+| Key                | Required | Description                                                                                                                       |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `env`              | yes      | Environment name, as the project declares it. Logged, never exported                                                              |
+| `namespace`        | yes      | Kubernetes namespace of the environment, exported as `KUBE_NAMESPACE`                                                             |
+| `name`             | yes      | GKE cluster name, exported as `K8S_CLUSTER_NAME`                                                                                  |
+| `project_id`       | yes      | GCP project ID, exported as `GCP_PROJECT_ID`                                                                                      |
+| `location`         | yes      | Cluster region or zone, exported as `K8S_LOCATION`                                                                                |
+| `refs`             | yes      | List of ref patterns this environment claims. May be empty, which means it never deploys automatically                            |
+| `dns_endpoint`     | no       | DNS endpoint of the control plane, exported as `SPARK_K8S_CLUSTER_DNS_ENDPOINT`                                                   |
+| `use_dns_endpoint` | no       | Sets `K8S_USE_DNS_ENDPOINT`. Only `true` and `false` are accepted; when absent it is inferred from the presence of `dns_endpoint` |
+
+There is no `default` key, and unknown keys are rejected. Two environments may
+share a cluster; only the namespace has to differ.
+
+**The most specific match wins, never the list order.** Every pattern of every
+environment is tried against the ref and the strongest match decides:
+
+1. A literal beats a glob, and a glob beats a regex.
+2. Between two globs, the one with more literal characters wins. They are
+   counted as written, the `refs/` prefix included and `*` and `?` excluded, so
+   `release/1.*` scores 10 against the 8 of `release/*`, and `refs/tags/v*`
+   scores 11 against the 1 of `v*`.
+3. Still equal: fewer `**` wins, then fewer `*`.
+4. Two literals, or two regexes, always rank equal.
+
+Reordering the list therefore cannot change where a ref deploys. Two
+environments matching at equal rank fail the job, naming both patterns: the
+generator rejects a project that could produce one, by refusing the same pattern
+in two environments and a regex in more than one.
+
+A catch-all is the explicit `**`, which has no literal character and so ranks
+below everything else. It matches branches only, so tags need their own
+`refs/tags/**` entry. A ref no environment claims resolves nothing: the resolver
+exits 3 and the job skips, the same path merge request pipelines take.
+
+| Pipeline ref              | Resolved | Why                                                        |
+| ------------------------- | -------- | ---------------------------------------------------------- |
+| branch `main`             | prod     | literal                                                    |
+| branch `release/1.9`      | lts      | `release/1.*` has more literal characters than `release/*` |
+| branch `feature/login/ui` | dev      | only `**` claims it                                        |
+| tag `v2.0.0`              | prod     | `refs/tags/v*`; a bare `**` matches branches only          |
+| tag `release/2.3`         | nothing  | no pattern addresses that tag, the job skips               |
+
+#### The cluster shape
 
 ```yaml
 clusters:
@@ -110,8 +186,8 @@ generator no longer emits it: the format version lives in the schema `$id`, and
 a document declares a version only once a second one exists. A document
 declaring any other version is rejected.
 
-`KUBE_NAMESPACE` is not part of the cluster configuration and must still be
-provided by the project.
+`KUBE_NAMESPACE` is not part of the cluster shape and must still be provided by
+the project. Only the environment shape exports it.
 
 #### How a ref is matched
 
@@ -122,6 +198,8 @@ tag named `main` cannot match a branch rule.
 The `clusters` list is scanned **bottom-up** and the first entry with a matching
 pattern wins, so the last declared match wins, gitignore style. There is no
 specificity scoring. When nothing matches, the `default: true` entry is used.
+The `envs` list is resolved by specificity instead, as described above; pattern
+syntax is the same for both shapes.
 
 Patterns are globs by default:
 
@@ -152,11 +230,13 @@ breaking unanchored patterns.
   start of the pattern or after a non-word character, so `/^prefs\/x$/` still
   matches the short branch name `prefs/x`.
 
-#### Pipelines without a ref
+#### Pipelines that resolve nothing
 
 Merge request pipelines have neither `CI_COMMIT_TAG` nor `CI_COMMIT_BRANCH`, so
 there is no ref to resolve and the default cluster is deliberately **not** used.
-The resolver exports nothing and cluster-dependent jobs skip. Reference
+On the environment shape a ref no environment claims takes the same path, since
+there is no default entry at all. In both cases the resolver exports nothing,
+exits 3 and cluster-dependent jobs skip. Reference
 `.spark-k8s-require-cluster` as the first line of such a job's `script`:
 
 ```yaml
@@ -186,9 +266,11 @@ The cluster configuration does not match /schemas/cluster-config.schema.json:
 
 That schema is owned by the platform generator and synced into this repository
 by an automatic pull request. It describes what the generator emits, so it is
-stricter than the resolver: every entry requires `name`, `project_id`,
-`location`, `default` and `refs`, unknown keys are rejected, and exactly one
-entry must carry `default: true`. See `schemas/README.md`.
+stricter than the resolver: a document carries `clusters` or `envs` and never
+both, unknown keys are rejected, a cluster entry requires `name`, `project_id`,
+`location`, `default` and `refs` with exactly one `default: true`, and an
+environment entry requires `env`, `namespace`, `name`, `project_id`, `location`
+and `refs`. See `schemas/README.md`.
 
 Validation uses `jv`, which the deployer image ships. It has to understand
 draft 2020-12, because the exactly-one-default rule is expressed with
@@ -226,17 +308,25 @@ and are ignored.
   source, so this degrades rather than opens a hole.
 
 A configuration error, on the other hand, fails the job: a schema violation,
-invalid YAML, an unsupported `version`, an empty or missing `clusters` list,
-more than one default, a `refs` that is not a list (`refs: main` instead of
-`refs: [main]`), a selected entry without `name`, `project_id` or `location`, an
-unsupported regex construct, or a ref that matches nothing when no default is
-declared.
+invalid YAML, an unsupported `version`, both shapes or neither in one document,
+an empty `clusters` or `envs` list, more than one default, a `refs` that is not
+a list (`refs: main` instead of `refs: [main]`) or missing from an environment,
+a selected entry without `name`, `project_id`, `location` or, on the
+environment shape, `namespace`, an unsupported regex construct, a ref that
+matches nothing when no default is declared, or two environments claiming the
+ref at equal rank.
 
 While `$SPARK_K8S_CONFIG` is set the resolver owns `K8S_CLUSTER_NAME`,
 `GCP_PROJECT_ID`, `K8S_LOCATION` and `K8S_USE_DNS_ENDPOINT`: it clears them
 before resolving, so a ref that owns no cluster cannot inherit them from plain
 CI/CD variables and reach the wrong cluster. Projects that do not use the
 resolver keep whatever they set.
+
+`KUBE_NAMESPACE` is **not** cleared, because the shape of the document is
+unknown until the resolver has run: a cluster shape document and every skip path
+need the project variable to survive. The environment shape overwrites it on
+every successful resolution, and a ref that resolves nothing skips the job
+through `.spark-k8s-require-cluster` before the stale value can be used.
 
 #### Stop and rollback jobs
 
@@ -251,12 +341,20 @@ creation fails on an unresolved `!reference`.
 #### Tests
 
 The resolver has a test suite covering ref normalization, glob and regex
-semantics, ordering, the default fallback and the configuration errors. It needs
-`yq4` and `jv`, so it runs inside the deployer image:
+semantics, ordering, the default fallback, specificity on the environment shape
+and the configuration errors. It needs `yq4`, `jv` and `jq`, so it runs inside
+the deployer image:
 
 ```
 make test-cluster-resolver
 ```
+
+`test/cluster-resolver/vectors.json` is shared with the platform generator byte
+for byte: both repositories run their resolver against the same scenarios. The
+suite turns every scenario into an environment shape document with invented
+connection data, validates it against the schema copy, and runs each case with
+the list in the declared order and reversed, because specificity must decide the
+outcome and the order must not.
 
 The same suite carries the schema gate. Every fixture is checked against the
 synced schema copy in both directions: a fixture that must validate has to
