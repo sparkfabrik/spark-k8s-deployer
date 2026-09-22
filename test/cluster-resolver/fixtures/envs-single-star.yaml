@@ -1,0 +1,13 @@
+envs:
+  - env: star
+    namespace: ns-star
+    name: example-star
+    project_id: example-star-project
+    location: europe-west1
+    refs: ["release/*"]
+  - env: question
+    namespace: ns-question
+    name: example-question
+    project_id: example-question-proj
+    location: europe-west1
+    refs: ["release/?"]
