@@ -25,7 +25,7 @@ VECTORS="${TEST_DIR}/vectors.json"
 # Fixtures that must validate against the generator schema. envs-tie.yaml is one of
 # them: the schema cannot express that two environments must not claim a ref with the
 # same force, so the resolver is what has to catch it.
-SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml envs-basic.yaml envs-tie.yaml envs-single-star.yaml"
+SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml envs-basic.yaml envs-tie.yaml"
 
 # Fixtures the generator schema must reject. bad-regex.yaml is not here on purpose:
 # a bad regex is a valid string to the schema, so it proves the resolver still guards it.
@@ -454,16 +454,6 @@ assert_exit "a pipeline without branch or tag resolves no environment" 3 \
 
 assert_exit "two environments matching at equal rank are an error" 1 \
   "$(fixture envs-tie.yaml)" "" "release/1"
-
-# The last tie-breaker, fewer single stars, with the literal characters and the
-# double stars equal on both sides. The shared vectors do not reach it.
-assert_env "fewer single stars win when everything else is equal" \
-  "$(fixture envs-single-star.yaml)" "" "release/x" \
-  "example-question" "example-question-proj" "europe-west1" "0" "" "ns-question"
-
-assert_env "the single star still takes what the question mark cannot match" \
-  "$(fixture envs-single-star.yaml)" "" "release/xy" \
-  "example-star" "example-star-project" "europe-west1" "0" "" "ns-star"
 
 assert_exit "an environment entry without a namespace is an error" 1 \
   "$(fixture envs-missing-fields.yaml)" "" "main"

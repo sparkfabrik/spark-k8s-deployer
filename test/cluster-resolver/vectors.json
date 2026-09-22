@@ -226,6 +226,35 @@
           "env": "dev"
         }
       ]
+    },
+    {
+      "name": "fewer single stars win",
+      "envs": [
+        {
+          "name": "star",
+          "refs": [
+            "release/*"
+          ]
+        },
+        {
+          "name": "question",
+          "refs": [
+            "release/?"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/release/x",
+          "env": "question",
+          "why": "equal literals and no **, release/? has fewer *"
+        },
+        {
+          "ref": "refs/heads/release/xy",
+          "env": "star",
+          "why": "? is one character"
+        }
+      ]
     }
   ]
 }
