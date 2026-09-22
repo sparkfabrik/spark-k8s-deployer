@@ -1,0 +1,13 @@
+envs:
+  - env: alpha
+    namespace: alpha
+    name: example-alpha
+    project_id: example-alpha-project
+    location: europe-west1
+    refs: ["release/*"]
+  - env: beta
+    namespace: beta
+    name: example-beta
+    project_id: example-beta-project
+    location: europe-west1
+    refs: ["release/*"]

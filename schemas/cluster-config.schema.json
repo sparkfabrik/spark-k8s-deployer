@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sparkfabrik.com/sparkplatform/cluster-config/v1.schema.json",
   "title": "Spark K8s Cluster Config",
-  "description": "Cluster routing document injected into consumer GitLab projects as the SPARK_K8S_CONFIG File-type CI/CD variable and resolved at runtime by the spark-k8s-deployer resolver (/scripts/resolve-cluster). The format version lives in this schema's $id; a document declares `version` only when a later schema version exists. Source of truth: this file (sf-platform-generator); the copy in spark-k8s-deployer must stay identical.",
+  "description": "Routing document injected into consumer GitLab projects as the SPARK_K8S_CONFIG File-type CI/CD variable and resolved at runtime by the spark-k8s-deployer resolver (/scripts/resolve-cluster). A document carries exactly one of two shapes: `clusters`, the cluster shape with a default entry and last-match-wins resolution, or `envs`, one entry per environment resolved by pattern specificity. The format version lives in this schema's $id; a document declares `version` only when a later schema version exists. Source of truth: this file (sf-platform-generator); the copy in spark-k8s-deployer must stay identical.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["clusters"],
+  "oneOf": [{ "required": ["clusters"] }, { "required": ["envs"] }],
   "properties": {
     "version": {
       "const": 1,
@@ -68,6 +68,59 @@
       },
       "minContains": 1,
       "maxContains": 1
+    },
+    "envs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Environments the project deploys to, one entry each, joined with the connection data of the cluster that hosts the environment. Resolved by specificity, never by list order: every pattern of every entry that matches the normalized ref is collected and the most specific wins (a literal beats a glob, a glob beats a regex; between globs more literal characters, then fewer **, then fewer *). Two matches of equal rank from different entries are an error. No match resolves nothing and the deploy skips; there is no default entry.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["env", "namespace", "name", "project_id", "location", "refs"],
+        "properties": {
+          "env": {
+            "type": "string",
+            "pattern": "^[a-z](?:[a-z0-9-]{0,18}[a-z0-9])?$",
+            "description": "Environment name as declared in the project definition."
+          },
+          "namespace": {
+            "type": "string",
+            "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            "description": "Kubernetes namespace of the environment on the cluster, exported as KUBE_NAMESPACE."
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$",
+            "description": "GKE cluster name, exported as K8S_CLUSTER_NAME."
+          },
+          "project_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$",
+            "description": "GCP project ID hosting the cluster, exported as GCP_PROJECT_ID."
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cluster region or zone, exported as K8S_LOCATION."
+          },
+          "dns_endpoint": {
+            "type": "string",
+            "description": "DNS endpoint of the control plane, exported as SPARK_K8S_CLUSTER_DNS_ENDPOINT. May be empty for clusters without one."
+          },
+          "use_dns_endpoint": {
+            "type": "boolean",
+            "description": "Sets K8S_USE_DNS_ENDPOINT. When absent the resolver infers it from the presence of dns_endpoint."
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Git ref patterns this environment claims. Globs by default (* does not cross a slash, ** does, ? is one character, \\ escapes; a pattern without a leading refs/ is matched against refs/heads/, tags need the refs/tags/ prefix); a pattern wrapped in slashes is a regular expression. Required; an empty list means the environment never deploys automatically. The catch-all is an explicit ** and ranks lowest."
+          }
+        }
+      }
     }
   }
 }

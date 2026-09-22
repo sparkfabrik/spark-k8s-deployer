@@ -18,12 +18,18 @@ SCHEMA_COPY="${SPARK_K8S_SCHEMA_COPY:-${ROOT_DIR}/schemas/cluster-config.schema.
 # The permissive schema used by the fixtures that exercise resolver tolerance.
 TOLERANCE_SCHEMA="${TEST_DIR}/schemas/tolerance.schema.json"
 
-# Fixtures that must validate against the generator schema.
-SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml"
+# The ref matching vectors shared with the platform generator, byte for byte the file
+# that repository runs its own resolver against.
+VECTORS="${TEST_DIR}/vectors.json"
+
+# Fixtures that must validate against the generator schema. envs-tie.yaml is one of
+# them: the schema cannot express that two environments must not claim a ref with the
+# same force, so the resolver is what has to catch it.
+SCHEMA_CONFORMING_FIXTURES="basic.yaml ordering.yaml globs.yaml regex.yaml dns.yaml bad-regex.yaml multi-refs.yaml bracket-shorthand.yaml lazy-regex.yaml envs-basic.yaml envs-tie.yaml"
 
 # Fixtures the generator schema must reject. bad-regex.yaml is not here on purpose:
 # a bad regex is a valid string to the schema, so it proves the resolver still guards it.
-SCHEMA_NON_CONFORMING_FIXTURES="bad-dns-flag.yaml no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml"
+SCHEMA_NON_CONFORMING_FIXTURES="bad-dns-flag.yaml no-default.yaml no-refs-no-default.yaml missing-fields.yaml scalar-refs.yaml injection.yaml two-defaults.yaml bad-version.yaml empty-clusters.yaml no-clusters-key.yaml malformed.yaml envs-missing-fields.yaml envs-scalar-refs.yaml envs-no-refs.yaml envs-empty.yaml both-shapes.yaml"
 
 PASSED=0
 FAILED=0
@@ -115,6 +121,13 @@ expected_exports() {
   printf "export DISABLE_GITLAB_AGENT='1'\n"
 }
 
+# The environment shape adds KUBE_NAMESPACE after the cluster exports, so the output
+# of a cluster shape document stays byte for byte what it was.
+expected_env_exports() {
+  expected_exports "${1}" "${2}" "${3}" "${4}" "${5}"
+  printf "export KUBE_NAMESPACE='%s'\n" "${6}"
+}
+
 # assert_cluster <description> <config> <tag> <branch> <name> <project_id> \
 #                <location> <use_dns_endpoint> <dns_endpoint>
 assert_cluster() {
@@ -125,6 +138,31 @@ assert_cluster() {
   local expected output rc
 
   expected="$(expected_exports "${5}" "${6}" "${7}" "${8}" "${9}")"
+  output="$(run_resolver "${config}" "${tag}" "${branch}")"
+  rc=$?
+
+  if [ "${rc}" != "0" ]; then
+    report_fail "${description}" "expected exit 0, got ${rc}"
+    return
+  fi
+  if [ "${output}" != "${expected}" ]; then
+    report_fail "${description}" "unexpected exports:" "${output}" "expected:" "${expected}"
+    return
+  fi
+
+  report_pass "${description}"
+}
+
+# assert_env <description> <config> <tag> <branch> <cluster name> <project_id> \
+#            <location> <use_dns_endpoint> <dns_endpoint> <namespace>
+assert_env() {
+  local description="${1}"
+  local config="${2}"
+  local tag="${3}"
+  local branch="${4}"
+  local expected output rc
+
+  expected="$(expected_env_exports "${5}" "${6}" "${7}" "${8}" "${9}" "${10}")"
   output="$(run_resolver "${config}" "${tag}" "${branch}")"
   rc=$?
 
@@ -390,6 +428,150 @@ assert_cluster "inline YAML is accepted instead of a path" \
   "$(cat "$(fixture basic.yaml)")" "" "main" \
   "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog"
 
+# The environment shape: one entry per environment, the most specific match wins and
+# the namespace comes from the resolved entry.
+assert_env "an environment shape document exports the namespace of the match" \
+  "$(fixture envs-basic.yaml)" "" "main" \
+  "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog" "example-prod"
+
+assert_env "a more specific pattern wins over a catch-all declared before it" \
+  "$(fixture envs-basic.yaml)" "" "release/1" \
+  "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog" "example-stage"
+
+assert_env "the explicit catch-all takes the branches nothing else claims" \
+  "$(fixture envs-basic.yaml)" "" "feature/login/sso" \
+  "example-dev" "example-dev-project" "europe-west1" "1" "gke-dev.example.gke.goog" "example-dev"
+
+assert_env "a refs/tags pattern claims the tag" \
+  "$(fixture envs-basic.yaml)" "v1.2.3" "" \
+  "example-prod" "example-prod-project" "europe-west1" "1" "gke-prod.example.gke.goog" "example-prod"
+
+assert_exit "a tag no environment claims resolves nothing" 3 \
+  "$(fixture envs-basic.yaml)" "release/1" ""
+
+assert_exit "a pipeline without branch or tag resolves no environment" 3 \
+  "$(fixture envs-basic.yaml)" "" ""
+
+assert_exit "two environments matching at equal rank are an error" 1 \
+  "$(fixture envs-tie.yaml)" "" "release/1"
+
+assert_exit "an environment entry without a namespace is an error" 1 \
+  "$(fixture envs-missing-fields.yaml)" "" "main"
+
+assert_exit "an environment with a scalar refs is an error" 1 \
+  "$(fixture envs-scalar-refs.yaml)" "" "main"
+
+assert_exit "an environment without a refs list is an error" 1 \
+  "$(fixture envs-no-refs.yaml)" "" "main"
+
+assert_exit "an empty envs list is an error" 1 \
+  "$(fixture envs-empty.yaml)" "" "main"
+
+assert_exit "a document carrying both shapes is an error" 1 \
+  "$(fixture both-shapes.yaml)" "" "main"
+
+# The vectors shared with the platform generator. Each scenario becomes an
+# environment shape document with invented connection data, run once in the declared
+# order and once reversed: specificity decides, so the order must not matter.
+vectors_document() {
+  jq --argjson index "${1}" --arg order "${2}" '
+    .scenarios[$index].envs
+    | (if $order == "reversed" then reverse else . end)
+    | {envs: [.[] | {
+        env: .name,
+        namespace: ("ns-" + .name),
+        name: ("cluster-" + .name),
+        project_id: ("example-" + .name + "-project"),
+        location: "europe-west1",
+        refs: .refs
+      }]}
+  ' "${VECTORS}"
+}
+
+# A generated document must satisfy the generator schema, or the vectors and the
+# schema have drifted apart.
+assert_generated_document_validates() {
+  local description="the generated document is valid: ${1}"
+  local output
+
+  if [ ! -f "${SCHEMA_COPY}" ] || ! command -v jv >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if output="$(jv "${SCHEMA_COPY}" "${2}" 2>&1)"; then
+    report_pass "${description}"
+  else
+    report_fail "${description}" "${output}"
+  fi
+}
+
+run_vectors() {
+  local dir count index order name config case_count case_index ref env tag branch description
+
+  if [ ! -f "${VECTORS}" ]; then
+    report_fail "the shared vectors file is present" "${VECTORS} is missing"
+    return 0
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    printf '\n  skip  shared vectors: the jq command is not available\n\n'
+    return 0
+  fi
+
+  printf '\nShared ref matching vectors from %s\n' "${VECTORS}"
+
+  dir="$(mktemp -d)"
+  count="$(jq '.scenarios | length' "${VECTORS}")"
+
+  index=0
+  while [ "${index}" -lt "${count}" ]; do
+    name="$(jq -r --argjson index "${index}" '.scenarios[$index].name' "${VECTORS}")"
+    case_count="$(jq --argjson index "${index}" '.scenarios[$index].cases | length' "${VECTORS}")"
+
+    for order in declared reversed; do
+      config="${dir}/scenario-${index}-${order}.yaml"
+      vectors_document "${index}" "${order}" >"${config}"
+      assert_generated_document_validates "${name} (${order})" "${config}"
+
+      case_index=0
+      while [ "${case_index}" -lt "${case_count}" ]; do
+        ref="$(jq -r --argjson index "${index}" --argjson case "${case_index}" \
+          '.scenarios[$index].cases[$case].ref' "${VECTORS}")"
+        env="$(jq -r --argjson index "${index}" --argjson case "${case_index}" \
+          '.scenarios[$index].cases[$case].env // ""' "${VECTORS}")"
+        description="${name} (${order}): ${ref}"
+        tag=""
+        branch=""
+
+        case "${ref}" in
+        refs/tags/*) tag="${ref#refs/tags/}" ;;
+        refs/heads/*) branch="${ref#refs/heads/}" ;;
+        *)
+          report_fail "${description}" "the vectors carry a ref that is neither a branch nor a tag"
+          case_index=$((case_index + 1))
+          continue
+          ;;
+        esac
+
+        if [ -z "${env}" ]; then
+          assert_exit "${description} resolves nothing" 3 "${config}" "${tag}" "${branch}"
+        else
+          assert_env "${description} resolves ${env}" "${config}" "${tag}" "${branch}" \
+            "cluster-${env}" "example-${env}-project" "europe-west1" "0" "" "ns-${env}"
+        fi
+
+        case_index=$((case_index + 1))
+      done
+    done
+
+    index=$((index + 1))
+  done
+
+  rm -rf "${dir}"
+  printf '\n'
+}
+
+run_vectors
+
 # The output is eval'd by the CI wrapper, so a hostile cluster name must not execute.
 assert_eval_safety() {
   local description="eval of the exports does not execute a hostile cluster name"
@@ -489,9 +671,10 @@ assert_agent_setup_skipped() {
 TEMPLATE="${ROOT_DIR}/templates/functions/spark-k8s-cluster-resolver.yml"
 SH_BIN="$(command -v sh)"
 
-# run_before_script <resolver path> <path> <tag> <branch>: runs the wrapper with the
-# single-value variables preset, /scripts/resolve-cluster rewritten to <resolver path>
-# and PATH set to <path>, then prints the resulting variables, pipe separated.
+# run_before_script <resolver path> <path> <tag> <branch> [config]: runs the wrapper
+# with the single-value variables preset, /scripts/resolve-cluster rewritten to
+# <resolver path> and PATH set to <path>, then prints the resulting variables, pipe
+# separated. Standard error is kept: the resolver logs the resolved environment there.
 run_before_script() {
   local body
   body="$(yq4 '.[".spark-k8s-cluster-resolver"].before_script[0]' "${TEMPLATE}" |
@@ -503,24 +686,25 @@ run_before_script() {
     GCP_PROJECT_ID="legacy-project" \
     K8S_LOCATION="europe-west1" \
     K8S_USE_DNS_ENDPOINT="0" \
-    SPARK_K8S_CONFIG="$(fixture basic.yaml)" \
+    KUBE_NAMESPACE="legacy-namespace" \
+    SPARK_K8S_CONFIG="${5:-$(fixture basic.yaml)}" \
     CI_COMMIT_TAG="${3}" \
     CI_COMMIT_BRANCH="${4}" \
     GITLAB_AGENT_ID="" \
     GITLAB_AGENT_PROJECT="" \
     "${SH_BIN}" -c "${body}"'
-printf "%s|%s|%s|%s|%s|%s\n" "${K8S_CLUSTER_NAME:-}" "${GCP_PROJECT_ID:-}" \
+printf "%s|%s|%s|%s|%s|%s|%s\n" "${K8S_CLUSTER_NAME:-}" "${GCP_PROJECT_ID:-}" \
   "${K8S_LOCATION:-}" "${K8S_USE_DNS_ENDPOINT:-}" "${DISABLE_GITLAB_AGENT:-}" \
-  "${SPARK_K8S_CLUSTER_RESOLVED:-}"' 2>/dev/null
+  "${SPARK_K8S_CLUSTER_RESOLVED:-}" "${KUBE_NAMESPACE:-}"' 2>&1
 }
 
 # assert_before_script <description> <resolver path> <path> <tag> <branch> \
-#                      <expected variables> <expected log fragment>
+#                      <expected variables> <expected log fragment> [config]
 assert_before_script() {
   local description="${1}"
   local output rc variables
 
-  output="$(run_before_script "${2}" "${3}" "${4}" "${5}")"
+  output="$(run_before_script "${2}" "${3}" "${4}" "${5}" "${8:-}")"
   rc=$?
   variables="$(printf '%s\n' "${output}" | tail -n 1)"
 
@@ -537,7 +721,7 @@ assert_before_script() {
 
 # A skip must not touch the single-value variables: a job image without the resolver
 # keeps deploying to the cluster they describe (spark-data-hub, 2026-09-04).
-PRESERVED="legacy-cluster|legacy-project|europe-west1|0||0"
+PRESERVED="legacy-cluster|legacy-project|europe-west1|0||0|legacy-namespace"
 
 assert_before_script "a job image without the resolver keeps the single-value variables" \
   "${TEST_DIR}/no-such-resolve-cluster" "${PATH}" "" "main" \
@@ -549,11 +733,24 @@ assert_before_script "a job image without bash keeps the single-value variables"
 
 assert_before_script "a resolved ref replaces the single-value variables" \
   "${RESOLVER}" "${PATH}" "" "main" \
-  "example-prod|example-prod-project|europe-west1|1|1|1" "Resolved cluster: example-prod"
+  "example-prod|example-prod-project|europe-west1|1|1|1|legacy-namespace" "Resolved cluster: example-prod"
 
 assert_before_script "a ref that owns no cluster clears the single-value variables" \
   "${RESOLVER}" "${PATH}" "" "" \
-  "|||||0" "No cluster owns the current ref"
+  "|||||0|legacy-namespace" "No cluster owns the current ref"
+
+# The environment shape owns KUBE_NAMESPACE as well, and the resolver logs the
+# environment it resolved, because its name is not exported.
+assert_before_script "a resolved environment replaces the namespace too" \
+  "${RESOLVER}" "${PATH}" "" "main" \
+  "example-prod|example-prod-project|europe-west1|1|1|1|example-prod" \
+  "Resolved environment: prod (namespace example-prod, cluster example-prod, project example-prod-project, location europe-west1)" \
+  "$(fixture envs-basic.yaml)"
+
+assert_before_script "a ref no environment claims keeps the project namespace" \
+  "${RESOLVER}" "${PATH}" "release/1" "" \
+  "|||||0|legacy-namespace" "No cluster owns the current ref" \
+  "$(fixture envs-basic.yaml)"
 
 assert_eval_safety
 assert_agent_coexistence

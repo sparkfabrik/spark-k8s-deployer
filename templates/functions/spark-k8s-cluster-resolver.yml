@@ -1,6 +1,34 @@
 # Resolve at runtime which cluster owns the current git ref, so a consumer project
-# declares no cluster identity in its pipeline. The cluster list arrives as the
-# File type CI/CD variable $SPARK_K8S_CONFIG:
+# declares no cluster identity in its pipeline. The routing document arrives as the
+# File type CI/CD variable $SPARK_K8S_CONFIG and carries one of two shapes.
+#
+# The environment shape, one entry per environment:
+#
+#   envs:
+#     - env: prod
+#       namespace: example-prod
+#       name: example-prod
+#       project_id: example-prod-project
+#       location: europe-west1
+#       refs: [main, "refs/tags/v*"]
+#       dns_endpoint: gke-....gke.goog
+#       use_dns_endpoint: true
+#     - env: dev
+#       namespace: example-dev
+#       name: example-dev
+#       project_id: example-dev-project
+#       location: europe-west1
+#       refs: ["**"]
+#
+# Every pattern of every environment is tried and the most specific match wins, never
+# the list order: a literal beats a glob, a glob beats a regex, and between globs more
+# literal characters win, then fewer ** and then fewer *. There is no default entry: a
+# catch-all is the explicit "**", which matches branches only, `refs: []` never matches,
+# and a ref no environment claims resolves nothing and the job skips. Two environments
+# matching at equal rank fail the job. On a match KUBE_NAMESPACE is exported too.
+#
+# The cluster shape, one entry per cluster, is what projects received before
+# environments existed and keeps its behaviour:
 #
 #   clusters:
 #     - name: example-dev
@@ -18,9 +46,13 @@
 #       use_dns_endpoint: true
 #
 # The list is scanned bottom-up, last declared match wins, no match uses the default
-# entry. On a match K8S_CLUSTER_NAME, GCP_PROJECT_ID, K8S_LOCATION and
-# K8S_USE_DNS_ENDPOINT are exported for .gke-kubeconfig, plus DISABLE_GITLAB_AGENT=1,
-# so this must run BEFORE setup-gitlab-agent. KUBE_NAMESPACE stays a project variable.
+# entry, and KUBE_NAMESPACE stays a project variable.
+#
+# On a match K8S_CLUSTER_NAME, GCP_PROJECT_ID, K8S_LOCATION and K8S_USE_DNS_ENDPOINT
+# are exported for .gke-kubeconfig, plus DISABLE_GITLAB_AGENT=1, so this must run
+# BEFORE setup-gitlab-agent. KUBE_NAMESPACE is never unset before resolving: the shape
+# is unknown until the resolver has run, and on every skip path it is the project
+# variable a job still needs.
 # Unset $SPARK_K8S_CONFIG or a job image without the deployer scripts: skipped, no failure,
 # and the single-value K8S_* variables injected by the project are left untouched.
 # Written for POSIX sh and without an EXIT trap (.gcp-wif relies on its own).
@@ -79,9 +111,13 @@
         if [ "${SPARK_K8S_RESOLVER_RC}" = "0" ]; then
           eval "${SPARK_K8S_RESOLVER_OUTPUT}"
           SPARK_K8S_CLUSTER_RESOLVED=1
-          # printf, not echo: dash and busybox echo expand backslash escapes.
-          printf 'Resolved cluster: %s (project %s, location %s).\n' \
-            "${K8S_CLUSTER_NAME}" "${GCP_PROJECT_ID}" "${K8S_LOCATION}"
+          # The environment shape exports KUBE_NAMESPACE and the resolver has already
+          # logged the environment it resolved, the name of which is not exported.
+          if ! printf '%s\n' "${SPARK_K8S_RESOLVER_OUTPUT}" | grep -q '^export KUBE_NAMESPACE='; then
+            # printf, not echo: dash and busybox echo expand backslash escapes.
+            printf 'Resolved cluster: %s (project %s, location %s).\n' \
+              "${K8S_CLUSTER_NAME}" "${GCP_PROJECT_ID}" "${K8S_LOCATION}"
+          fi
         elif [ "${SPARK_K8S_RESOLVER_RC}" = "3" ]; then
           echo "No cluster owns the current ref, the cluster dependent steps will be skipped."
         else

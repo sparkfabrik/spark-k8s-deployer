@@ -1,0 +1,260 @@
+{
+  "$comment": "Shared between sf-platform-generator (internal/engine/refmatch) and spark-k8s-deployer (cluster-resolver.bash). Both resolvers must produce every listed outcome, with the envs list in any order. Each envs entry mirrors the project definition, {name, refs}: name is the environment name, which the routing document carries as `env` (its `name` field is the cluster). A harness building routing documents from this file maps name to env and invents the connection data. env null in a case means no environment claims the ref and the deploy skips.",
+  "scenarios": [
+    {
+      "name": "specificity over list order",
+      "envs": [
+        {
+          "name": "prod",
+          "refs": [
+            "main",
+            "refs/tags/v*"
+          ]
+        },
+        {
+          "name": "stage",
+          "refs": [
+            "release/*"
+          ]
+        },
+        {
+          "name": "lts",
+          "refs": [
+            "release/1.*"
+          ]
+        },
+        {
+          "name": "dev",
+          "refs": [
+            "**"
+          ]
+        },
+        {
+          "name": "sandbox",
+          "refs": []
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/main",
+          "env": "prod",
+          "why": "literal"
+        },
+        {
+          "ref": "refs/heads/release/2.3",
+          "env": "stage",
+          "why": "only match"
+        },
+        {
+          "ref": "refs/heads/release/1.9",
+          "env": "lts",
+          "why": "release/1.* has 10 literal characters, release/* has 8"
+        },
+        {
+          "ref": "refs/heads/feature/login/ui",
+          "env": "dev",
+          "why": "** crosses /"
+        },
+        {
+          "ref": "refs/heads/hotfix/x",
+          "env": "dev",
+          "why": "** catch-all"
+        },
+        {
+          "ref": "refs/tags/v2.0.0",
+          "env": "prod",
+          "why": "refs/tags/v*; a bare ** matches branches only"
+        },
+        {
+          "ref": "refs/tags/release/2.3",
+          "env": null,
+          "why": "release/* and ** match branches only"
+        },
+        {
+          "ref": "refs/tags/main",
+          "env": null,
+          "why": "a literal branch name never matches a tag"
+        }
+      ]
+    },
+    {
+      "name": "no catch-all",
+      "envs": [
+        {
+          "name": "prod",
+          "refs": [
+            "main"
+          ]
+        },
+        {
+          "name": "stage",
+          "refs": [
+            "release/*"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/main",
+          "env": "prod"
+        },
+        {
+          "ref": "refs/heads/feature/x",
+          "env": null,
+          "why": "no env claims it, the job skips"
+        },
+        {
+          "ref": "refs/heads/release/1/hotfix",
+          "env": null,
+          "why": "* does not cross /"
+        }
+      ]
+    },
+    {
+      "name": "single star is not a catch-all",
+      "envs": [
+        {
+          "name": "flat",
+          "refs": [
+            "*"
+          ]
+        },
+        {
+          "name": "deep",
+          "refs": [
+            "**"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/main",
+          "env": "flat",
+          "why": "both match; * has fewer ** than **"
+        },
+        {
+          "ref": "refs/heads/feature/x",
+          "env": "deep",
+          "why": "* does not cross /"
+        }
+      ]
+    },
+    {
+      "name": "regex ranks below any glob",
+      "envs": [
+        {
+          "name": "prod",
+          "refs": [
+            "/^v[0-9]+\\.[0-9]+\\.[0-9]+$/"
+          ]
+        },
+        {
+          "name": "dev",
+          "refs": [
+            "v*"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/v1.2.3",
+          "env": "dev",
+          "why": "glob beats regex"
+        },
+        {
+          "ref": "refs/heads/v-next",
+          "env": "dev"
+        },
+        {
+          "ref": "refs/tags/v1.2.3",
+          "env": null,
+          "why": "a regex without refs/ matches branches only; v* addresses branches"
+        }
+      ]
+    },
+    {
+      "name": "regex mentioning refs/ sees the whole ref",
+      "envs": [
+        {
+          "name": "tags",
+          "refs": [
+            "/^refs\\/tags\\//"
+          ]
+        },
+        {
+          "name": "dev",
+          "refs": [
+            "**"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/tags/anything",
+          "env": "tags"
+        },
+        {
+          "ref": "refs/heads/anything",
+          "env": "dev",
+          "why": "the regex requires the tags namespace"
+        }
+      ]
+    },
+    {
+      "name": "tags need an explicit catch-all",
+      "envs": [
+        {
+          "name": "prod",
+          "refs": [
+            "refs/tags/**"
+          ]
+        },
+        {
+          "name": "dev",
+          "refs": [
+            "**"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/tags/2026/09",
+          "env": "prod"
+        },
+        {
+          "ref": "refs/heads/2026/09",
+          "env": "dev"
+        }
+      ]
+    },
+    {
+      "name": "fewer single stars win",
+      "envs": [
+        {
+          "name": "star",
+          "refs": [
+            "release/*"
+          ]
+        },
+        {
+          "name": "question",
+          "refs": [
+            "release/?"
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "ref": "refs/heads/release/x",
+          "env": "question",
+          "why": "equal literals and no **, release/? has fewer *"
+        },
+        {
+          "ref": "refs/heads/release/xy",
+          "env": "star",
+          "why": "? is one character"
+        }
+      ]
+    }
+  ]
+}
