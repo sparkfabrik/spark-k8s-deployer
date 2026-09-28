@@ -6,6 +6,10 @@
 #   - STOP_RELEASE_NAME: the helm release name which you want to stop
 #   - KUBE_NAMESPACE: in which namespace the release was installed
 #
+# The job runs without a repository checkout (GIT_STRATEGY: empty), so a job
+# extending this template must not read repository files in a script or
+# before_script override.
+#
 # You also need to set the relative rule to add the stop job only to 
 # the desired branch, since we simply disable it for production 
 # environments (usually main and master branches). 
@@ -32,6 +36,15 @@
 .stop-deployment-template:
   # We use the .post stage https://docs.gitlab.com/ee/ci/yaml/#stages
   stage: .post
+  # The job only runs helm uninstall and reads nothing from the repository, so it
+  # skips the checkout. When GitLab runs this job automatically after the branch
+  # is deleted (environment on_stop), a checkout fails in get_sources with
+  # "fatal: couldn't find remote ref refs/heads/<branch>" and the release stays
+  # on the cluster. "empty" rather than "none": it recreates the build directory,
+  # so a runner that reuses workspaces cannot leak files from a previous job.
+  # Requires GitLab Runner 17.3 or later.
+  variables:
+    GIT_STRATEGY: empty
   # No Docker setup here, but the kubeconfig must point at the cluster owning this ref,
   # or helm uninstall runs against a stale context.
   before_script:
