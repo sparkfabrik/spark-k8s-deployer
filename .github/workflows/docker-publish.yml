@@ -130,6 +130,21 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The Dockerfile check fails on any warning through the check directive at
+  # the top of the Dockerfile.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 # 1.7.7
+        with:
+          args: -color
+
+      - name: Check the Dockerfile
+        run: docker build --check .
+
   cluster-resolver:
     runs-on: ubuntu-latest
     # No branch condition on purpose: the suite must also run on master pushes.
@@ -166,12 +181,12 @@ jobs:
         run: bash test/cluster-resolver/run.sh
 
   # Tags the per-platform digests of the build job as one multi-platform image.
-  # Both platforms are required: nothing is published when either build leg or
-  # the cluster resolver suite fails, because the image ships the resolver
-  # scripts.
+  # Both platforms are required: nothing is published when either build leg,
+  # the lint job or the cluster resolver suite fails, because the image ships
+  # the resolver scripts.
   deploy:
     runs-on: ubuntu-latest
-    needs: [build, cluster-resolver]
+    needs: [build, lint, cluster-resolver]
     # Only deploy on the main/master branch
     if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
     permissions:

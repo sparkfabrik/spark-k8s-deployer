@@ -1,3 +1,8 @@
+# check=skip=SecretsUsedInArgOrEnv;error=true
+# Build checks fail the build. SecretsUsedInArgOrEnv is skipped because it
+# matches USE_GKE_GCLOUD_AUTH_PLUGIN by name; the image takes no secrets as
+# ARG or ENV.
+
 # Define the google cloud sdk image tag to use.
 # https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/europe/eu.gcr.io/google-cloud-cli
 ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=550.0.0-alpine
