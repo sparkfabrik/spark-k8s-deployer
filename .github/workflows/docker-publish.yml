@@ -107,8 +107,7 @@ jobs:
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
         run: |
           mkdir -p "${RUNNER_TEMP}/digests"
-          digest="${{ steps.build.outputs.digest }}"
-          touch "${RUNNER_TEMP}/digests/${digest#sha256:}"
+          echo "${{ steps.build.outputs.digest }}" > "${RUNNER_TEMP}/digests/${{ matrix.platform.arch }}"
 
       - name: Upload digest
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
@@ -153,11 +152,13 @@ jobs:
         run: bash test/cluster-resolver/run.sh
 
   # Tags the per-platform digests of the build job as one multi-platform image.
+  # It also runs when a build leg fails, so an arm64 failure does not hold back
+  # the amd64 image; the amd64 digest is required.
   deploy:
     runs-on: ubuntu-latest
     needs: [build]
     # Only deploy on the main/master branch
-    if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
+    if: ${{ !cancelled() && needs.build.result != 'skipped' && contains('["refs/heads/main", "refs/heads/master"]', github.ref) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -197,7 +198,17 @@ jobs:
           mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
           args=()
           for tag in "${tags[@]}"; do args+=(-t "${tag}"); done
-          for digest in *; do args+=("${IMAGE_ID}@sha256:${digest}"); done
+          if [ ! -f amd64 ]; then
+            echo "::error::The amd64 digest is missing, nothing is published."
+            exit 1
+          fi
+          for arch in amd64 arm64; do
+            if [ -f "${arch}" ]; then
+              args+=("${IMAGE_ID}@$(cat "${arch}")")
+            else
+              echo "::warning::The ${arch} digest is missing, the image is published without it."
+            fi
+          done
           docker buildx imagetools create "${args[@]}"
 
       - name: Inspect the image
