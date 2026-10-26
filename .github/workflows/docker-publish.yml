@@ -8,7 +8,7 @@ on:
 env:
   RELEASE_BRANCH: master
   REGISTRY: ghcr.io
-  IMAGE_NAME: spark-k8s-deployer
+  IMAGE_ID: ghcr.io/${{ github.repository_owner }}/spark-k8s-deployer
 
 permissions:
   contents: read
@@ -41,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_ID }}
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
@@ -85,7 +85,7 @@ jobs:
           build-args: |
             GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.IMAGE_ID }},push-by-digest=true,name-canonical=true,push=true
           sbom: true
           provenance: mode=max
           cache-from: type=gha,scope=${{ matrix.platform.arch }}
@@ -95,7 +95,7 @@ jobs:
       # image that gets tagged is the one that passed.
       - name: Smoke test the downloaded binaries
         env:
-          IMAGE_REF: ${{ steps.build.outputs.digest && format('{0}/{1}/{2}@{3}', env.REGISTRY, github.repository_owner, env.IMAGE_NAME, steps.build.outputs.digest) || 'spark-k8s-deployer:test' }}
+          IMAGE_REF: ${{ steps.build.outputs.digest && format('{0}@{1}', env.IMAGE_ID, steps.build.outputs.digest) || 'spark-k8s-deployer:test' }}
         run: |
           docker run --rm --entrypoint "" "${IMAGE_REF}" sh -ec '
             [ "$(uname -m)" = "${{ matrix.platform.arch == 'amd64' && 'x86_64' || 'aarch64' }}" ]
@@ -221,17 +221,16 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_ID }}
           tags: |
             # set latest tag for RELEASE_BRANCH branch
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
             type=sha,format=long,prefix=
 
-      - name: Create and push the multi-platform image
+      - name: Create, push and verify the multi-platform image
         id: index
         working-directory: ${{ runner.temp }}/digests
         run: |
-          IMAGE_ID="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
           args=()
           for arch in amd64 arm64; do
             if [ ! -f "${arch}" ]; then
@@ -246,11 +245,7 @@ jobs:
             args=(-t "${tag}" "${args[@]}")
           done
           docker buildx imagetools create "${args[@]}"
-
-      # Attestation manifests are listed with an unknown platform and skipped.
-      - name: Verify the published platforms
-        run: |
-          mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
+          # Attestation manifests are listed with an unknown platform and skipped.
           for tag in "${tags[@]}"; do
             platforms="$(docker buildx imagetools inspect --raw "${tag}" \
               | jq -r '[.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | sort | join(",")')"
@@ -269,7 +264,7 @@ jobs:
         env:
           TRIVY_PLATFORM: linux/amd64
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.amd64 }}
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.amd64 }}
           format: "sarif"
           output: "trivy-results-amd64.sarif"
           ignore-unfixed: true
@@ -287,7 +282,7 @@ jobs:
         env:
           TRIVY_PLATFORM: linux/arm64
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.arm64 }}
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.arm64 }}
           format: "sarif"
           output: "trivy-results-arm64.sarif"
           ignore-unfixed: true
