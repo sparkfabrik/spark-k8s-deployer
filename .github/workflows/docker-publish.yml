@@ -153,7 +153,8 @@ jobs:
 
   # Tags the per-platform digests of the build job as one multi-platform image.
   # It also runs when a build leg fails, so an arm64 failure does not hold back
-  # the amd64 image; the amd64 digest is required.
+  # the amd64 image; the amd64 digest is required. Without the arm64 digest only
+  # the commit SHA tag is pushed and latest is left unchanged.
   deploy:
     runs-on: ubuntu-latest
     needs: [build]
@@ -195,19 +196,28 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           IMAGE_ID="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
-          mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
-          args=()
-          for tag in "${tags[@]}"; do args+=(-t "${tag}"); done
           if [ ! -f amd64 ]; then
             echo "::error::The amd64 digest is missing, nothing is published."
             exit 1
           fi
+          args=()
+          partial=false
           for arch in amd64 arm64; do
             if [ -f "${arch}" ]; then
               args+=("${IMAGE_ID}@$(cat "${arch}")")
             else
-              echo "::warning::The ${arch} digest is missing, the image is published without it."
+              partial=true
+              echo "::warning::The ${arch} digest is missing, the image is published without it and latest is left unchanged."
             fi
+          done
+          # A partial image gets only the commit SHA tag, so latest keeps
+          # serving every platform.
+          mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
+          for tag in "${tags[@]}"; do
+            if [ "${partial}" = true ] && [ "${tag}" = "${IMAGE_ID}:latest" ]; then
+              continue
+            fi
+            args=(-t "${tag}" "${args[@]}")
           done
           docker buildx imagetools create "${args[@]}"
 
