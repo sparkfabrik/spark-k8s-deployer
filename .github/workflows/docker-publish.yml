@@ -10,6 +10,9 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: spark-k8s-deployer
 
+permissions:
+  contents: read
+
 jobs:
   # Builds the image on a native runner for each platform. Pull requests only
   # build and smoke test it; pushes to the release branch also push it by
@@ -17,6 +20,9 @@ jobs:
   build:
     runs-on: ${{ matrix.platform.runner }}
     name: build (${{ matrix.platform.arch }})
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -160,6 +166,12 @@ jobs:
     needs: [build]
     # Only deploy on the main/master branch
     if: ${{ !cancelled() && needs.build.result != 'skipped' && contains('["refs/heads/main", "refs/heads/master"]', github.ref) }}
+    permissions:
+      contents: read
+      packages: write
+      # Upload the Trivy results to the Security tab.
+      actions: read
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -193,6 +205,7 @@ jobs:
             type=sha,format=long,prefix=
 
       - name: Create and push the multi-platform image
+        id: index
         working-directory: ${{ runner.temp }}/digests
         run: |
           IMAGE_ID="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
@@ -220,23 +233,51 @@ jobs:
             args=(-t "${tag}" "${args[@]}")
           done
           docker buildx imagetools create "${args[@]}"
+          for arch in amd64 arm64; do
+            if [ -f "${arch}" ]; then
+              echo "${arch}=$(cat "${arch}")" >> "${GITHUB_OUTPUT}"
+            fi
+          done
 
       - name: Inspect the image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      # Each platform is scanned by its own digest: the multi-platform tag
+      # would resolve to the runner's platform only.
+      - name: Run Trivy vulnerability scanner (amd64)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.amd64 }}
           format: "sarif"
-          output: "trivy-results.sarif"
+          output: "trivy-results-amd64.sarif"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           vuln-type: "os,library"
           skip-dirs: "/google-cloud-sdk"
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Trivy scan results to GitHub Security tab (amd64)
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: "trivy-results.sarif"
+          sarif_file: "trivy-results-amd64.sarif"
+
+      - name: Run Trivy vulnerability scanner (arm64)
+        if: steps.index.outputs.arm64 != ''
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.arm64 }}
+          format: "sarif"
+          output: "trivy-results-arm64.sarif"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          vuln-type: "os,library"
+          skip-dirs: "/google-cloud-sdk"
+
+      # The amd64 upload keeps the default category, so existing alerts carry
+      # over; arm64 needs its own category.
+      - name: Upload Trivy scan results to GitHub Security tab (arm64)
+        if: steps.index.outputs.arm64 != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results-arm64.sarif"
+          category: trivy-arm64

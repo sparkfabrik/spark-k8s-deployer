@@ -31,6 +31,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - [2026.10.26] - The deployer image is published for `linux/amd64` and `linux/arm64`, so jobs that use it can run on arm64 runners. Each platform is built on a native GitHub runner and pull requests build and smoke test both.
+- [2026.10.26] - When the arm64 build fails on `master`, the deployer image is published for `linux/amd64` under the commit SHA tag only, and `latest` keeps the previous multi-platform image.
 - [2026.08.27] - `setup-gitlab-agent` returns early while `SPARK_K8S_CONFIG` is set, so the cluster resolver and the GitLab Agent path are mutually exclusive. Agent variables set alongside the resolver are reported in the job log and ignored.
 - [2026.08.27] - `.stop-deployment-template` and `.helm-rollback-template` no longer override `before_script` with an empty list: they now reference `.gitlab-helper-functions`, `.gcp-wif`, `.spark-k8s-cluster-resolver` and `.gke-kubeconfig`, and guard their script with `.spark-k8s-require-cluster`. Projects that include either job template on its own must also include those function templates.
 - [2025.10.23] - add support for additional docker registry via `ADDITIONAL_DOCKER_REGISTRY` variable.
+
+### Security
+
+- [2026.10.26] - Every binary the deployer image downloads (docker, docker-compose, buildx, helm, yq4, flux, stern, just, kubeconform) is verified against a pinned SHA256 for its architecture before install.
+- [2026.10.26] - The image workflow pins `aquasecurity/trivy-action` to a commit, scans the amd64 and arm64 images separately, and runs with read-only `GITHUB_TOKEN` permissions except where a job pushes the image or uploads scan results.

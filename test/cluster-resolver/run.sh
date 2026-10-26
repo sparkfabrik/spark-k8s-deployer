@@ -649,7 +649,7 @@ assert_agent_setup_skipped() {
 
   output="$(
     # Invoked by setup-gitlab-agent only if the guard fails.
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     kubectl() { printf 'KUBECTL CALLED: %s\n' "$*"; return 1; }
     export -f kubectl
     SPARK_K8S_CONFIG="/nonexistent/config.yaml" GITLAB_AGENT_ID="7" GITLAB_AGENT_PROJECT="group/agents" \
