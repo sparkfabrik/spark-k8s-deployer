@@ -7,7 +7,8 @@ on:
 
 env:
   RELEASE_BRANCH: master
-  REGISTRY: ghcr.io
+  # The registry host is read from IMAGE_ID by the login steps: workflow env
+  # values cannot reference each other.
   IMAGE_ID: ghcr.io/${{ github.repository_owner }}/spark-k8s-deployer
 
 permissions:
@@ -43,12 +44,17 @@ jobs:
         with:
           images: ${{ env.IMAGE_ID }}
 
+      - name: Get the registry host
+        id: registry
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        run: echo "host=${IMAGE_ID%%/*}" >> "${GITHUB_OUTPUT}"
+
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
         uses: docker/login-action@1f36f5b7a2d2f7bfd524795fc966e6d88c37baa9
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ steps.registry.outputs.host }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -206,11 +212,15 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
+      - name: Get the registry host
+        id: registry
+        run: echo "host=${IMAGE_ID%%/*}" >> "${GITHUB_OUTPUT}"
+
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
         uses: docker/login-action@1f36f5b7a2d2f7bfd524795fc966e6d88c37baa9
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ steps.registry.outputs.host }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
