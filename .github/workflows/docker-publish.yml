@@ -245,10 +245,13 @@ jobs:
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # Each platform is scanned by its own digest: the multi-platform tag
-      # would resolve to the runner's platform only.
+      # Each platform is scanned by its own digest. A digest pushed with its
+      # provenance attestation is an index, so TRIVY_PLATFORM picks the image
+      # out of it instead of the runner's platform.
       - name: Run Trivy vulnerability scanner (amd64)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: linux/amd64
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.amd64 }}
           format: "sarif"
@@ -266,6 +269,8 @@ jobs:
       - name: Run Trivy vulnerability scanner (arm64)
         if: steps.index.outputs.arm64 != ''
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: linux/arm64
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.arm64 }}
           format: "sarif"

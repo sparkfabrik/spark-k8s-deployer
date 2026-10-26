@@ -39,5 +39,5 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
-- [2026.10.26] - Every binary the deployer image downloads (docker, docker-compose, buildx, helm, yq4, flux, stern, just, kubeconform) is verified against a pinned SHA256 for its architecture before install.
+- [2026.10.26] - Every binary the deployer image downloads (docker, docker-compose, buildx, helm, yq4, flux, stern, just, kubeconform) is verified against a pinned SHA256 for its architecture before install, and `mkcert` is built from its `MKCERT_VERSION` tag instead of the default branch.
 - [2026.10.26] - The image workflow pins every action to a commit, scans the amd64 and arm64 images separately, and runs with read-only `GITHUB_TOKEN` permissions except where a job pushes the image or uploads scan results.

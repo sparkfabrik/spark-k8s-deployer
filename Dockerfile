@@ -20,7 +20,7 @@ RUN go install github.com/santhosh-tekuri/jsonschema/cmd/jv@${JV_VERSION}
 
 # https://github.com/FiloSottile/mkcert
 ENV MKCERT_VERSION=v1.4.4
-RUN git clone https://github.com/FiloSottile/mkcert && cd mkcert \
+RUN git clone --depth 1 --branch "${MKCERT_VERSION}" https://github.com/FiloSottile/mkcert && cd mkcert \
     && go build -o /go/bin/mkcert -ldflags "-X main.Version=${MKCERT_VERSION}"
 
 FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
