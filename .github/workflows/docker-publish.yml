@@ -11,21 +11,39 @@ env:
   IMAGE_NAME: spark-k8s-deployer
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/master'
+  # Builds the image on a native runner for each platform. Pull requests only
+  # build and smoke test it; pushes to the release branch also push it by
+  # digest, and the merge job tags the digests as one multi-platform image.
+  build:
+    runs-on: ${{ matrix.platform.runner }}
+    name: build (${{ matrix.platform.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - name: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata (labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            # set latest tag for RELEASE_BRANCH branch
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
-            type=sha,format=long,prefix=
+
+      # We use commit sha here to be as safe as possible with credentials.
+      - name: Log in to the Container registry
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        uses: docker/login-action@1f36f5b7a2d2f7bfd524795fc966e6d88c37baa9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,15 +54,70 @@ jobs:
           echo "google_cloud_cli_image_tag=$(make print-google-cloud-cli-image-tag)" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
+        if: github.ref != format('refs/heads/{0}', env.RELEASE_BRANCH)
         uses: docker/build-push-action@v6
         with:
           load: true
           push: false
           context: .
+          platforms: ${{ matrix.platform.name }}
           build-args: |
             GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: spark-k8s-deployer:test
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform.arch }}
+
+      - name: Smoke test the downloaded binaries
+        if: github.ref != format('refs/heads/{0}', env.RELEASE_BRANCH)
+        run: |
+          docker run --rm --entrypoint "" spark-k8s-deployer:test sh -ec '
+            [ "$(uname -m)" = "${{ matrix.platform.arch == 'amd64' && 'x86_64' || 'aarch64' }}" ]
+            docker -v
+            docker buildx version
+            docker-compose version
+            helm version --short
+            yq4 --version
+            flux --version
+            stern --version
+            just --version
+            kubeconform -v
+            kubectl version --client
+            kube-linter version
+            mkcert -version
+            aws --version
+            gcloud version
+          '
+
+      - name: Build and push Docker image by digest
+        id: build
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform.name }}
+          build-args: |
+            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform.arch }}
+
+      - name: Export digest
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${RUNNER_TEMP}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
   cluster-resolver:
     runs-on: ubuntu-latest
@@ -79,13 +152,22 @@ jobs:
       - name: Run the cluster resolver test suite
         run: bash test/cluster-resolver/run.sh
 
+  # Tags the per-platform digests of the build job as one multi-platform image.
   deploy:
     runs-on: ubuntu-latest
+    needs: [build]
     # Only deploy on the main/master branch
     if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
@@ -94,6 +176,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -105,24 +190,19 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
             type=sha,format=long,prefix=
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Get the Google Cloud CLI image tag
-        id: vars
+      - name: Create and push the multi-platform image
+        working-directory: ${{ runner.temp }}/digests
         run: |
-          echo "google_cloud_cli_image_tag=$(make print-google-cloud-cli-image-tag)" >> "$GITHUB_OUTPUT"
+          IMAGE_ID="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
+          args=()
+          for tag in "${tags[@]}"; do args+=(-t "${tag}"); done
+          for digest in *; do args+=("${IMAGE_ID}@sha256:${digest}"); done
+          docker buildx imagetools create "${args[@]}"
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          platforms: linux/amd64
-          context: .
-          build-args: |
-            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Inspect the image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
