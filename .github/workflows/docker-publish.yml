@@ -8,15 +8,16 @@ on:
 env:
   RELEASE_BRANCH: master
   REGISTRY: ghcr.io
-  IMAGE_NAME: spark-k8s-deployer
+  IMAGE_ID: ghcr.io/${{ github.repository_owner }}/spark-k8s-deployer
 
 permissions:
   contents: read
 
 jobs:
-  # Builds the image on a native runner for each platform. Pull requests only
-  # build and smoke test it; pushes to the release branch also push it by
-  # digest, and the merge job tags the digests as one multi-platform image.
+  # Builds the image on a native runner for each platform and smoke tests it.
+  # Pull requests test the local build; pushes to the release branch push it by
+  # digest and test the pushed digest, and the deploy job tags the digests as
+  # one multi-platform image.
   build:
     runs-on: ${{ matrix.platform.runner }}
     name: build (${{ matrix.platform.arch }})
@@ -40,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_ID }}
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
@@ -74,10 +75,29 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform.arch }}
 
+      - name: Build and push Docker image by digest
+        id: build
+        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: ${{ matrix.platform.name }}
+          build-args: |
+            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE_ID }},push-by-digest=true,name-canonical=true,push=true
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform.arch }}
+
+      # On the release branch the test runs against the pushed digest, so the
+      # image that gets tagged is the one that passed.
       - name: Smoke test the downloaded binaries
-        if: github.ref != format('refs/heads/{0}', env.RELEASE_BRANCH)
+        env:
+          IMAGE_REF: ${{ steps.build.outputs.digest && format('{0}@{1}', env.IMAGE_ID, steps.build.outputs.digest) || 'spark-k8s-deployer:test' }}
         run: |
-          docker run --rm --entrypoint "" spark-k8s-deployer:test sh -ec '
+          docker run --rm --entrypoint "" "${IMAGE_REF}" sh -ec '
             [ "$(uname -m)" = "${{ matrix.platform.arch == 'amd64' && 'x86_64' || 'aarch64' }}" ]
             docker -v
             docker buildx version
@@ -95,20 +115,6 @@ jobs:
             gcloud version
           '
 
-      - name: Build and push Docker image by digest
-        id: build
-        if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          platforms: ${{ matrix.platform.name }}
-          build-args: |
-            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform.arch }}
-
       - name: Export digest
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
         run: |
@@ -124,6 +130,21 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The Dockerfile check fails on any warning through the check directive at
+  # the top of the Dockerfile.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 # 1.7.7
+        with:
+          args: -color
+
+      - name: Check the Dockerfile
+        run: docker build --check .
+
   cluster-resolver:
     runs-on: ubuntu-latest
     # No branch condition on purpose: the suite must also run on master pushes.
@@ -133,7 +154,7 @@ jobs:
       - name: Install the yq4 version pinned by the image
         run: |
           YQ4_VERSION="$(sed -n 's/^ENV YQ4_VERSION=//p' Dockerfile)"
-          YQ4_SHA256="$(sed -n 's/^ENV YQ4_SHA256_AMD64=//p' Dockerfile)"
+          YQ4_SHA256="$(sed -n 's/^ARG YQ4_SHA256_AMD64=//p' Dockerfile)"
           echo "Installing yq ${YQ4_VERSION}"
           curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o "${RUNNER_TEMP}/yq4"
           echo "${YQ4_SHA256}  ${RUNNER_TEMP}/yq4" | sha256sum -c -
@@ -160,16 +181,14 @@ jobs:
         run: bash test/cluster-resolver/run.sh
 
   # Tags the per-platform digests of the build job as one multi-platform image.
-  # It also runs when a build leg fails, so an arm64 failure does not hold back
-  # the amd64 image; the amd64 digest is required. Without the arm64 digest only
-  # the commit SHA tag is pushed and latest is left unchanged. Nothing is
-  # published when the cluster resolver suite fails, because the image ships
+  # Both platforms are required: nothing is published when either build leg,
+  # the lint job or the cluster resolver suite fails, because the image ships
   # the resolver scripts.
   deploy:
     runs-on: ubuntu-latest
-    needs: [build, cluster-resolver]
+    needs: [build, lint, cluster-resolver]
     # Only deploy on the main/master branch
-    if: ${{ !cancelled() && needs.build.result != 'skipped' && needs.cluster-resolver.result == 'success' && contains('["refs/heads/main", "refs/heads/master"]', github.ref) }}
+    if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
     permissions:
       contents: read
       packages: write
@@ -202,50 +221,40 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_ID }}
           tags: |
             # set latest tag for RELEASE_BRANCH branch
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
             type=sha,format=long,prefix=
 
-      - name: Create and push the multi-platform image
+      - name: Create, push and verify the multi-platform image
         id: index
         working-directory: ${{ runner.temp }}/digests
         run: |
-          IMAGE_ID="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
-          if [ ! -f amd64 ]; then
-            echo "::error::The amd64 digest is missing, nothing is published."
-            exit 1
-          fi
           args=()
-          partial=false
           for arch in amd64 arm64; do
-            if [ -f "${arch}" ]; then
-              args+=("${IMAGE_ID}@$(cat "${arch}")")
-            else
-              partial=true
-              echo "::warning::The ${arch} digest is missing, the image is published without it and latest is left unchanged."
+            if [ ! -f "${arch}" ]; then
+              echo "::error::The ${arch} digest is missing, nothing is published."
+              exit 1
             fi
+            args+=("${IMAGE_ID}@$(cat "${arch}")")
+            echo "${arch}=$(cat "${arch}")" >> "${GITHUB_OUTPUT}"
           done
-          # A partial image gets only the commit SHA tag, so latest keeps
-          # serving every platform.
           mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
           for tag in "${tags[@]}"; do
-            if [ "${partial}" = true ] && [ "${tag}" = "${IMAGE_ID}:latest" ]; then
-              continue
-            fi
             args=(-t "${tag}" "${args[@]}")
           done
           docker buildx imagetools create "${args[@]}"
-          for arch in amd64 arm64; do
-            if [ -f "${arch}" ]; then
-              echo "${arch}=$(cat "${arch}")" >> "${GITHUB_OUTPUT}"
+          # Attestation manifests are listed with an unknown platform and skipped.
+          for tag in "${tags[@]}"; do
+            platforms="$(docker buildx imagetools inspect --raw "${tag}" \
+              | jq -r '[.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | sort | join(",")')"
+            echo "${tag}: ${platforms}"
+            if [ "${platforms}" != "linux/amd64,linux/arm64" ]; then
+              echo "::error::${tag} lists '${platforms}', expected linux/amd64,linux/arm64."
+              exit 1
             fi
           done
-
-      - name: Inspect the image
-        run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       # Each platform is scanned by its own digest. A digest pushed with its
       # provenance attestation is an index, so TRIVY_PLATFORM picks the image
@@ -255,7 +264,7 @@ jobs:
         env:
           TRIVY_PLATFORM: linux/amd64
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.amd64 }}
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.amd64 }}
           format: "sarif"
           output: "trivy-results-amd64.sarif"
           ignore-unfixed: true
@@ -269,12 +278,11 @@ jobs:
           sarif_file: "trivy-results-amd64.sarif"
 
       - name: Run Trivy vulnerability scanner (arm64)
-        if: steps.index.outputs.arm64 != ''
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           TRIVY_PLATFORM: linux/arm64
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.arm64 }}
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.arm64 }}
           format: "sarif"
           output: "trivy-results-arm64.sarif"
           ignore-unfixed: true
@@ -285,7 +293,6 @@ jobs:
       # The amd64 upload keeps the default category, so existing alerts carry
       # over; arm64 needs its own category.
       - name: Upload Trivy scan results to GitHub Security tab (arm64)
-        if: steps.index.outputs.arm64 != ''
         uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           sarif_file: "trivy-results-arm64.sarif"
