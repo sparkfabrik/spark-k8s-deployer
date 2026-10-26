@@ -133,9 +133,11 @@ jobs:
       - name: Install the yq4 version pinned by the image
         run: |
           YQ4_VERSION="$(sed -n 's/^ENV YQ4_VERSION=//p' Dockerfile)"
+          YQ4_SHA256="$(sed -n 's/^ENV YQ4_SHA256_AMD64=//p' Dockerfile)"
           echo "Installing yq ${YQ4_VERSION}"
-          sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4
-          sudo chmod +x /usr/local/bin/yq4
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o "${RUNNER_TEMP}/yq4"
+          echo "${YQ4_SHA256}  ${RUNNER_TEMP}/yq4" | sha256sum -c -
+          sudo install -m 0755 "${RUNNER_TEMP}/yq4" /usr/local/bin/yq4
           yq4 --version
 
       - name: Install the jv version pinned by the image
