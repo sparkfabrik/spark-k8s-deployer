@@ -34,11 +34,11 @@ jobs:
             runner: ubuntu-24.04-arm
             arch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Extract metadata (labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
 
@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Get the Google Cloud CLI image tag
         id: vars
@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Docker image
         if: github.ref != format('refs/heads/{0}', env.RELEASE_BRANCH)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           load: true
           push: false
@@ -98,7 +98,7 @@ jobs:
       - name: Build and push Docker image by digest
         id: build
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: ${{ matrix.platform.name }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload digest
         if: github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: digests-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/*
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     # No branch condition on purpose: the suite must also run on master pushes.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install the yq4 version pinned by the image
         run: |
@@ -160,12 +160,14 @@ jobs:
   # Tags the per-platform digests of the build job as one multi-platform image.
   # It also runs when a build leg fails, so an arm64 failure does not hold back
   # the amd64 image; the amd64 digest is required. Without the arm64 digest only
-  # the commit SHA tag is pushed and latest is left unchanged.
+  # the commit SHA tag is pushed and latest is left unchanged. Nothing is
+  # published when the cluster resolver suite fails, because the image ships
+  # the resolver scripts.
   deploy:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, cluster-resolver]
     # Only deploy on the main/master branch
-    if: ${{ !cancelled() && needs.build.result != 'skipped' && contains('["refs/heads/main", "refs/heads/master"]', github.ref) }}
+    if: ${{ !cancelled() && needs.build.result != 'skipped' && needs.cluster-resolver.result == 'success' && contains('["refs/heads/main", "refs/heads/master"]', github.ref) }}
     permissions:
       contents: read
       packages: write
@@ -174,10 +176,10 @@ jobs:
       security-events: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
@@ -192,11 +194,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -257,7 +259,7 @@ jobs:
           skip-dirs: "/google-cloud-sdk"
 
       - name: Upload Trivy scan results to GitHub Security tab (amd64)
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           sarif_file: "trivy-results-amd64.sarif"
 
@@ -277,7 +279,7 @@ jobs:
       # over; arm64 needs its own category.
       - name: Upload Trivy scan results to GitHub Security tab (arm64)
         if: steps.index.outputs.arm64 != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           sarif_file: "trivy-results-arm64.sarif"
           category: trivy-arm64
