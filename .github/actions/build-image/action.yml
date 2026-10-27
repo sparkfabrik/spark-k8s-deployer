@@ -1,0 +1,116 @@
+name: Build the deployer image
+description: >-
+  Builds the image for one platform and smoke tests it. Without push the test
+  runs against the local build; with push the image is pushed by digest, the
+  pushed digest is tested and the digest is uploaded as an artifact for the
+  deploy job.
+
+inputs:
+  image-id:
+    description: Image repository, for example ghcr.io/owner/name.
+    required: true
+  platform:
+    description: Target platform, for example linux/arm64.
+    required: true
+  arch:
+    description: Architecture of the platform, for example arm64. Scopes the cache and names the digest artifact.
+    required: true
+  expected-uname:
+    description: The `uname -m` the image must report on its platform (x86_64 or aarch64).
+    required: true
+  push:
+    description: Push the image by digest instead of loading it locally.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Extract metadata (labels) for Docker
+      id: meta
+      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+      with:
+        images: ${{ inputs.image-id }}
+
+    - name: Get the registry host
+      id: registry
+      if: inputs.push == 'true'
+      shell: bash
+      env:
+        IMAGE_ID: ${{ inputs.image-id }}
+      run: echo "host=${IMAGE_ID%%/*}" >> "${GITHUB_OUTPUT}"
+
+    # We use commit sha here to be as safe as possible with credentials.
+    - name: Log in to the Container registry
+      if: inputs.push == 'true'
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      with:
+        registry: ${{ steps.registry.outputs.host }}
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+    # Without push the image is loaded under a local tag; with push it is
+    # pushed by digest with its SBOM and provenance attestations.
+    - name: Build Docker image
+      id: build
+      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+      with:
+        context: .
+        platforms: ${{ inputs.platform }}
+        labels: ${{ steps.meta.outputs.labels }}
+        load: ${{ inputs.push != 'true' }}
+        tags: ${{ inputs.push != 'true' && 'spark-k8s-deployer:test' || '' }}
+        outputs: ${{ inputs.push == 'true' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', inputs.image-id) || '' }}
+        sbom: ${{ inputs.push == 'true' }}
+        provenance: ${{ inputs.push == 'true' && 'mode=max' || 'false' }}
+        cache-from: type=gha,scope=${{ inputs.arch }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.arch }}
+
+    # When pushing, the test runs against the pushed digest, so the image that
+    # gets tagged is the one that passed.
+    - name: Smoke test the image tools
+      shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.push == 'true' && format('{0}@{1}', inputs.image-id, steps.build.outputs.digest) || 'spark-k8s-deployer:test' }}
+        EXPECTED_UNAME: ${{ inputs.expected-uname }}
+      run: |
+        docker run --rm --entrypoint "" -e EXPECTED_UNAME "${IMAGE_REF}" sh -ec '
+          [ "$(uname -m)" = "${EXPECTED_UNAME}" ]
+          docker -v
+          docker buildx version
+          docker-compose version
+          helm version --short
+          yq4 --version
+          flux --version
+          stern --version
+          just --version
+          kubeconform -v
+          kubectl version --client
+          kube-linter version
+          mkcert -version
+          jv --version
+          aws --version
+          gcloud version
+        '
+
+    - name: Export digest
+      if: inputs.push == 'true'
+      shell: bash
+      env:
+        DIGEST: ${{ steps.build.outputs.digest }}
+        ARCH: ${{ inputs.arch }}
+      run: |
+        mkdir -p "${RUNNER_TEMP}/digests"
+        echo "${DIGEST}" > "${RUNNER_TEMP}/digests/${ARCH}"
+
+    - name: Upload digest
+      if: inputs.push == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: digests-${{ inputs.arch }}
+        path: ${{ runner.temp }}/digests/*
+        if-no-files-found: error
+        retention-days: 1
