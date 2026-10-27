@@ -3,7 +3,12 @@
 # make cli
 #
 DOCKER_VERSION=20.10.5
-GOOGLE_CLOUD_CLI_IMAGE_TAG ?= 550.0.0-alpine
+# The google-cloud-cli image defaults live in the Dockerfile. To build on another
+# tag, override GOOGLE_CLOUD_CLI_IMAGE_TAG and GOOGLE_CLOUD_CLI_IMAGE_DIGEST
+# together: the digest selects the image and the tag alone is ignored.
+dockerfile_arg = $(shell sed -n 's/^ARG $(1)=//p' Dockerfile)
+GOOGLE_CLOUD_CLI_IMAGE_TAG ?= $(call dockerfile_arg,GOOGLE_CLOUD_CLI_IMAGE_TAG)
+GOOGLE_CLOUD_CLI_IMAGE_DIGEST ?= $(call dockerfile_arg,GOOGLE_CLOUD_CLI_IMAGE_DIGEST)
 
 cli: build-docker-image
 	# Run the cli.
@@ -17,12 +22,14 @@ build-docker-image:
 	docker --debug buildx build \
 		-t sparkfabrik/spark-k8s-deployer:latest \
 		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
+		--build-arg GOOGLE_CLOUD_CLI_IMAGE_DIGEST=$(GOOGLE_CLOUD_CLI_IMAGE_DIGEST) \
 		-f Dockerfile .
 
 build-docker-image-build-args:
 	docker --debug buildx build \
 		-t sparkfabrik/spark-k8s-deployer:latest \
 		--build-arg GOOGLE_CLOUD_CLI_IMAGE_TAG=$(GOOGLE_CLOUD_CLI_IMAGE_TAG) \
+		--build-arg GOOGLE_CLOUD_CLI_IMAGE_DIGEST=$(GOOGLE_CLOUD_CLI_IMAGE_DIGEST) \
 		--build-arg QEMU_ARCHS="aarch64 arm x86_64" \
 		-f Dockerfile .
 
@@ -36,6 +43,3 @@ test-cluster-resolver: build-docker-image
 		--entrypoint "" \
 		sparkfabrik/spark-k8s-deployer:latest \
 		bash test/cluster-resolver/run.sh
-
-print-google-cloud-cli-image-tag:
-	@echo $(GOOGLE_CLOUD_CLI_IMAGE_TAG)

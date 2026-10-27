@@ -10,6 +10,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- [2026.10.27] - Renovate updates the `google-cloud-cli` tag and digest, and the `mkcert` version and commit, together.
+- [2026.10.26] - The deployer image is published for `linux/amd64` and `linux/arm64`.
+- [2026.10.26] - The published deployer image carries SBOM and provenance attestations.
+- [2026.10.26] - The image workflow has a `lint` job that runs `actionlint` and `docker build --check`.
+- [2026.10.26] - Any Dockerfile build-check warning fails the image build.
+- [2026.10.26] - The image smoke test checks that each platform image runs on its own architecture.
 - [2026.09.21] - The cluster resolver accepts a second shape of `$SPARK_K8S_CONFIG`, an `envs` list with one entry per environment, next to the existing `clusters` list; a document carries exactly one of the two. On the `envs` shape every pattern of every environment is tried and the most specific match wins, never the list order: a literal beats a glob, a glob beats a regex, and between globs more literal characters win, then fewer `**`, then fewer `*`. There is no default entry, so a catch-all is an explicit `**` and a ref no environment claims resolves nothing and skips the job with exit code 3; two environments matching at equal rank fail the job. The resolved entry also exports `KUBE_NAMESPACE`, which the `clusters` shape leaves to the project. `test/cluster-resolver/vectors.json` is shared byte for byte with the platform generator, and the suite runs every scenario with the list in the declared order and reversed.
 - [2026.09.03] - The deployer image ships `kubeconform`, pinned to v0.8.0 and verified against the release checksum before install.
 - [2026.08.31] - The cluster resolver validates `$SPARK_K8S_CONFIG` against `schemas/cluster-config.schema.json` before parsing it and fails the job on any violation, reporting the offending JSON Pointer. The schema is owned by the platform generator and synced into this repository by an automatic pull request; see `schemas/README.md`. The deployer image ships the `jv` validator, pinned by `JV_VERSION` and built in the existing Go stage, because validation needs draft 2020-12 support: the exactly-one-default rule uses `contains` with `minContains`/`maxContains`, which a draft-07 validator ignores instead of enforcing. A missing validator or an unsynced schema copy degrades to the resolver's own structural checks with a warning; there is no variable that turns validation off or points the resolver at a different schema.
@@ -30,6 +36,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- [2026.10.27] - On `master`, nothing is pushed to the registry, not even an untagged per-platform image, before the workflow and Dockerfile lint and the cluster resolver test suite pass.
+- [2026.10.26] - Publishing fails when a published tag does not list exactly `linux/amd64` and `linux/arm64`.
+- [2026.10.26] - The deployer image is not published from `master` when either platform build, its smoke test, the workflow and Dockerfile lint or the cluster resolver test suite fails.
 - [2026.08.27] - `setup-gitlab-agent` returns early while `SPARK_K8S_CONFIG` is set, so the cluster resolver and the GitLab Agent path are mutually exclusive. Agent variables set alongside the resolver are reported in the job log and ignored.
 - [2026.08.27] - `.stop-deployment-template` and `.helm-rollback-template` no longer override `before_script` with an empty list: they now reference `.gitlab-helper-functions`, `.gcp-wif`, `.spark-k8s-cluster-resolver` and `.gke-kubeconfig`, and guard their script with `.spark-k8s-require-cluster`. Projects that include either job template on its own must also include those function templates.
 - [2025.10.23] - add support for additional docker registry via `ADDITIONAL_DOCKER_REGISTRY` variable.
+
+### Removed
+
+- [2026.10.26] - The deployer image no longer exports the `JUST_SHA256` and `KUBECONFORM_SHA256` environment variables.
+
+### Security
+
+- [2026.10.27] - The deployer image pins its `golang` and `google-cloud-cli` base images by manifest digest.
+- [2026.10.27] - The `mkcert` build fails when its tag no longer points to the pinned commit.
+- [2026.10.26] - Every binary the deployer image downloads (docker, docker-compose, buildx, helm, yq4, flux, stern, just, kubeconform) is verified against a pinned SHA256 for its architecture before install.
+- [2026.10.26] - `mkcert` is built from its `MKCERT_VERSION` tag instead of the default branch.
+- [2026.10.26] - The `cluster-resolver` GitHub Actions job verifies the `yq4` binary against the amd64 checksum pinned in the `Dockerfile` before installing it.
+- [2026.10.26] - The image workflow pins every action to a commit.
+- [2026.10.26] - The image workflow scans the amd64 and arm64 images separately.
+- [2026.10.26] - The image workflow runs with a read-only `GITHUB_TOKEN` except in the jobs that push the image or upload scan results.

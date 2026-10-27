@@ -6,58 +6,101 @@ on:
     branches: master
 
 env:
-  RELEASE_BRANCH: master
-  REGISTRY: ghcr.io
-  IMAGE_NAME: spark-k8s-deployer
+  # The registry host is read from IMAGE_ID by the "Get the registry host"
+  # steps: workflow env values cannot reference each other.
+  IMAGE_ID: ghcr.io/${{ github.repository_owner }}/spark-k8s-deployer
 
+permissions:
+  contents: read
+
+# The env context is not available in job conditions, so the jobs that publish
+# match the release branch by name.
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  # Builds the image on a native runner for each platform and smoke tests the
+  # local build. Runs everywhere except the release branch, with a read-only
+  # token.
+  build:
     if: github.ref != 'refs/heads/master'
+    runs-on: ${{ matrix.platform.runner }}
+    name: build (${{ matrix.platform.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: &platforms
+          - name: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+            uname: x86_64
+          - name: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+            uname: aarch64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
+      - uses: ./.github/actions/build-image
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            # set latest tag for RELEASE_BRANCH branch
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
-            type=sha,format=long,prefix=
+          image-id: ${{ env.IMAGE_ID }}
+          platform: ${{ matrix.platform.name }}
+          arch: ${{ matrix.platform.arch }}
+          expected-uname: ${{ matrix.platform.uname }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  # On the release branch, pushes each platform by digest and smoke tests the
+  # pushed digest; the deploy job tags the digests as one multi-platform image.
+  # Nothing is pushed until the lint job and the cluster resolver suite pass,
+  # because the image ships the resolver scripts.
+  build-push:
+    if: github.ref == 'refs/heads/master'
+    needs: [lint, cluster-resolver]
+    runs-on: ${{ matrix.platform.runner }}
+    name: build-push (${{ matrix.platform.arch }})
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: *platforms
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Get the Google Cloud CLI image tag
-        id: vars
-        run: |
-          echo "google_cloud_cli_image_tag=$(make print-google-cloud-cli-image-tag)" >> "$GITHUB_OUTPUT"
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
+      - uses: ./.github/actions/build-image
         with:
-          load: true
-          push: false
-          context: .
-          build-args: |
-            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image-id: ${{ env.IMAGE_ID }}
+          platform: ${{ matrix.platform.name }}
+          arch: ${{ matrix.platform.arch }}
+          expected-uname: ${{ matrix.platform.uname }}
+          push: "true"
+
+  # The Dockerfile check fails on any warning through the check directive at
+  # the top of the Dockerfile.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
+        with:
+          args: -color
+
+      - name: Check the Dockerfile
+        run: docker build --check .
 
   cluster-resolver:
     runs-on: ubuntu-latest
     # No branch condition on purpose: the suite must also run on master pushes.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install the yq4 version pinned by the image
         run: |
           YQ4_VERSION="$(sed -n 's/^ENV YQ4_VERSION=//p' Dockerfile)"
+          YQ4_SHA256="$(sed -n 's/^ARG YQ4_SHA256_AMD64=//p' Dockerfile)"
           echo "Installing yq ${YQ4_VERSION}"
-          sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq4
-          sudo chmod +x /usr/local/bin/yq4
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ4_VERSION}/yq_linux_amd64" -o "${RUNNER_TEMP}/yq4"
+          echo "${YQ4_SHA256}  ${RUNNER_TEMP}/yq4" | sha256sum -c -
+          sudo install -m 0755 "${RUNNER_TEMP}/yq4" /usr/local/bin/yq4
           yq4 --version
 
       - name: Install the jv version pinned by the image
@@ -79,63 +122,124 @@ jobs:
       - name: Run the cluster resolver test suite
         run: bash test/cluster-resolver/run.sh
 
+  # Tags the per-platform digests of the build-push job as one multi-platform
+  # image. Both platforms are required: nothing is published when either
+  # platform fails.
   deploy:
     runs-on: ubuntu-latest
+    needs: [build-push]
     # Only deploy on the main/master branch
     if: contains('["refs/heads/main", "refs/heads/master"]', github.ref)
+    permissions:
+      contents: read
+      packages: write
+      # Upload the Trivy results to the Security tab.
+      actions: read
+      security-events: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Download digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Get the registry host
+        id: registry
+        run: echo "host=${IMAGE_ID%%/*}" >> "${GITHUB_OUTPUT}"
 
       # We use commit sha here to be as safe as possible with credentials.
       - name: Log in to the Container registry
-        uses: docker/login-action@1f36f5b7a2d2f7bfd524795fc966e6d88c37baa9
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ steps.registry.outputs.host }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_ID }}
           tags: |
-            # set latest tag for RELEASE_BRANCH branch
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
+            type=raw,value=latest
             type=sha,format=long,prefix=
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Get the Google Cloud CLI image tag
-        id: vars
+      - name: Create, push and verify the multi-platform image
+        id: index
+        working-directory: ${{ runner.temp }}/digests
         run: |
-          echo "google_cloud_cli_image_tag=$(make print-google-cloud-cli-image-tag)" >> "$GITHUB_OUTPUT"
+          args=()
+          for arch in amd64 arm64; do
+            if [ ! -f "${arch}" ]; then
+              echo "::error::The ${arch} digest is missing, nothing is published."
+              exit 1
+            fi
+            args+=("${IMAGE_ID}@$(cat "${arch}")")
+            echo "${arch}=$(cat "${arch}")" >> "${GITHUB_OUTPUT}"
+          done
+          mapfile -t tags < <(jq -r '.tags[]' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
+          for tag in "${tags[@]}"; do
+            args=(-t "${tag}" "${args[@]}")
+          done
+          docker buildx imagetools create "${args[@]}"
+          # Attestation manifests are listed with an unknown platform and skipped.
+          for tag in "${tags[@]}"; do
+            platforms="$(docker buildx imagetools inspect --raw "${tag}" \
+              | jq -r '[.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | sort | join(",")')"
+            echo "${tag}: ${platforms}"
+            if [ "${platforms}" != "linux/amd64,linux/arm64" ]; then
+              echo "::error::${tag} lists '${platforms}', expected linux/amd64,linux/arm64."
+              exit 1
+            fi
+          done
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      # Each platform is scanned by its own digest. A digest pushed with its
+      # provenance attestation is an index, so TRIVY_PLATFORM picks the image
+      # out of it instead of the runner's platform. The scan and upload steps
+      # stay in this job: the SARIF analysis key includes the job, so moving
+      # them would orphan the existing amd64 alerts.
+      - name: Run Trivy vulnerability scanner (amd64)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: linux/amd64
         with:
-          push: true
-          platforms: linux/amd64
-          context: .
-          build-args: |
-            GOOGLE_CLOUD_CLI_IMAGE_TAG=${{ steps.vars.outputs.google_cloud_cli_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.amd64 }}
           format: "sarif"
-          output: "trivy-results.sarif"
+          output: "trivy-results-amd64.sarif"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           vuln-type: "os,library"
           skip-dirs: "/google-cloud-sdk"
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload Trivy scan results to GitHub Security tab (amd64)
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
-          sarif_file: "trivy-results.sarif"
+          sarif_file: "trivy-results-amd64.sarif"
+
+      - name: Run Trivy vulnerability scanner (arm64)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: linux/arm64
+        with:
+          image-ref: ${{ env.IMAGE_ID }}@${{ steps.index.outputs.arm64 }}
+          format: "sarif"
+          output: "trivy-results-arm64.sarif"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          vuln-type: "os,library"
+          skip-dirs: "/google-cloud-sdk"
+
+      # The amd64 upload keeps the default category, so existing alerts carry
+      # over; arm64 needs its own category.
+      - name: Upload Trivy scan results to GitHub Security tab (arm64)
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
+        with:
+          sarif_file: "trivy-results-arm64.sarif"
+          category: trivy-arm64
