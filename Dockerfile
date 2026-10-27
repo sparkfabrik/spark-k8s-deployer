@@ -3,12 +3,16 @@
 # matches USE_GKE_GCLOUD_AUTH_PLUGIN by name; the image takes no secrets as
 # ARG or ENV.
 
-# Define the google cloud sdk image tag to use.
+# Define the google cloud sdk image to use.
 # https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/europe/eu.gcr.io/google-cloud-cli
+# The digest selects the image and the tag alone is ignored, so the two change
+# together, and Renovate updates both.
+ARG GOOGLE_CLOUD_CLI_IMAGE=eu.gcr.io/google.com/cloudsdktool/google-cloud-cli
 ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=550.0.0-alpine
+ARG GOOGLE_CLOUD_CLI_IMAGE_DIGEST=sha256:09ca9257eea270001fdb49b0b176c0e3018c6858d83e085835c1ef700a457a5d
 
 # Build go binaries
-FROM golang:1.25-alpine AS gobinaries
+FROM golang:1.25-alpine@sha256:1ae0735f00daffa3aaf1363a5184c0d2dc55c78e3db4ec70241cdac97bf84b59 AS gobinaries
 
 # Install git to be able to fetch go modules
 RUN apk --no-cache add git
@@ -25,10 +29,14 @@ RUN go install github.com/santhosh-tekuri/jsonschema/cmd/jv@${JV_VERSION}
 
 # https://github.com/FiloSottile/mkcert
 ENV MKCERT_VERSION=v1.4.4
+# Commit the MKCERT_VERSION tag points to. The build fails if the tag moves.
+# Renovate updates both.
+ARG MKCERT_COMMIT=2a46726cebac0ff4e1f133d90b4e4c42f1edf44a
 RUN git clone --depth 1 --branch "${MKCERT_VERSION}" https://github.com/FiloSottile/mkcert && cd mkcert \
+    && [ "$(git rev-parse HEAD)" = "${MKCERT_COMMIT}" ] \
     && go build -o /go/bin/mkcert -ldflags "-X main.Version=${MKCERT_VERSION}"
 
-FROM eu.gcr.io/google.com/cloudsdktool/google-cloud-cli:${GOOGLE_CLOUD_CLI_IMAGE_TAG}
+FROM ${GOOGLE_CLOUD_CLI_IMAGE}:${GOOGLE_CLOUD_CLI_IMAGE_TAG}@${GOOGLE_CLOUD_CLI_IMAGE_DIGEST}
 
 # Set by BuildKit to the architecture being built (amd64 or arm64). The binaries
 # below are downloaded for it.
@@ -97,15 +105,32 @@ ARG KUBECONFORM_SHA256_ARM64=1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71a
 ENV USE_GKE_GCLOUD_AUTH_PLUGIN=true
 
 # Release assets name the architecture either as amd64/arm64 (TARGETARCH) or as
-# x86_64/aarch64 (UNAME_ARCH). ARCH_SUFFIX selects the checksums above.
+# x86_64/aarch64 (UNAME_ARCH). Each architecture selects its checksums above.
 RUN case "${TARGETARCH}" in \
-      amd64) UNAME_ARCH=x86_64; ARCH_SUFFIX=AMD64 ;; \
-      arm64) UNAME_ARCH=aarch64; ARCH_SUFFIX=ARM64 ;; \
+      amd64) \
+        UNAME_ARCH=x86_64 \
+        DOCKER_SHA256="${DOCKER_SHA256_AMD64}" \
+        COMPOSE_SHA256="${COMPOSE_SHA256_AMD64}" \
+        DOCKER_BUILDX_SHA256="${DOCKER_BUILDX_SHA256_AMD64}" \
+        HELM3_SHA256="${HELM3_SHA256_AMD64}" \
+        YQ4_SHA256="${YQ4_SHA256_AMD64}" \
+        FLUX2_SHA256="${FLUX2_SHA256_AMD64}" \
+        STERN_SHA256="${STERN_SHA256_AMD64}" \
+        JUST_SHA256="${JUST_SHA256_AMD64}" \
+        KUBECONFORM_SHA256="${KUBECONFORM_SHA256_AMD64}" ;; \
+      arm64) \
+        UNAME_ARCH=aarch64 \
+        DOCKER_SHA256="${DOCKER_SHA256_ARM64}" \
+        COMPOSE_SHA256="${COMPOSE_SHA256_ARM64}" \
+        DOCKER_BUILDX_SHA256="${DOCKER_BUILDX_SHA256_ARM64}" \
+        HELM3_SHA256="${HELM3_SHA256_ARM64}" \
+        YQ4_SHA256="${YQ4_SHA256_ARM64}" \
+        FLUX2_SHA256="${FLUX2_SHA256_ARM64}" \
+        STERN_SHA256="${STERN_SHA256_ARM64}" \
+        JUST_SHA256="${JUST_SHA256_ARM64}" \
+        KUBECONFORM_SHA256="${KUBECONFORM_SHA256_ARM64}" ;; \
       *) echo "Unsupported TARGETARCH '${TARGETARCH}', expected amd64 or arm64" >&2; exit 1 ;; \
     esac \
-    && for tool in DOCKER COMPOSE DOCKER_BUILDX HELM3 YQ4 FLUX2 STERN JUST KUBECONFORM; do \
-      eval "${tool}_SHA256=\"\${${tool}_SHA256_${ARCH_SUFFIX}}\""; \
-    done \
     && apk add --no-cache py-pip python3-dev curl make mysql-client mariadb-connector-c gettext bash openssl libffi-dev openssl-dev gcc libc-dev jq yq rust cargo bat rsync yamllint util-linux \
     # Install docker and docker-compose.
     && curl -fSL "https://download.docker.com/linux/static/stable/${UNAME_ARCH}/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
