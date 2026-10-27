@@ -2,5 +2,31 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "description": "google-cloud-cli base image tag and digest in the Dockerfile",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "ARG GOOGLE_CLOUD_CLI_IMAGE=(?<depName>\\S+)\\nARG GOOGLE_CLOUD_CLI_IMAGE_TAG=(?<currentValue>\\S+)\\nARG GOOGLE_CLOUD_CLI_IMAGE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "description": "mkcert version tag and the commit it points to in the Dockerfile",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "ENV MKCERT_VERSION=(?<currentValue>\\S+)\\n(?:#.*\\n)*ARG MKCERT_COMMIT=(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "depNameTemplate": "FiloSottile/mkcert",
+      "datasourceTemplate": "github-tags"
+    }
   ]
 }
