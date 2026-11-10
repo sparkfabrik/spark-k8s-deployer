@@ -12,7 +12,7 @@ ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=550.0.0-alpine
 ARG GOOGLE_CLOUD_CLI_IMAGE_DIGEST=sha256:09ca9257eea270001fdb49b0b176c0e3018c6858d83e085835c1ef700a457a5d
 
 # Build go binaries
-FROM golang:1.25-alpine@sha256:1ae0735f00daffa3aaf1363a5184c0d2dc55c78e3db4ec70241cdac97bf84b59 AS gobinaries
+FROM golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 AS gobinaries
 
 # Install git to be able to fetch go modules
 RUN apk --no-cache add git
