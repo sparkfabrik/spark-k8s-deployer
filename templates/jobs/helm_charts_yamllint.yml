@@ -3,6 +3,7 @@
 # The linting rules have been optimised in the `YAMLLINT_CONFIG_FILE` as to avoid
 # checking those elements that are out of our control.
 .helmcharts_yamllint:
+  interruptible: true
   variables:
     YAMLLINT_CONFIG_FILE: /configs/helmcharts.yamllint.yaml
     FILE_OR_DIR: yaml

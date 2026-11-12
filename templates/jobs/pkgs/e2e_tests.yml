@@ -61,6 +61,7 @@
     - (cd /builds/newproject && just --list > /dev/null)
 
 .sparkfabrik-pkg-e2e-test:
+  interruptible: true
   variables:
     CI_TO_TEST: /builds/newproject/.gitlab-ci.yml
     PKG_COMPOSER_PLUGIN_FAKE_GITLABCI_SOURCE_URL: ${CI_PROJECT_URL}

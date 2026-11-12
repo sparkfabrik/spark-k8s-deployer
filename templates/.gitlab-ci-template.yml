@@ -187,6 +187,12 @@ variables:
         section_end "debug-sleep"
       fi
 
+# When a new commit lands on the same ref, cancel only the jobs of the older
+# pipelines that set `interruptible: true`. Jobs without it always run to the end.
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
 default:
   id_tokens:
     GITLAB_OIDC_TOKEN:

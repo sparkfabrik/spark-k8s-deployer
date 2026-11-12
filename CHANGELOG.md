@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- [2026.11.12] - The main template sets `workflow:auto_cancel:on_new_commit: interruptible`, so a new commit on the same ref cancels only the jobs of older pipelines that set `interruptible: true`.
+- [2026.11.12] - `.sparkfabrik-pkg-e2e-test`, `.check-changelog-base`, `.drupal-phpqa-template`, `.drupalci-template`, `.build_helm_chart`, `.helmcharts_yamllint`, `.check_version` and `lighthouse` set `interruptible: true`.
 - [2026.10.27] - On `master`, nothing is pushed to the registry, not even an untagged per-platform image, before the workflow and Dockerfile lint and the cluster resolver test suite pass.
 - [2026.10.26] - Publishing fails when a published tag does not list exactly `linux/amd64` and `linux/arm64`.
 - [2026.10.26] - The deployer image is not published from `master` when either platform build, its smoke test, the workflow and Dockerfile lint or the cluster resolver test suite fails.

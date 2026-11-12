@@ -3,6 +3,7 @@
 # Variables to configure to use the job template:
 #  CHART_ARCHIVE_DIR: The directory where the Helm Chart archive will be created (e.g.: `./helm-charts`)
 .build_helm_chart:
+  interruptible: true
   script:
     - mkdir -p ${CHART_ARCHIVE_DIR}
     - helm package ${CI_PROJECT_DIR} --destination ${CHART_ARCHIVE_DIR} --dependency-update
@@ -24,6 +25,7 @@
 # The linting rules have been optimised in the `YAMLLINT_CONFIG_FILE` as to avoid
 # checking those elements that are out of our control.
 .helmcharts_yamllint:
+  interruptible: true
   variables:
     YAMLLINT_CONFIG_FILE: /configs/helmcharts.yamllint.yaml
     FILE_OR_DIR: yaml
@@ -32,6 +34,7 @@
 
 # This Gitlab job template checks that the version of the Chart is the same as the tag build.
 .check_version:
+  interruptible: true
   script:
     - export CHART_VERSION=`cat ${CI_PROJECT_DIR}/Chart.yaml | grep version  | head -1 | awk '{ print $2 }'`
     - if [[ $CI_COMMIT_TAG != *$CHART_VERSION* ]] ; then  echo 'Chart version and tag build mismatch'; exit 1 ; fi
