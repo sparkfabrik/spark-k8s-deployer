@@ -1,4 +1,5 @@
 lighthouse:
+  interruptible: true
   image: cypress/browsers:node12.14.1-chrome83-ff77
   variables:
     LIGHTHOUSE_FORM_FACTOR: desktop
