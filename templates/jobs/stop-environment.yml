@@ -52,6 +52,13 @@
     - !reference [.gcp-wif, before_script]
     - !reference [.spark-k8s-cluster-resolver, before_script]
     - !reference [.gke-kubeconfig, before_script]
+    # Select the GitLab Agent context, as the deploy jobs do through helm-init. It
+    # returns early when the cluster resolver or DISABLE_GITLAB_AGENT owns the choice.
+    - |
+      if [ -r /scripts/src/functions.bash ]; then
+        source /scripts/src/functions.bash
+        setup-gitlab-agent
+      fi
   script:
     - !reference [.spark-k8s-require-cluster, script]
     - |
