@@ -51,14 +51,16 @@
     - !reference [.gitlab-helper-functions, before_script]
     - !reference [.gcp-wif, before_script]
     - !reference [.spark-k8s-cluster-resolver, before_script]
-    - !reference [.gke-kubeconfig, before_script]
-    # Select the GitLab Agent context, as the deploy jobs do through helm-init. It
-    # returns early when the cluster resolver or DISABLE_GITLAB_AGENT owns the choice.
+    # Select the GitLab Agent context as .default-setup does: after the resolver,
+    # before .gke-kubeconfig so a GKE context still wins. common.bash sets the
+    # default NON_DEVELOP_BRANCHES_REGEX that picks the agent for the branch.
     - |
-      if [ -r /scripts/src/functions.bash ]; then
+      if [ -r /scripts/src/common.bash ] && [ -r /scripts/src/functions.bash ]; then
+        source /scripts/src/common.bash
         source /scripts/src/functions.bash
         setup-gitlab-agent
       fi
+    - !reference [.gke-kubeconfig, before_script]
   script:
     - !reference [.spark-k8s-require-cluster, script]
     - |
