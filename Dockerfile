@@ -19,7 +19,10 @@ RUN apk --no-cache add git
 
 # https://github.com/stackrox/kube-linter
 ENV KUBELINTER_VERSION=0.8.3
-RUN go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
+# Set the version string the same way the upstream release build does, so
+# `kube-linter version` reports the release instead of "development".
+RUN go install -ldflags "-X golang.stackrox.io/kube-linter/internal/version.version=${KUBELINTER_VERSION}" \
+    golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
 
 # https://github.com/santhosh-tekuri/jsonschema
 # JSON Schema validator for the cluster resolver. Must support draft 2020-12
