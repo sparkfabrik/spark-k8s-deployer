@@ -8,18 +8,21 @@
 # The digest selects the image and the tag alone is ignored, so the two change
 # together, and Renovate updates both.
 ARG GOOGLE_CLOUD_CLI_IMAGE=eu.gcr.io/google.com/cloudsdktool/google-cloud-cli
-ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=550.0.0-alpine
-ARG GOOGLE_CLOUD_CLI_IMAGE_DIGEST=sha256:09ca9257eea270001fdb49b0b176c0e3018c6858d83e085835c1ef700a457a5d
+ARG GOOGLE_CLOUD_CLI_IMAGE_TAG=594.0.0-alpine
+ARG GOOGLE_CLOUD_CLI_IMAGE_DIGEST=sha256:31e27958892650f753ecf6fab1c4aebc4f0bfdc55c6364da8902c62b852791cf
 
 # Build go binaries
-FROM golang:1.25-alpine@sha256:1ae0735f00daffa3aaf1363a5184c0d2dc55c78e3db4ec70241cdac97bf84b59 AS gobinaries
+FROM golang:1.27-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS gobinaries
 
 # Install git to be able to fetch go modules
 RUN apk --no-cache add git
 
 # https://github.com/stackrox/kube-linter
-ENV KUBELINTER_VERSION=0.7.6
-RUN go install golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
+ENV KUBELINTER_VERSION=0.8.3
+# Set the version string the same way the upstream release build does, so
+# `kube-linter version` reports the release instead of "development".
+RUN go install -ldflags "-X golang.stackrox.io/kube-linter/internal/version.version=${KUBELINTER_VERSION}" \
+    golang.stackrox.io/kube-linter/cmd/kube-linter@v${KUBELINTER_VERSION}
 
 # https://github.com/santhosh-tekuri/jsonschema
 # JSON Schema validator for the cluster resolver. Must support draft 2020-12
@@ -57,23 +60,23 @@ ENV DOCKER_VERSION=27.1.1
 ARG DOCKER_SHA256_AMD64=118da6b8fc8e8b6c086ab0dd5e64ee549376c3a3f963723bbc9a46db475bf21f
 ARG DOCKER_SHA256_ARM64=86a395f67a5a23d8eb207ab5a9ab32a51f7fccd8b18dae40887e738db95c6bc4
 # https://github.com/docker/buildx/releases
-ENV DOCKER_BUILDX_VERSION=0.25.0
+ENV DOCKER_BUILDX_VERSION=0.39.0
 # sha256 of buildx-v${DOCKER_BUILDX_VERSION}.linux-<amd64|arm64>, from the
 # release checksums.txt.
-ARG DOCKER_BUILDX_SHA256_AMD64=4104d79a791a8744c0b43fd5bd0a6172dff29040c5229946a1cdb2d27b0b5bfa
-ARG DOCKER_BUILDX_SHA256_ARM64=f07063844bb750172c1f25cef61b07a8314d24bedffc015517b3ec4016b16de8
+ARG DOCKER_BUILDX_SHA256_AMD64=5fb31a097304fbf6dd4038649a0decf32c2b9510e4047acd7d68b9d700c46194
+ARG DOCKER_BUILDX_SHA256_ARM64=722cdcdfdd6f3fb943fa1ba75102d057feb18ba72aab93b1b0a8cf2b2b48a25f
 # https://github.com/helm/helm/releases
-ENV HELM3_VERSION=3.18.4
+ENV HELM3_VERSION=3.22.1
 # sha256 of helm-v${HELM3_VERSION}-linux-<amd64|arm64>.tar.gz, from its
 # .sha256sum file on get.helm.sh.
-ARG HELM3_SHA256_AMD64=f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1
-ARG HELM3_SHA256_ARM64=c0a45e67eef0c7416a8a8c9e9d5d2d30d70e4f4d3f7bea5de28241fffa8f3b89
-ENV AWS_CLI_VERSION=1.32.14
+ARG HELM3_SHA256_AMD64=896cf63684a42a723d61c980369d6e588330927deb13676ca0d85006dd6da0ea
+ARG HELM3_SHA256_ARM64=4c29e286b279d170fa048ddfc3e4e83dcd069ca9c52102766ba672d7149e694d
+ENV AWS_CLI_VERSION=1.46.3
 # https://github.com/mikefarah/yq/releases
-ENV YQ4_VERSION=v4.49.2
+ENV YQ4_VERSION=v4.54.3
 # sha256 of yq_linux_<amd64|arm64>, from the release checksums-bsd file.
-ARG YQ4_SHA256_AMD64=be2c0ddcf426b6a231648610ec5d1666ae50e9f6473e82f6486f9f4cb6e3e2f7
-ARG YQ4_SHA256_ARM64=783aa3c3beedcf2bf4aaf6262eca38b92a16d3ea31e2218ca80ba8ec7226b248
+ARG YQ4_SHA256_AMD64=129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973
+ARG YQ4_SHA256_ARM64=89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67
 # https://github.com/fluxcd/flux2/releases
 ENV FLUX2_RELEASE_VERSION=0.26.2
 # sha256 of flux_${FLUX2_RELEASE_VERSION}_linux_<amd64|arm64>.tar.gz, from the
@@ -81,19 +84,19 @@ ENV FLUX2_RELEASE_VERSION=0.26.2
 ARG FLUX2_SHA256_AMD64=e4a0fc274b724ed9c92b4de59b1acfd88eeee9de9c50df4f7efb4c8519566719
 ARG FLUX2_SHA256_ARM64=b52624292e17ec9120e190c96072874890b348797d818dbd892328c816c9c679
 # https://github.com/stern/stern/releases
-ENV STERN_RELEASE_VERSION=1.33.1
+ENV STERN_RELEASE_VERSION=1.35.0
 # sha256 of stern_${STERN_RELEASE_VERSION}_linux_<amd64|arm64>.tar.gz, from the
 # release checksums.txt.
-ARG STERN_SHA256_AMD64=185be29c6a22bd07c0791ec697900943c0cc27292e5a5640a07a543886f1bfc9
-ARG STERN_SHA256_ARM64=41ff85d85aeaf6f61b1cfb7aeccad64d7f66051b51f955f55b49ce20b5822374
+ARG STERN_SHA256_AMD64=03729b01a8fcfab25f6ea53389bd38bc37400ff86d90cd2dcda541f248cf843e
+ARG STERN_SHA256_ARM64=b12f5e2ee0d01f6f21e0759cced0be2d8df9cd4e93e6a3cf11393170ae0f43cf
 # https://github.com/casey/just/releases
 # A recent just is required: it rejects justfile forms that older versions
 # accept, which is how a broken package justfile can ship green.
-ENV JUST_VERSION=1.58.0
+ENV JUST_VERSION=1.59.0
 # sha256 of just-${JUST_VERSION}-<x86_64|aarch64>-unknown-linux-musl.tar.gz,
 # from the release SHA256SUMS.
-ARG JUST_SHA256_AMD64=4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d
-ARG JUST_SHA256_ARM64=748237128c4c40cbdabc65e841d05ceba13cc23a91eaba395495894c1d9764df
+ARG JUST_SHA256_AMD64=409044617b6f06517c1035e55ca38c8c856ff8b650e41bc2aa1ef82d5903a23e
+ARG JUST_SHA256_ARM64=23871b1702bfd550fb5f901778fd4290ecf2ee034a45a889fbe96d89b188086d
 # https://github.com/yannh/kubeconform/releases
 ENV KUBECONFORM_VERSION=v0.8.0
 # sha256 of kubeconform-linux-<amd64|arm64>.tar.gz, from the release CHECKSUMS

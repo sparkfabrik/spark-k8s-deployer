@@ -29,6 +29,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- [2026.11.19] - `kube-linter version` in the deployer image reports the release version instead of `development`.
 - [2026.09.28] - `.stop-deployment-template` sets `GIT_STRATEGY: empty`, so the environment stop job no longer clones the repository. When GitLab ran the `on_stop` job automatically after a review branch was deleted, the checkout failed with `fatal: couldn't find remote ref refs/heads/<branch>`, the Helm release stayed on the cluster and the GitLab environment stayed in `stopping`. The job only runs `helm uninstall` and its `before_script` helpers read nothing from the checkout. Requires GitLab Runner 17.3 or later.
 - [2026.09.04] - `.spark-k8s-cluster-resolver` no longer clears `K8S_CLUSTER_NAME`, `GCP_PROJECT_ID`, `K8S_LOCATION` and `K8S_USE_DNS_ENDPOINT` when it skips. With `SPARK_K8S_CONFIG` set, a job image without `/scripts/resolve-cluster`, `bash` or `yq4` unset the variables and then skipped, so `.gke-kubeconfig` found no cluster and the job kept the GitLab Agent context or failed. The variables are now cleared only when the resolver actually runs, so a job that cannot resolve keeps deploying to the cluster the single-value variables describe. The cluster resolver test suite runs the extracted `before_script` under `sh` and asserts the variables survive every skip path and are cleared when the resolver runs.
 - [2026.07.30] - `.cloudsql-database-dump` now runs `gcloud sql export sql` asynchronously and tracks the Cloud SQL operation until it reaches `DONE`, instead of waiting synchronously. The synchronous call gave up after about ten minutes and failed the job even when the export completed on the Google Cloud side, which was easy to hit because the dump is always gzip compressed. Two optional variables size the tracking loop, `OPERATION_WAIT_TIMEOUT` (default 300 seconds per wait) and `OPERATION_WAIT_MAX_RETRIES` (default 12), and the job now carries a `timeout: 2h` so GitLab does not stop it before the wait budget runs out.
@@ -36,6 +37,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- [2026.11.19] - The deployer image is based on `google-cloud-cli` 594.0.0-alpine (was 550.0.0-alpine).
+- [2026.11.19] - The Go build stage uses `golang` 1.27-alpine (was 1.25-alpine).
+- [2026.11.19] - The deployer image ships `docker buildx` 0.39.0 (was 0.25.0).
+- [2026.11.19] - The deployer image ships `helm` 3.22.1 (was 3.18.4).
+- [2026.11.19] - The deployer image ships `yq4` v4.54.3 (was v4.49.2).
+- [2026.11.19] - The deployer image ships `stern` 1.35.0 (was 1.33.1).
+- [2026.11.19] - The deployer image ships `just` 1.59.0 (was 1.58.0).
+- [2026.11.19] - The deployer image ships `kube-linter` 0.8.3 (was 0.7.6).
+- [2026.11.19] - The deployer image ships `awscli` 1.46.3 (was 1.32.14).
 - [2026.11.12] - The main template sets `workflow:auto_cancel:on_new_commit: interruptible`, so a new commit on the same ref cancels only the jobs of older pipelines that set `interruptible: true`.
 - [2026.11.12] - `.sparkfabrik-pkg-e2e-test`, `.check-changelog-base`, `.drupal-phpqa-template`, `.drupalci-template`, `.build_helm_chart`, `.helmcharts_yamllint`, `.check_version` and `lighthouse` set `interruptible: true`.
 - [2026.10.27] - On `master`, nothing is pushed to the registry, not even an untagged per-platform image, before the workflow and Dockerfile lint and the cluster resolver test suite pass.
