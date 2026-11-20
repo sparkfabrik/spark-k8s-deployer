@@ -82,7 +82,37 @@ prepare-namespace() {
     exit 1
   fi
   echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
-  kubectl create ns "$KUBE_NAMESPACE" || true
+  # An identity scoped to an existing namespace may read it but not create
+  # namespaces, so only try to create it when it cannot be read.
+  if kubectl get ns "$KUBE_NAMESPACE" >/dev/null 2>&1; then
+    echo "Namespace ${KUBE_NAMESPACE} already exists."
+  else
+    kubectl create ns "$KUBE_NAMESPACE" || true
+  fi
+}
+
+# Apply one team RoleBinding without stopping the deploy.
+# Arguments: binding role (viewer or developer), manifest, number of subjects.
+# A binding without subjects is deleted, so emptying the subject lists still
+# revokes access. A refused apply or delete, for example when the deploy
+# identity does not hold the permissions of the bound ClusterRole, only prints
+# a warning: team access must then be managed outside the deploy job.
+apply-team-role-binding() {
+  local PROJECT_ROLE="${1}" RB="${2}" SUBJECTS_COUNT="${3}"
+  local RB_NAME="project-${CI_PROJECT_ID}-${PROJECT_ROLE}-binding"
+  if [ "${SUBJECTS_COUNT}" -eq 0 ]; then
+    echo "No ${PROJECT_ROLE} users or groups configured: removing RoleBinding ${RB_NAME} if it exists."
+    if ! kubectl delete rolebinding "${RB_NAME}" -n "${KUBE_NAMESPACE}" --ignore-not-found; then
+      echo "Warning: could not delete RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
+      echo "Warning: remove team access another way; the deploy continues." >&2
+    fi
+    return 0
+  fi
+  echo "$RB"
+  if ! echo "$RB" | kubectl apply -f -; then
+    echo "Warning: could not apply RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
+    echo "Warning: the deploy identity may lack the permissions of ClusterRole dev-team-${PROJECT_ROLE}. Grant team access another way; the deploy continues." >&2
+  fi
 }
 
 create-ns-and-developer-role-bindings() {
@@ -119,10 +149,8 @@ create-ns-and-developer-role-bindings() {
   for SUBJECT in "${DEVELOPER_G[@]}"; do
     DEVELOPER_RB+=$'\n'$(SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
   done
-  echo "$VIEWER_RB"
-  echo "$VIEWER_RB" | kubectl apply -f -
-  echo "$DEVELOPER_RB"
-  echo "$DEVELOPER_RB" | kubectl apply -f -
+  apply-team-role-binding viewer "$VIEWER_RB" $((${#VIEWER_U[@]} + ${#VIEWER_G[@]}))
+  apply-team-role-binding developer "$DEVELOPER_RB" $((${#DEVELOPER_U[@]} + ${#DEVELOPER_G[@]}))
 }
 
 helm-init() {
