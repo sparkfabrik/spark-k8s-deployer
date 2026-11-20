@@ -29,8 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- [2026.11.20] - `helm-init` no longer stops on `dev`, `develop` and `review-*` refs when Kubernetes refuses the `project-<id>-viewer-binding` or `project-<id>-developer-binding` RoleBinding: it prints a warning naming the binding and goes on to add the Helm repositories, and team access must then be granted outside the deploy job.
-- [2026.11.20] - A team RoleBinding with no users or groups configured is deleted instead of applied without subjects; a refused delete prints a warning and the deploy continues.
+- [2026.11.20] - `helm-init` no longer stops on `dev`, `develop` and `review-*` refs when Kubernetes refuses the `project-<id>-viewer-binding` or `project-<id>-developer-binding` RoleBinding for lack of RBAC permissions: it prints a warning naming the binding and goes on to add the Helm repositories, and team access must then be granted outside the deploy job. Any other failure still stops the job.
+- [2026.11.20] - A team RoleBinding with no users or groups configured is deleted instead of applied without subjects; a delete refused for lack of RBAC permissions prints a warning and the deploy continues.
 - [2026.11.20] - `prepare-namespace` creates the namespace only when it cannot read it, so an identity that can read its existing namespace no longer logs `namespaces is forbidden`.
 - [2026.11.19] - `kube-linter version` in the deployer image reports the release version instead of `development`.
 - [2026.09.28] - `.stop-deployment-template` sets `GIT_STRATEGY: empty`, so the environment stop job no longer clones the repository. When GitLab ran the `on_stop` job automatically after a review branch was deleted, the checkout failed with `fatal: couldn't find remote ref refs/heads/<branch>`, the Helm release stayed on the cluster and the GitLab environment stayed in `stopping`. The job only runs `helm uninstall` and its `before_script` helpers read nothing from the checkout. Requires GitLab Runner 17.3 or later.

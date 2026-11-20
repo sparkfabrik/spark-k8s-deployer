@@ -91,28 +91,47 @@ prepare-namespace() {
   fi
 }
 
-# Apply one team RoleBinding without stopping the deploy.
+# Run a kubectl command on a team RoleBinding and tolerate only an RBAC refusal.
+# Arguments: binding name, what to do with it (apply or delete), the text to
+# send on stdin, then the command and its arguments.
+# Kubernetes refuses a binding when the deploy identity is not allowed to manage
+# RoleBindings, or does not hold the permissions of the bound ClusterRole. That
+# refusal prints a warning and returns 0, because team access must then be
+# managed outside the deploy job. Any other failure (a malformed manifest, an
+# admission webhook, an expired token) prints the error and fails as before.
+run-team-role-binding-kubectl() {
+  local RB_NAME="${1}" ACTION="${2}" STDIN="${3}" ERR STATUS
+  shift 3
+  # Keep stdout on the job log and capture stderr only.
+  if { ERR=$(printf '%s\n' "${STDIN}" | "$@" 2>&1 1>&3 3>&-); } 3>&1; then
+    return 0
+  else
+    STATUS=$?
+  fi
+  echo "${ERR}" >&2
+  if grep -qE 'is forbidden: [Uu]ser .*( cannot | is attempting to grant RBAC permissions not currently held)' <<<"${ERR}"; then
+    echo "Warning: Kubernetes refused to ${ACTION} RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE} for lack of RBAC permissions." >&2
+    echo "Warning: manage team access another way; the deploy continues." >&2
+    return 0
+  fi
+  echo "Error: could not ${ACTION} RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
+  return "${STATUS}"
+}
+
+# Apply one team RoleBinding, or delete it when it has no subjects, so emptying
+# the subject lists still revokes access.
 # Arguments: binding role (viewer or developer), manifest, number of subjects.
-# A binding without subjects is deleted, so emptying the subject lists still
-# revokes access. A refused apply or delete, for example when the deploy
-# identity does not hold the permissions of the bound ClusterRole, only prints
-# a warning: team access must then be managed outside the deploy job.
 apply-team-role-binding() {
   local PROJECT_ROLE="${1}" RB="${2}" SUBJECTS_COUNT="${3}"
   local RB_NAME="project-${CI_PROJECT_ID}-${PROJECT_ROLE}-binding"
   if [ "${SUBJECTS_COUNT}" -eq 0 ]; then
     echo "No ${PROJECT_ROLE} users or groups configured: removing RoleBinding ${RB_NAME} if it exists."
-    if ! kubectl delete rolebinding "${RB_NAME}" -n "${KUBE_NAMESPACE}" --ignore-not-found; then
-      echo "Warning: could not delete RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
-      echo "Warning: remove team access another way; the deploy continues." >&2
-    fi
-    return 0
+    run-team-role-binding-kubectl "${RB_NAME}" delete "" \
+      kubectl delete rolebinding "${RB_NAME}" -n "${KUBE_NAMESPACE}" --ignore-not-found
+    return
   fi
   echo "$RB"
-  if ! echo "$RB" | kubectl apply -f -; then
-    echo "Warning: could not apply RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
-    echo "Warning: the deploy identity may lack the permissions of ClusterRole dev-team-${PROJECT_ROLE}. Grant team access another way; the deploy continues." >&2
-  fi
+  run-team-role-binding-kubectl "${RB_NAME}" apply "${RB}" kubectl apply -f -
 }
 
 create-ns-and-developer-role-bindings() {
