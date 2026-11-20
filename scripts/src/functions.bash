@@ -104,6 +104,8 @@ run-team-role-binding-kubectl() {
   shift 3
   # Keep stdout on the job log and capture stderr only.
   if { ERR=$(printf '%s\n' "${STDIN}" | "$@" 2>&1 1>&3 3>&-); } 3>&1; then
+    # A successful command can still print warnings: keep them in the job log.
+    if [ -n "${ERR}" ]; then echo "${ERR}" >&2; fi
     return 0
   else
     STATUS=$?
