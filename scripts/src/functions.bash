@@ -82,7 +82,58 @@ prepare-namespace() {
     exit 1
   fi
   echo "Current KUBE_NAMESPACE=${KUBE_NAMESPACE}"
-  kubectl create ns "$KUBE_NAMESPACE" || true
+  # An identity scoped to an existing namespace may read it but not create
+  # namespaces, so only try to create it when it cannot be read.
+  if kubectl get ns "$KUBE_NAMESPACE" >/dev/null 2>&1; then
+    echo "Namespace ${KUBE_NAMESPACE} already exists."
+  else
+    kubectl create ns "$KUBE_NAMESPACE" || true
+  fi
+}
+
+# Run a kubectl command on a team RoleBinding and tolerate only an RBAC refusal.
+# Arguments: binding name, what to do with it (apply or delete), the text to
+# send on stdin, then the command and its arguments.
+# Kubernetes refuses a binding when the deploy identity is not allowed to manage
+# RoleBindings, or does not hold the permissions of the bound ClusterRole. That
+# refusal prints a warning and returns 0, because team access must then be
+# managed outside the deploy job. Any other failure (a malformed manifest, an
+# admission webhook, an expired token) prints the error and fails as before.
+run-team-role-binding-kubectl() {
+  local RB_NAME="${1}" ACTION="${2}" STDIN="${3}" ERR STATUS
+  shift 3
+  # Keep stdout on the job log and capture stderr only.
+  if { ERR=$(printf '%s\n' "${STDIN}" | "$@" 2>&1 1>&3 3>&-); } 3>&1; then
+    # A successful command can still print warnings: keep them in the job log.
+    if [ -n "${ERR}" ]; then echo "${ERR}" >&2; fi
+    return 0
+  else
+    STATUS=$?
+  fi
+  echo "${ERR}" >&2
+  if grep -qE 'is forbidden: [Uu]ser .*( cannot | is attempting to grant RBAC permissions not currently held)' <<<"${ERR}"; then
+    echo "Warning: Kubernetes refused to ${ACTION} RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE} for lack of RBAC permissions." >&2
+    echo "Warning: manage team access another way; the deploy continues." >&2
+    return 0
+  fi
+  echo "Error: could not ${ACTION} RoleBinding ${RB_NAME} in namespace ${KUBE_NAMESPACE}." >&2
+  return "${STATUS}"
+}
+
+# Apply one team RoleBinding, or delete it when it has no subjects, so emptying
+# the subject lists still revokes access.
+# Arguments: binding role (viewer or developer), manifest, number of subjects.
+apply-team-role-binding() {
+  local PROJECT_ROLE="${1}" RB="${2}" SUBJECTS_COUNT="${3}"
+  local RB_NAME="project-${CI_PROJECT_ID}-${PROJECT_ROLE}-binding"
+  if [ "${SUBJECTS_COUNT}" -eq 0 ]; then
+    echo "No ${PROJECT_ROLE} users or groups configured: removing RoleBinding ${RB_NAME} if it exists."
+    run-team-role-binding-kubectl "${RB_NAME}" delete "" \
+      kubectl delete rolebinding "${RB_NAME}" -n "${KUBE_NAMESPACE}" --ignore-not-found
+    return
+  fi
+  echo "$RB"
+  run-team-role-binding-kubectl "${RB_NAME}" apply "${RB}" kubectl apply -f -
 }
 
 create-ns-and-developer-role-bindings() {
@@ -119,10 +170,8 @@ create-ns-and-developer-role-bindings() {
   for SUBJECT in "${DEVELOPER_G[@]}"; do
     DEVELOPER_RB+=$'\n'$(SUBJECT_TYPE="Group" SUBJECT_NAME="${SUBJECT}" envsubst <"$DEPLOY_ROOT_DIR/templates/rbac/rolebinding-subject.yaml")
   done
-  echo "$VIEWER_RB"
-  echo "$VIEWER_RB" | kubectl apply -f -
-  echo "$DEVELOPER_RB"
-  echo "$DEVELOPER_RB" | kubectl apply -f -
+  apply-team-role-binding viewer "$VIEWER_RB" $((${#VIEWER_U[@]} + ${#VIEWER_G[@]}))
+  apply-team-role-binding developer "$DEVELOPER_RB" $((${#DEVELOPER_U[@]} + ${#DEVELOPER_G[@]}))
 }
 
 helm-init() {
